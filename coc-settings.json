@@ -1,0 +1,8 @@
+{
+    "suggest.noselect": true,
+    "python.pythonPath": "/home/drawer/software/miniconda3/envs/py12/bin/python",
+    "python.formatting.provider": "ruff",
+    "python.linting.ruffEnabled": true,
+    "pyright.organizeimports.provider": "ruff",
+    "pyright.inlayHints": false,
+}
