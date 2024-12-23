@@ -136,6 +136,7 @@ prereq             gcc/14.2
 set                basedir               /opt/homebrew/Cellar/open-mpi/5.0.6/
 prepend-path       PATH                  $basedir/bin
 prepend-path       LD_LIBRARY_PATH       $basedir/lib
+prepend-path       MANPATH               $basedir/share/man
 
 append-path -d { } LOCAL_LDFLAGS      -L $basedir/lib
 append-path -d { } LOCAL_INCLUDE      -I $basedir/include
@@ -199,6 +200,7 @@ prereq             gcc/14.2
 set                basedir               /opt/homebrew/Cellar/mpich/4.2.3/
 prepend-path       PATH                  $basedir/bin
 prepend-path       LD_LIBRARY_PATH       $basedir/lib
+prepend-path       MANPATH               $basedir/share/man
 
 append-path -d { } LOCAL_LDFLAGS      -L $basedir/lib
 append-path -d { } LOCAL_INCLUDE      -I $basedir/include
