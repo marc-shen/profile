@@ -1,0 +1,94 @@
+#%Module1.0######################################################################
+##
+## OpenMPI 5.0.7 modulefile
+## Compiler-aware MPI implementation (requires GCC module)
+##
+#################################################################################
+proc ModulesHelp { } {
+    puts stderr "\tOpenMPI 5.0.7 parallel computing environment\n"
+}
+#     puts stderr "\tConfigured with GCC compiler suite\n"
+#     puts stderr "\tSets up:\n"
+#     puts stderr "\t- MPI compilers (mpicc, mpicxx, mpifort)\n"
+#     puts stderr "\t- MPI runtime paths\n"
+#     puts stderr "\t- Compiler/linker flags for MPI development\n"
+# }
+
+module-whatis "OpenMPI 5.0.7 parallel computing environment with GCC support"
+
+# Conflict with other MPI implementations
+conflict           mpi ompi mpich intel-mpi mvapich2
+
+# Require GCC module for consistency
+prereq             gcc/14.2
+
+set                basedir               /opt/homebrew/Cellar/open-mpi/5.0.7
+set                version               5.0.7
+
+# Basic executable paths
+prepend-path       PATH                  $basedir/bin
+prepend-path       MANPATH               $basedir/share/man
+prepend-path       LD_LIBRARY_PATH       $basedir/lib
+prepend-path       LIBRARY_PATH          $basedir/lib
+prepend-path       PKG_CONFIG_PATH       $basedir/lib/pkgconfig
+
+# MPI-specific include paths
+append-path -d { } LOCAL_INCLUDE      -I$basedir/include
+append-path -d { } LOCAL_CFLAGS       -I$basedir/include
+append-path -d { } LOCAL_CXXFLAGS     -I$basedir/include
+append-path -d { } LOCAL_FCFLAGS      -I$basedir/include
+
+# Library paths
+append-path -d { } LOCAL_LDFLAGS      -L$basedir/lib
+
+# MPI compiler wrappers
+setenv             MPICC                 $basedir/bin/mpicc
+setenv             MPICXX                $basedir/bin/mpicxx
+setenv             MPIFC                 $basedir/bin/mpifort
+setenv             MPIF77                $basedir/bin/mpif77
+
+# Standard compiler variables (point to MPI wrappers)
+setenv             CC                    $basedir/bin/mpicc
+setenv             CXX                   $basedir/bin/mpicxx
+setenv             FC                    $basedir/bin/mpifort
+setenv             F77                   $basedir/bin/mpif77
+# setenv             HOMEBREW_CXX          $basedir/bin/mpicxx
+# setenv             HOMEBREW_CC           $basedir/bin/mpicc
+# setenv             HOMEBREW_FC           $basedir/bin/mpifort
+
+
+# Preprocessor flags
+setenv             CPPFLAGS              "-I$basedir/include"
+
+# Linker flags (with explicit RPATH)
+setenv             LDFLAGS               "-L$basedir/lib -Wl,-rpath,$basedir/lib"
+
+# MPI library flags
+setenv             LIBS                  "-lmpi -lopen-rte -lopen-pal -lhwloc"
+
+# Compiler flags with MPI support
+setenv             CFLAGS                "-O2 -march=native"
+setenv             CXXFLAGS              "-O2 -march=native -std=c++17"
+setenv             FCFLAGS               "-O2 -march=native"
+
+
+# Environment variables for common MPI applications
+setenv             MPIHOME               $basedir
+setenv             MPI_HOME              $basedir
+setenv             MPI_DIR               $basedir
+setenv             OPENMPI_HOME          $basedir
+setenv             SLURM_MPI_TYPE        pmix_v3
+
+# if { [ module-info mode load ] } {
+#     puts stderr "OpenMPI $version (GCC-compatible) has been configured with:"
+#     puts stderr "  MPI compilers:"
+#     puts stderr "    MPICC=$env(MPICC)"
+#     puts stderr "    MPICXX=$env(MPICXX)"
+#     puts stderr "    MPIFC=$env(MPIFC)"
+#     puts stderr "  Development flags:"
+#     puts stderr "    CPPFLAGS=$env(CPPFLAGS)"
+#     puts stderr "    LDFLAGS=$env(LDFLAGS)"
+#     puts stderr "    LIBS=$env(LIBS)"
+#     puts stderr "  Runtime paths have been added to:"
+#     puts stderr "    PATH, LD_LIBRARY_PATH, PKG_CONFIG_PATH"
+# }
