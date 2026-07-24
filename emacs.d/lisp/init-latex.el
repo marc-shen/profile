@@ -12,18 +12,21 @@
   (TeX-auto-save t)
   (TeX-parse-self t)
   (TeX-save-query nil)
-  (TeX-command-default "LatexMk")
+  (TeX-command-default "LaTeXMk")
   (TeX-source-correlate-mode t)
   (TeX-source-correlate-start-server t)
   (TeX-electric-sub-and-superscript t)
   (LaTeX-electric-left-right-brace t)
   (reftex-plug-into-AUCTeX t)
   :config
-  (add-to-list 'TeX-command-list
-               '("LatexMk"
-                 "latexmk -pdf -interaction=nonstopmode -synctex=1 %s"
-                 TeX-run-TeX nil t
-                 :help "Run LatexMk")))
+  ;; Recent AUCTeX versions provide LaTeXMk.  Keep a compatible fallback for
+  ;; older versions without adding a second, differently-cased menu entry.
+  (unless (assoc "LaTeXMk" TeX-command-list)
+    (add-to-list 'TeX-command-list
+                 '("LaTeXMk"
+                   "latexmk -pdf -interaction=nonstopmode -synctex=1 %s"
+                   TeX-run-TeX nil t
+                   :help "Run LaTeXMk"))))
 
 ;; Fedora's hunspell-en package exposes regional dictionaries such as en_US,
 ;; not the generic `en' name inferred from some locales.
