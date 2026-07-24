@@ -16,6 +16,12 @@
   (TeX-electric-sub-and-superscript t)
   (LaTeX-electric-left-right-brace t)
   (reftex-plug-into-AUCTeX t))
+
+;; Fedora's hunspell-en package exposes regional dictionaries such as en_US,
+;; not the generic `en' name inferred from some locales.
+(setq ispell-program-name "hunspell"
+      ispell-dictionary "en_US")
+
 (use-package pdf-tools
   :if (package-installed-p 'pdf-tools)
   :defer t
