@@ -1,0 +1,3 @@
+# Emacs package installations and native-compilation output are local caches.
+emacs.d/elpa/
+emacs.d/eln-cache/

@@ -82,6 +82,10 @@
   :if (package-installed-p 'rainbow-delimiters)
   :hook (prog-mode . rainbow-delimiters-mode))
 
+(use-package hl-todo
+  :if (package-installed-p 'hl-todo)
+  :hook (prog-mode . hl-todo-mode))
+
 (provide 'init-development)
 
 ;;; init-development.el ends here

@@ -22,7 +22,7 @@
       use-package-expand-minimally t)
 
 (defconst my-optional-packages
-  '(which-key embark embark-consult dired-subtree treemacs helpful
+  '(which-key embark embark-consult dired-subtree treemacs helpful hl-todo
     rainbow-delimiters pet reformatter jupyter csv-mode cmake-mode
     auctex pdf-tools citar writegood-mode org-modern))
 
