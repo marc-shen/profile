@@ -5,6 +5,13 @@
       gc-cons-percentage 0.6
       frame-inhibit-implied-resize t)
 
+;; Use English for Emacs packages and every subprocess it starts (including
+;; Git), while leaving UTF-8 file handling configured in `init-base'.
+(set-language-environment "English")
+(setenv "LANGUAGE" "en")
+(setenv "LC_ALL" "C")
+(setenv "LC_MESSAGES" "C")
+
 ;; File-name handlers are mainly for remote files and slow down startup.
 (defvar my-file-name-handler-alist file-name-handler-alist)
 (setq file-name-handler-alist nil)

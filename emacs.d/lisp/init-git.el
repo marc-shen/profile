@@ -3,6 +3,10 @@
 (use-package magit
   :commands (magit-status magit-project-status)
   :bind (("C-x g" . magit-status) ("C-c g b" . magit-blame-addition))
+  :config
+  ;; Magit's own UI is English; make Git subprocess messages match it without
+  ;; changing Emacs's or the operating system's display language.
+  (add-to-list 'magit-git-environment "LC_MESSAGES=C")
   :custom
   (magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1))
 
