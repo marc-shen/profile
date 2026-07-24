@@ -5,12 +5,11 @@
   :defer t
   :mode ("\\.tex\\'" . LaTeX-mode)
   :hook ((LaTeX-mode . visual-line-mode)
-         (LaTeX-mode . flyspell-mode)
-         (LaTeX-mode . LaTeX-math-mode)
-         (LaTeX-mode . turn-on-reftex))
+         (LaTeX-mode . LaTeX-math-mode))
   :custom
   (TeX-auto-save t)
-  (TeX-parse-self t)
+  ;; Parse styles manually with `C-c C-n' for large projects.
+  (TeX-parse-self nil)
   (TeX-save-query nil)
   (TeX-source-correlate-mode t)
   (TeX-source-correlate-start-server t)
@@ -28,7 +27,7 @@
 (use-package writegood-mode
   :if (package-installed-p 'writegood-mode)
   :defer t
-  :hook ((LaTeX-mode . writegood-mode) (org-mode . writegood-mode)))
+  :commands writegood-mode)
 
 (provide 'init-latex)
 
