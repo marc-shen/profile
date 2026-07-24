@@ -17,6 +17,7 @@
 (require 'init-keymap)
 (require 'init-completion)
 (require 'init-project)
+(require 'init-terminal)
 (require 'init-development)
 (require 'init-python)
 (require 'init-c)
