@@ -1,6 +1,8 @@
 ;;; init-package.el --- Package management -*- lexical-binding: t; -*-
 
 (require 'package)
+(require 'cl-lib)
+(require 'seq)
 
 (setq package-user-dir (expand-file-name "elpa" user-emacs-directory))
 (setq package-archives
@@ -32,12 +34,35 @@
 Run this interactively after reviewing the package list; it deliberately does
 not perform network access during normal Emacs startup."
   (interactive)
-  (unless package-archive-contents
-    (package-refresh-contents))
-  (dolist (package my-optional-packages)
-    (unless (package-installed-p package)
-      (package-install package)))
-  (when package-quickstart
-    (package-quickstart-refresh)))
+  (let ((pending (seq-filter (lambda (package)
+                               (not (package-installed-p package)))
+                             my-optional-packages))
+        installed
+        failed)
+    (if (null pending)
+        (message "All optional packages are already installed.")
+      (unless package-archive-contents
+        (message "Refreshing package archives...")
+        (package-refresh-contents))
+      (cl-loop for package in pending
+               for index from 1
+               do (message "Installing optional package %d/%d: %s..."
+                           index (length pending) package)
+               do (condition-case err
+                      (progn
+                        (package-install package)
+                        (push package installed))
+                    (error
+                     (push (cons package (error-message-string err)) failed))))
+      (when (and installed package-quickstart)
+        (message "Refreshing package quickstart cache...")
+        (package-quickstart-refresh))
+      (if failed
+          (message "Optional package installation finished with failures: %s"
+                   (mapconcat (lambda (entry)
+                                (format "%s (%s)" (car entry) (cdr entry)))
+                              (nreverse failed) "; "))
+        (message "Optional package installation finished: %s"
+                 (mapconcat #'symbol-name (nreverse installed) ", "))))))
 
 (provide 'init-package)
