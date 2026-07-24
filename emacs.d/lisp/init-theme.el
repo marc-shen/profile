@@ -12,12 +12,15 @@
   ;; Disable any previously loaded theme.
   (mapc #'disable-theme custom-enabled-themes)
 
-  ;; Load Monokai Classic.
-  (load-theme 'doom-monokai-pro t)
+  (load-theme 'doom-monokai-classic t)
 
-  ;; Optional Doom theme integrations.
-  (doom-themes-org-config)
-  (doom-themes-visual-bell-config))
+  ;; Configure Org only after Org itself is requested.
+  (with-eval-after-load 'org
+    (doom-themes-org-config))
+  (doom-themes-visual-bell-config)
+  (set-face-attribute 'line-number-current-line nil :foreground "#ffffff" :weight 'bold)
+  (set-face-attribute 'mode-line nil :box nil)
+  (set-face-attribute 'mode-line-inactive nil :box nil))
 
 (provide 'init-theme)
 
