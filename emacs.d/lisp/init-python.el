@@ -26,7 +26,6 @@
   :config
   (reformatter-define ruff-format :program "ruff" :args '("format" "-"))
   (reformatter-define black-format :program "black" :args '("-")))
-(use-package jupyter :if (package-installed-p 'jupyter) :defer t)
 (use-package csv-mode
   :if (package-installed-p 'csv-mode)
   :mode "\\.csv\\'")
