@@ -39,8 +39,12 @@
   :mode ("\\.pdf\\'" . pdf-view-mode))
 (use-package citar
   :if (package-installed-p 'citar)
-  :defer t
-  :bind (:map LaTeX-mode-map ("C-c ]" . citar-insert-citation)))
+  :commands citar-insert-citation
+  :init
+  ;; AUCTeX defines `LaTeX-mode-map' in latex.el, so install the binding only
+  ;; after that feature has created the map.
+  (with-eval-after-load 'latex
+    (keymap-set LaTeX-mode-map "C-c ]" #'citar-insert-citation)))
 (use-package writegood-mode
   :if (package-installed-p 'writegood-mode)
   :defer t
