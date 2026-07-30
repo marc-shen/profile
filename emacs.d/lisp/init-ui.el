@@ -1,9 +1,5 @@
 ;;; init-ui.el --- User interface -*- lexical-binding: t; -*-
 
-(dolist (mode '(menu-bar-mode tool-bar-mode scroll-bar-mode))
-  (when (fboundp mode)
-    (funcall mode -1)))
-
 ;; Do not enumerate system fonts during startup; Emacs falls back gracefully.
 (set-face-attribute 'default nil :family "MesloLGS NF" :height 120)
 

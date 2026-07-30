@@ -10,8 +10,13 @@
 
 (use-package dired
   :ensure nil
-  :custom (dired-kill-when-opening-new-dired-buffer t)
-  (dired-listing-switches "-alh --group-directories-first"))
+  :custom
+  (dired-kill-when-opening-new-dired-buffer t)
+  (dired-use-ls-dired (eq system-type 'gnu/linux))
+  (dired-listing-switches
+   (if (eq system-type 'gnu/linux)
+       "-alh --group-directories-first"
+     "-alh")))
 (use-package dired-subtree
   :if (package-installed-p 'dired-subtree)
   :after dired
