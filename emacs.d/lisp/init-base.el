@@ -6,6 +6,21 @@
       initial-buffer-choice nil
       initial-scratch-message nil)
 
+;; Let `emacsclient' reuse this Emacs instance.  `server-start' is idempotent
+;; here, so evaluating the configuration again does not create another server.
+(require 'server)
+(unless (server-running-p)
+  (server-start))
+
+;; uv installs user-wide tools here on both macOS and Linux.  GUI Emacs may
+;; not inherit the shell's updated PATH, so keep `exec-path' in sync explicitly.
+(let ((user-bin-directory (expand-file-name "~/.local/bin")))
+  (add-to-list 'exec-path user-bin-directory)
+  (unless (member user-bin-directory
+                  (split-string (or (getenv "PATH") "") path-separator t))
+    (setenv "PATH"
+            (concat user-bin-directory path-separator (or (getenv "PATH") "")))))
+
 ;; Keep recovery data out of project directories instead of disabling it.
 (defconst my-var-directory (expand-file-name "var/" user-emacs-directory))
 (make-directory my-var-directory t)
