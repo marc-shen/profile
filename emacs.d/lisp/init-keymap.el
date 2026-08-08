@@ -19,6 +19,18 @@
 (define-prefix-command 'my-git-prefix)
 (global-set-key (kbd "C-c g") #'my-git-prefix)
 
+;; Replace the default transient-input-method binding.
+(global-set-key (kbd "C-x |")
+                #'init-rotate-windows-clockwise)
+
+(global-set-key (kbd "C-x \\")
+                #'init-rotate-windows-counterclockwise)
+
+(keymap-set tab-prefix-map "<tab>" #'tab-next)
+(keymap-set tab-prefix-map "<backtab>" #'tab-previous)
+(keymap-set tab-prefix-map "S-<tab>" #'tab-previous)
+
+
 (provide 'init-keymap)
 
 ;;; init-keymap.el ends here
