@@ -23,6 +23,7 @@
 (require 'init-c)
 (require 'init-fortran)
 (require 'init-latex)
+(require 'init-pdf)
 (require 'init-org)
 (require 'init-git)
 

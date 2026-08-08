@@ -33,10 +33,7 @@
 (setq ispell-program-name "hunspell"
       ispell-dictionary "en_US")
 
-(use-package pdf-tools
-  :if (package-installed-p 'pdf-tools)
-  :defer t
-  :mode ("\\.pdf\\'" . pdf-view-mode))
+
 (use-package citar
   :if (package-installed-p 'citar)
   :commands citar-insert-citation
