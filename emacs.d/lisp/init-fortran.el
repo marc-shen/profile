@@ -13,8 +13,19 @@
   (f90-program-indent 2)
   (f90-continuation-indent 4))
 
+;; Fixed-form sources (.f, .for) use `fortran-mode', which fortls handles too.
+(use-package fortran
+  :ensure nil
+  :hook (fortran-mode . (lambda () (my-eglot-ensure-if-available "fortls"))))
+
 (with-eval-after-load 'eglot
-  (add-to-list 'eglot-server-programs '(f90-mode . ("fortls"))))
+  (add-to-list 'eglot-server-programs '((f90-mode fortran-mode) . ("fortls"))))
+
+;; Cape ships keywords for `f90-mode' only; reuse them for fixed-form Fortran.
+(with-eval-after-load 'cape-keyword
+  (unless (assq 'fortran-mode cape-keyword-list)
+    (add-to-list 'cape-keyword-list
+                 (cons 'fortran-mode (cdr (assq 'f90-mode cape-keyword-list))))))
 
 (provide 'init-fortran)
 

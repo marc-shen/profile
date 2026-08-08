@@ -12,18 +12,41 @@
   (corfu-quit-no-match 'separator)
   (corfu-popupinfo-delay '(0.5 . 0.2))
   :bind (:map corfu-map
-              ("TAB" . corfu-insert) ([tab] . corfu-insert)
-              ("C-n" . corfu-next) ("C-p" . corfu-previous)
+              ;; TAB / S-TAB cycle the candidates, RET inserts the selection.
+              ("TAB" . corfu-next) ([tab] . corfu-next)
+              ("S-TAB" . corfu-previous) ([backtab] . corfu-previous)
+              ("RET" . corfu-insert) ([return] . corfu-insert)
+              ("M-TAB" . corfu-expand)
               ("C-g" . corfu-quit) ("M-d" . corfu-info-documentation))
-  :config (corfu-popupinfo-mode 1))
+  :config
+  (corfu-popupinfo-mode 1)
+  ;; Corfu grabs C-n/C-p through `next-line'/`previous-line' remappings.  Undo
+  ;; them so those keys always move point; the popup then closes on its own,
+  ;; since neither command matches `corfu-continue-commands'.
+  (define-key corfu-map [remap next-line] nil)
+  (define-key corfu-map [remap previous-line] nil))
 
 (use-package cape
   :init
-  (add-to-list 'completion-at-point-functions #'cape-file)
-  (add-to-list 'completion-at-point-functions #'cape-dabbrev)
-  (add-to-list 'completion-at-point-functions #'cape-keyword)
+  ;; Use `add-hook' rather than `add-to-list': init.el is loaded inside
+  ;; *scratch*, where `completion-at-point-functions' is buffer-local, so
+  ;; `add-to-list' would register these backends in that buffer alone.
+  (add-hook 'completion-at-point-functions #'cape-file 10)
+  (add-hook 'completion-at-point-functions #'cape-keyword 20)
+  (add-hook 'completion-at-point-functions #'cape-dabbrev 30)
   :custom
-  (cape-dabbrev-check-other-buffers nil))
+  ;; Scan buffers sharing the current major mode: broad enough to be useful in
+  ;; a multi-file project, narrow enough to keep the candidate list relevant.
+  ;; (The old `cape-dabbrev-check-other-buffers' no longer exists in Cape.)
+  (cape-dabbrev-buffer-function #'cape-same-mode-buffers))
+
+;; Yasnippet must be loaded before Eglot connects: `eglot--snippet-expansion-fn'
+;; tests for `yas-minor-mode' to decide whether to advertise snippetSupport, and
+;; without it servers send plain labels instead of parameter placeholders.
+(use-package yasnippet
+  :demand t
+  :config (yas-global-mode 1))
+(use-package yasnippet-snippets :after yasnippet)
 
 (use-package eglot
   :ensure nil
@@ -39,6 +62,26 @@
               ("C-c l f" . eglot-format-buffer)
               ("C-c l d" . eldoc-doc-buffer)
               ("C-c l q" . eglot-shutdown)))
+
+;; Eglot's capf declares itself exclusive, which suppresses the Cape backends
+;; whenever a server replies.  Making it non-exclusive lets keyword and dabbrev
+;; completion fill the gaps the server leaves.
+(with-eval-after-load 'eglot
+  (add-hook 'eglot-managed-mode-hook
+            (lambda ()
+              (when (require 'cape nil t)
+                (setq-local completion-at-point-functions
+                            (cons (cape-capf-nonexclusive #'eglot-completion-at-point)
+                                  (remq #'eglot-completion-at-point
+                                        completion-at-point-functions)))))))
+
+;; Emacs Lisp buffers set `completion-at-point-functions' locally without the
+;; `t' marker, so the global Cape backends never run there.  Rebuild the list.
+(add-hook 'emacs-lisp-mode-hook
+          (lambda ()
+            (setq-local completion-at-point-functions
+                        (list #'elisp-completion-at-point #'cape-file
+                              #'cape-dabbrev))))
 
 ;; Avoid startup errors when an optional language server is not installed.
 (defun my-eglot-ensure-if-available (program)
@@ -58,11 +101,6 @@
               ("C-c ! l" . flymake-show-buffer-diagnostics)
               ("C-c ! p" . flymake-show-project-diagnostics))
   :custom (flymake-no-changes-timeout 0.5))
-
-(use-package yasnippet
-  :defer 1
-  :config (yas-global-mode 1))
-(use-package yasnippet-snippets :after yasnippet)
 
 (use-package compile
   :ensure nil

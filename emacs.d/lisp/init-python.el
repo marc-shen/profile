@@ -18,9 +18,14 @@
   (add-to-list 'eglot-server-programs
                '((python-mode python-ts-mode) . ("pyright-langserver" "--stdio"))))
 
+;; Pet resolves the project's virtualenv.  It has to run before `eglot-ensure',
+;; otherwise Pyright indexes the global interpreter and cannot complete any
+;; third-party import.  The negative depth keeps it ahead of the Eglot hook.
 (use-package pet
   :if (package-installed-p 'pet)
-  :hook ((python-mode . pet-mode) (python-ts-mode . pet-mode)))
+  :init
+  (add-hook 'python-mode-hook #'pet-mode -10)
+  (add-hook 'python-ts-mode-hook #'pet-mode -10))
 (use-package reformatter
   :if (package-installed-p 'reformatter)
   :config
