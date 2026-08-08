@@ -1,8 +1,12 @@
 ;;; init.el --- Main Emacs configuration -*- lexical-binding: t; -*-
 
 ;; Keep this configuration relocatable when it is loaded with `emacs -l'.
+;; Deliberately no `file-truename' here: the tracked files are symlinked into
+;; ~/.emacs.d, and resolving the links would move `user-emacs-directory' into
+;; the repository, taking `package-user-dir' and `custom-file' with it.  Locally
+;; generated state belongs next to the symlinks, outside version control.
 (defconst my-config-directory
-  (file-name-directory (file-truename (or load-file-name buffer-file-name))))
+  (file-name-directory (or load-file-name buffer-file-name)))
 (setq user-emacs-directory my-config-directory)
 
 (add-to-list 'load-path (expand-file-name "lisp" my-config-directory))
