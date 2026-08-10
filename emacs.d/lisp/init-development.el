@@ -124,6 +124,30 @@
   :if (package-installed-p 'hl-todo)
   :hook (prog-mode . hl-todo-mode))
 
+(use-package multiple-cursors
+  :if (package-installed-p 'multiple-cursors)
+  :custom
+  ;; Per-command "run once or for every cursor" answers are local state.
+  (mc/list-file (expand-file-name "mc-lists.el" my-var-directory))
+  :bind (("C-c e l" . mc/edit-lines)
+         ("C->" . mc/mark-next-like-this)
+         ("C-<" . mc/mark-previous-like-this)
+         ("C-c e a" . mc/mark-all-like-this)
+         ("C-c e r" . mc/mark-all-in-region)
+         ("C-c e n" . mc/skip-to-next-like-this)
+         ("C-c e p" . mc/skip-to-previous-like-this)
+         ("C-c e u" . mc/unmark-next-like-this)
+         ("C-c e SPC" . mc/vertical-align-with-space))
+  :config
+  ;; Corfu's popup only tracks the real cursor, and auto-completion fires on
+  ;; every fake one.  Suspend it while several cursors are live.
+  (add-hook 'multiple-cursors-mode-enabled-hook
+            (lambda ()
+              (setq-local corfu-auto nil)
+              (when (fboundp 'corfu-quit) (corfu-quit))))
+  (add-hook 'multiple-cursors-mode-disabled-hook
+            (lambda () (kill-local-variable 'corfu-auto))))
+
 (provide 'init-development)
 
 ;;; init-development.el ends here

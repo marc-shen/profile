@@ -33,7 +33,7 @@
 
 (defconst my-optional-packages
   '(which-key embark embark-consult dired-subtree treemacs vterm helpful hl-todo
-    rainbow-delimiters pet reformatter csv-mode cmake-mode
+    rainbow-delimiters multiple-cursors pet reformatter csv-mode cmake-mode
     auctex pdf-tools citar writegood-mode org-modern)
   "Third-party packages that add optional features.")
 
