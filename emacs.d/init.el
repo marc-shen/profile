@@ -1,17 +1,21 @@
 ;;; init.el --- Main Emacs configuration -*- lexical-binding: t; -*-
 
-;; Keep this configuration relocatable when it is loaded with `emacs -l'.
-;; Deliberately no `file-truename' here: the tracked files are symlinked into
-;; ~/.emacs.d, and resolving the links would move `user-emacs-directory' into
-;; the repository, taking `package-user-dir' and `custom-file' with it.  Locally
-;; generated state belongs next to the symlinks, outside version control.
+;; Where the tracked configuration lives.  This file is symlinked into
+;; ~/.emacs.d, so the value is the repository whenever `load' resolves the link.
+;; It is used for `load-path' only.
 (defconst my-config-directory
   (file-name-directory (or load-file-name buffer-file-name)))
-(setq user-emacs-directory my-config-directory)
 
+;; `user-emacs-directory' is deliberately left at the value Emacs computed at
+;; startup, which is the real ~/.emacs.d (or its XDG equivalent).  Everything
+;; downloaded or generated -- `package-user-dir', `custom-file', eln-cache,
+;; `my-var-directory' -- hangs off it and therefore stays out of the
+;; repository, which carries configuration only.  Pointing it at
+;; `my-config-directory' instead would install a second copy of every package
+;; into the working tree as soon as `load' resolved the symlink.
 (add-to-list 'load-path (expand-file-name "lisp" my-config-directory))
 
-(setq custom-file (expand-file-name "custom.el" my-config-directory))
+(setq custom-file (expand-file-name "custom.el" user-emacs-directory))
 (load custom-file 'noerror 'nomessage)
 
 (require 'init-package)

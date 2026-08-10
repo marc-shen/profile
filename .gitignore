@@ -2,3 +2,5 @@
 emacs.d/elpa/
 emacs.d/eln-cache/
 emacs.d/var/
+# Written by the Customize interface, so its contents describe one machine.
+emacs.d/custom.el
