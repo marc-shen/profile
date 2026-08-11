@@ -51,6 +51,17 @@ skipped because probing them would block on the network."
           (push (abbreviate-file-name (file-name-as-directory directory))
                 directories))))))
 
+;; Directory names capitalize irregularly -- EMPi, GitHub, Downloads -- while
+;; `orderless-smart-case' turns matching case-sensitive as soon as the input
+;; holds one upper-case letter, so "Empi" matches nothing at all.  On a
+;; case-insensitive filesystem the distinction buys nothing for a path, so drop
+;; it at these prompts while leaving the smart behaviour for code identifiers.
+(defun my-completion-ignoring-case (function &rest arguments)
+  "Apply FUNCTION to ARGUMENTS with case-insensitive candidate matching."
+  (let ((completion-ignore-case t)
+        (orderless-smart-case nil))
+    (apply function arguments)))
+
 (defun my-zoxide-read-directory (prompt)
   "Read a directory from the zoxide database, prompting with PROMPT.
 The table reports `identity' as its sort function: the ranking is the whole
@@ -58,7 +69,8 @@ point of zoxide, and Vertico would otherwise re-sort the candidates."
   (let ((directories (my-zoxide-directories)))
     (unless directories
       (user-error "The zoxide database has no usable entry"))
-    (completing-read
+    (my-completion-ignoring-case
+     #'completing-read
      prompt
      (lambda (string predicate action)
        (if (eq action 'metadata)
@@ -107,7 +119,11 @@ point of zoxide, and Vertico would otherwise re-sort the candidates."
     "Zoxide directory source for `consult-dir'.")
   ;; Placed first so its ranking leads the candidate list;
   ;; `consult-dir-sort-candidates' is nil, so every source keeps its own order.
-  (add-to-list 'consult-dir-sources 'my-consult-dir--source-zoxide))
+  (add-to-list 'consult-dir-sources 'my-consult-dir--source-zoxide)
+  (advice-add 'consult-dir :around #'my-completion-ignoring-case)
+  ;; Search the chosen directory with fd rather than find: it is faster, obeys
+  ;; .gitignore, and matches case-insensitively until the pattern says otherwise.
+  (setq consult-dir-jump-file-command #'consult-fd))
 
 (provide 'init-project)
 
