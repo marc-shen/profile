@@ -84,6 +84,22 @@ before any frame exists."
         (cons (nth 2 geometry) (nth 3 geometry))
       (cons 1920 1080))))
 
+(defun init-browser-unscale-frames ()
+  "Draw browser frames at one image pixel per screen pixel.
+
+embr locates a click by subtracting the window's text-area origin from
+the mouse position, which only works if the frame is displayed at the
+size it was captured.  It inserts the JPEG with `create-image' and no
+`:scale', so Emacs falls back to `image-scaling-factor', whose default
+`auto' enlarges every image by `frame-char-width' / 10 once the
+character cell is at least ten pixels wide.  The same font that leaves
+that ratio at 1.00 on this Mac reaches 1.3 or more under X11, and the
+page is then drawn a third larger than the viewport the browser reports:
+clicks land short of the pointer, by more the further they are from the
+top-left corner.  `pdf-view-mode' pins this variable for the same
+reason."
+  (setq-local image-scaling-factor 1))
+
 (defun init-browser-display-method ()
   "Return the embr display method this machine can actually run.
 
@@ -149,7 +165,8 @@ on machines that were never going to have Xvfb."
   :hook
   ;; The buffer holds one image, not lines, so the number column is both
   ;; meaningless and a few pixels stolen from the page.
-  ((embr-mode . init-ui-disable-line-numbers))
+  ((embr-mode . init-ui-disable-line-numbers)
+   (embr-mode . init-browser-unscale-frames))
 
   :bind
   (("C-c b b" . my-browser-open)
