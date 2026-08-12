@@ -35,7 +35,8 @@
 (defconst my-optional-packages
   '(which-key embark embark-consult dired-subtree treemacs vterm helpful hl-todo
     rainbow-delimiters multiple-cursors zoxide consult-dir pet reformatter
-    csv-mode cmake-mode auctex pdf-tools citar writegood-mode org-modern)
+    csv-mode cmake-mode auctex pdf-tools citar writegood-mode org-modern
+    markdown-mode edit-indirect markdown-toc visual-fill-column texfrag)
   "Third-party packages that add optional features.")
 
 (defconst my-config-packages

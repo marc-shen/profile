@@ -31,6 +31,7 @@
 (require 'init-c)
 (require 'init-fortran)
 (require 'init-latex)
+(require 'init-markdown)
 (require 'init-pdf)
 (require 'init-browser)
 (require 'init-org)

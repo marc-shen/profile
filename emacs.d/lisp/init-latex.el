@@ -30,6 +30,11 @@ leave the mode it supports unavailable, not signal on every file visit."
   (TeX-auto-save t)
   (TeX-parse-self t)
   (TeX-save-query nil)
+  ;; A new run supersedes the one still going, so asking whether to abort it
+  ;; has only one answer -- the same reasoning as `compilation-always-kill' in
+  ;; `init-development'.  Without this, re-entering `my-markdown-preview-mode'
+  ;; before the previous formula render finished stops to ask.
+  (TeX-kill-process-without-query t)
   (TeX-command-default "LaTeXMk")
   (TeX-source-correlate-mode t)
   (TeX-source-correlate-start-server t)
@@ -57,7 +62,8 @@ leave the mode it supports unavailable, not signal on every file visit."
 (use-package writegood-mode
   :if (package-installed-p 'writegood-mode)
   :defer t
-  :hook ((LaTeX-mode . writegood-mode) (org-mode . writegood-mode)))
+  :hook ((LaTeX-mode . writegood-mode) (org-mode . writegood-mode)
+         (markdown-mode . writegood-mode)))
 
 (provide 'init-latex)
 
