@@ -40,7 +40,7 @@
                                         completion-at-point-functions)))))))
 
 ;; Avoid startup errors when an optional language server is not installed.
-(defun my-eglot-ensure-if-available (program)
+(defun init-eglot-ensure-if-available (program)
   "Start Eglot only when PROGRAM is available on PATH."
   (when (executable-find program)
     (eglot-ensure)))
@@ -84,7 +84,7 @@
   :if (package-installed-p 'multiple-cursors)
   :custom
   ;; Per-command "run once or for every cursor" answers are local state.
-  (mc/list-file (expand-file-name "mc-lists.el" my-var-directory))
+  (mc/list-file (expand-file-name "mc-lists.el" init-var-directory))
   :bind (("C-c e l" . mc/edit-lines)
          ("C->" . mc/mark-next-like-this)
          ("C-<" . mc/mark-previous-like-this)

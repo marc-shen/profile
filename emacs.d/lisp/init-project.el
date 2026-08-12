@@ -39,7 +39,7 @@
   (add-hook 'find-file-hook #'zoxide-add)
   (add-hook 'dired-mode-hook #'zoxide-add))
 
-(defun my-zoxide-directories ()
+(defun init-project-zoxide-directories ()
   "Return the zoxide database as a list of directories, best match first.
 Entries whose directory has since been deleted are dropped; remote names are
 skipped because probing them would block on the network."
@@ -56,20 +56,20 @@ skipped because probing them would block on the network."
 ;; holds one upper-case letter, so "Empi" matches nothing at all.  On a
 ;; case-insensitive filesystem the distinction buys nothing for a path, so drop
 ;; it at these prompts while leaving the smart behaviour for code identifiers.
-(defun my-completion-ignoring-case (function &rest arguments)
+(defun init-project-completion-ignoring-case (function &rest arguments)
   "Apply FUNCTION to ARGUMENTS with case-insensitive candidate matching."
   (let ((completion-ignore-case t)
         (orderless-smart-case nil))
     (apply function arguments)))
 
-(defun my-zoxide-read-directory (prompt)
+(defun init-project-zoxide-read-directory (prompt)
   "Read a directory from the zoxide database, prompting with PROMPT.
 The table reports `identity' as its sort function: the ranking is the whole
 point of zoxide, and Vertico would otherwise re-sort the candidates."
-  (let ((directories (my-zoxide-directories)))
+  (let ((directories (init-project-zoxide-directories)))
     (unless directories
       (user-error "The zoxide database has no usable entry"))
-    (my-completion-ignoring-case
+    (init-project-completion-ignoring-case
      #'completing-read
      prompt
      (lambda (string predicate action)
@@ -83,13 +83,13 @@ point of zoxide, and Vertico would otherwise re-sort the candidates."
 (defun my-zoxide-find-file ()
   "Jump to a zoxide directory and open a file inside it."
   (interactive)
-  (let ((default-directory (my-zoxide-read-directory "Zoxide find file in: ")))
+  (let ((default-directory (init-project-zoxide-read-directory "Zoxide find file in: ")))
     (call-interactively #'find-file)))
 
 (defun my-zoxide-dired ()
   "Open a zoxide directory in Dired."
   (interactive)
-  (dired (my-zoxide-read-directory "Zoxide dired: ")))
+  (dired (init-project-zoxide-read-directory "Zoxide dired: ")))
 
 (global-set-key (kbd "C-c z") #'my-zoxide-find-file)
 (global-set-key (kbd "C-c Z") #'my-zoxide-dired)
@@ -107,7 +107,7 @@ point of zoxide, and Vertico would otherwise re-sort the candidates."
          ("C-x C-d" . consult-dir)
          ("C-x C-j" . consult-dir-jump-file))
   :config
-  (defvar my-consult-dir--source-zoxide
+  (defvar init-project--consult-dir-source-zoxide
     `( :name "Zoxide"
        :narrow ?z
        :category file
@@ -115,12 +115,12 @@ point of zoxide, and Vertico would otherwise re-sort the candidates."
        :history file-name-history
        :enabled ,(lambda () (and (executable-find "zoxide")
                                  (require 'zoxide nil t)))
-       :items ,#'my-zoxide-directories)
+       :items ,#'init-project-zoxide-directories)
     "Zoxide directory source for `consult-dir'.")
   ;; Placed first so its ranking leads the candidate list;
   ;; `consult-dir-sort-candidates' is nil, so every source keeps its own order.
-  (add-to-list 'consult-dir-sources 'my-consult-dir--source-zoxide)
-  (advice-add 'consult-dir :around #'my-completion-ignoring-case)
+  (add-to-list 'consult-dir-sources 'init-project--consult-dir-source-zoxide)
+  (advice-add 'consult-dir :around #'init-project-completion-ignoring-case)
   ;; Search the chosen directory with fd rather than find: it is faster, obeys
   ;; .gitignore, and matches case-insensitively until the pattern says otherwise.
   (setq consult-dir-jump-file-command #'consult-fd))

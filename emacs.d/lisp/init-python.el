@@ -4,8 +4,8 @@
   :ensure nil
   :mode ("\\.py\\'" . python-mode)
   :interpreter ("python3" . python-mode)
-  :hook ((python-mode . (lambda () (my-eglot-ensure-if-available "pyright-langserver")))
-         (python-ts-mode . (lambda () (my-eglot-ensure-if-available "pyright-langserver"))))
+  :hook ((python-mode . (lambda () (init-eglot-ensure-if-available "pyright-langserver")))
+         (python-ts-mode . (lambda () (init-eglot-ensure-if-available "pyright-langserver"))))
   :custom
   (python-indent-offset 4)
   (python-shell-interpreter "python")

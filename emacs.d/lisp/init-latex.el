@@ -13,7 +13,7 @@
 
 (defun init-latex-flyspell-if-available ()
   "Enable `flyspell-mode' only when a spell checker is installed.
-Mirrors `my-eglot-ensure-if-available': an optional external tool should
+Mirrors `init-eglot-ensure-if-available': an optional external tool should
 leave the mode it supports unavailable, not signal on every file visit."
   (when (executable-find ispell-program-name)
     (flyspell-mode 1)))

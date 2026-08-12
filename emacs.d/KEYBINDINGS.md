@@ -347,7 +347,7 @@ embr 默认把命令菜单放在 `C-c`、把输入网址放在 `C-l`。本配置
 （`goto-address`），Org、帮助、编译输出里的链接同样会走 embr。
 
 配置使用开源的 Playwright Chromium 引擎。**每台机器都要各跑一次**
-`M-x init-browser-setup`：它用 uv 在 `~/.local/share/embr/.venv` 建立
+`M-x my-browser-setup`：它用 uv 在 `~/.local/share/embr/.venv` 建立
 Python 环境并下载浏览器，都在仓库之外。前提是装好 uv，除此之外不依赖
 系统上任何一个 python3——uv 会自己下载对应版本的 CPython，macOS 和
 Linux 因此用的是同一个解释器。重复执行即更新。
@@ -365,7 +365,7 @@ uBlock Origin 之类的扩展——它们都要先在有界面的浏览器里启
 | 命令 | 功能 |
 | --- | --- |
 | `my-install-packages` | 安装当前配置声明但尚未安装的插件 |
-| `init-browser-setup` | 用 uv 建立/更新 embr 的 Python 环境和浏览器 |
+| `my-browser-setup` | 用 uv 建立/更新 embr 的 Python 环境和浏览器 |
 | `eglot` | 手动为当前项目启动语言服务器 |
 | `eglot-reconnect` | 重新连接当前语言服务器 |
 | `eglot-stderr-buffer` | 查看语言服务器错误输出 |

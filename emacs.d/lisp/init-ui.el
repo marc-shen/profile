@@ -58,12 +58,12 @@ turn it back on there, so the result sticks."
 
 (require 'cl-lib)
 
-(defun init--window-layout-top-bottom-p (window-1 window-2)
+(defun init-ui--window-layout-top-bottom-p (window-1 window-2)
   "Return non-nil when WINDOW-1 and WINDOW-2 are arranged top/bottom."
   (= (car (window-edges window-1))
      (car (window-edges window-2))))
 
-(defun init--window-state (window)
+(defun init-ui--window-state (window)
   "Save the relevant display state of WINDOW."
   (list :buffer  (window-buffer window)
         :start   (window-start window)
@@ -71,7 +71,7 @@ turn it back on there, so the result sticks."
         :hscroll (window-hscroll window)
         :vscroll (window-vscroll window)))
 
-(defun init--restore-window-state (window state)
+(defun init-ui--restore-window-state (window state)
   "Restore STATE into WINDOW."
   (set-window-buffer window (plist-get state :buffer))
   (set-window-start window (plist-get state :start))
@@ -79,7 +79,7 @@ turn it back on there, so the result sticks."
   (set-window-hscroll window (plist-get state :hscroll))
   (set-window-vscroll window (plist-get state :vscroll)))
 
-(defun init--rotate-two-windows (direction)
+(defun init-ui--rotate-two-windows (direction)
   "Rotate a two-window layout in DIRECTION.
 
 DIRECTION must be either `clockwise' or `counterclockwise'."
@@ -90,7 +90,7 @@ DIRECTION must be either `clockwise' or `counterclockwise'."
          (window-1 (nth 0 windows))
          (window-2 (nth 1 windows))
          (top-bottom-p
-          (init--window-layout-top-bottom-p window-1 window-2))
+          (init-ui--window-layout-top-bottom-p window-1 window-2))
 
          ;; Sort windows into visual order:
          ;;
@@ -110,8 +110,8 @@ DIRECTION must be either `clockwise' or `counterclockwise'."
          (first-window  (nth 0 ordered-windows))
          (second-window (nth 1 ordered-windows))
 
-         (first-state  (init--window-state first-window))
-         (second-state (init--window-state second-window))
+         (first-state  (init-ui--window-state first-window))
+         (second-state (init-ui--window-state second-window))
 
          (selected-state
           (if (eq (selected-window) first-window)
@@ -164,7 +164,7 @@ DIRECTION must be either `clockwise' or `counterclockwise'."
             (list first-window new-window)))
 
       ;; Restore buffers and their positions.
-      (cl-mapc #'init--restore-window-state
+      (cl-mapc #'init-ui--restore-window-state
                new-windows
                new-states)
 
@@ -174,15 +174,15 @@ DIRECTION must be either `clockwise' or `counterclockwise'."
         (when selected-index
           (select-window (nth selected-index new-windows)))))))
 
-(defun init-rotate-windows-clockwise ()
+(defun my-rotate-windows-clockwise ()
   "Rotate a two-window layout clockwise."
   (interactive)
-  (init--rotate-two-windows 'clockwise))
+  (init-ui--rotate-two-windows 'clockwise))
 
-(defun init-rotate-windows-counterclockwise ()
+(defun my-rotate-windows-counterclockwise ()
   "Rotate a two-window layout counterclockwise."
   (interactive)
-  (init--rotate-two-windows 'counterclockwise))
+  (init-ui--rotate-two-windows 'counterclockwise))
 
 ;;; Active window indication.
 

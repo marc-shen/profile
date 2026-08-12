@@ -16,15 +16,15 @@
 (global-set-key (kbd "C-c C-c") #'recompile)
 
 ;; Reserve a conventional prefix for Git commands such as `C-c g b'.
-(define-prefix-command 'my-git-prefix)
-(global-set-key (kbd "C-c g") #'my-git-prefix)
+(define-prefix-command 'init-keymap-git-prefix)
+(global-set-key (kbd "C-c g") #'init-keymap-git-prefix)
 
 ;; Replace the default transient-input-method binding.
 (global-set-key (kbd "C-x |")
-                #'init-rotate-windows-clockwise)
+                #'my-rotate-windows-clockwise)
 
 (global-set-key (kbd "C-x \\")
-                #'init-rotate-windows-counterclockwise)
+                #'my-rotate-windows-counterclockwise)
 
 (keymap-set tab-prefix-map "<tab>" #'tab-next)
 (keymap-set tab-prefix-map "<backtab>" #'tab-previous)

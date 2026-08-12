@@ -4,7 +4,7 @@
 ;; it streams back into an ordinary buffer, so browsing needs neither xwidgets
 ;; nor a window manager.  The package is cloned by `my-install-packages'; the
 ;; Python environment and the browser binary are installed separately by
-;; `init-browser-setup', which uses uv.  Nothing here starts either one at
+;; `my-browser-setup', which uses uv.  Nothing here starts either one at
 ;; startup.
 
 (declare-function embr-navigate "embr" (url))
@@ -23,7 +23,7 @@ computes it.  Keeping it means embr's own `embr-install-or-update-chromium'
 still works as a fallback: its setup.sh reuses an existing venv and only
 downloads the browser.")
 
-(defun init-browser-setup ()
+(defun my-browser-setup ()
   "Create or refresh embr's Python environment with uv.
 
 Replaces the `python3 -m venv' in embr's setup.sh, which builds the venv
@@ -52,7 +52,7 @@ whatever was there, which uv's cache makes cheap."
       " && ")
      "*embr-setup*")))
 
-(defun init-browser-open (&optional here)
+(defun my-browser-open (&optional here)
   "Open embr and prompt for a URL or search term.
 
 Called interactively, `embr-browse' takes no argument and lands on
@@ -106,7 +106,7 @@ on machines that were never going to have Xvfb."
   :defer t
 
   :custom
-  ;; Vanilla Playwright Chromium, installed by `init-browser-setup'.  The
+  ;; Vanilla Playwright Chromium, installed by `my-browser-setup'.  The
   ;; default `cloakbrowser' engine hides the browser from bot detection
   ;; better, but does so with
   ;; closed-source patches.  Chromium is the open-source half of the choice;
@@ -114,7 +114,7 @@ on machines that were never going to have Xvfb."
   (embr-browser-engine 'chromium)
 
   ;; Same path embr defaults to, but stated so that it and
-  ;; `init-browser-setup' cannot drift apart.
+  ;; `my-browser-setup' cannot drift apart.
   (embr-python (expand-file-name "bin/python" init-browser-venv))
 
   ;; Decided per machine: Xvfb where it exists, headless otherwise.
@@ -152,7 +152,7 @@ on machines that were never going to have Xvfb."
   ((embr-mode . init-ui-disable-line-numbers))
 
   :bind
-  (("C-c b b" . init-browser-open)
+  (("C-c b b" . my-browser-open)
    ("C-c b i" . embr-browse-incognito)
    ("C-c b ?" . embr-info))
 

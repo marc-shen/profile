@@ -3,17 +3,17 @@
 ;; Where the tracked configuration lives.  This file is symlinked into
 ;; ~/.emacs.d, so the value is the repository whenever `load' resolves the link.
 ;; It is used for `load-path' only.
-(defconst my-config-directory
+(defconst init-config-directory
   (file-name-directory (or load-file-name buffer-file-name)))
 
 ;; `user-emacs-directory' is deliberately left at the value Emacs computed at
 ;; startup, which is the real ~/.emacs.d (or its XDG equivalent).  Everything
 ;; downloaded or generated -- `package-user-dir', `custom-file', eln-cache,
-;; `my-var-directory' -- hangs off it and therefore stays out of the
+;; `init-var-directory' -- hangs off it and therefore stays out of the
 ;; repository, which carries configuration only.  Pointing it at
-;; `my-config-directory' instead would install a second copy of every package
+;; `init-config-directory' instead would install a second copy of every package
 ;; into the working tree as soon as `load' resolved the symlink.
-(add-to-list 'load-path (expand-file-name "lisp" my-config-directory))
+(add-to-list 'load-path (expand-file-name "lisp" init-config-directory))
 
 (setq custom-file (expand-file-name "custom.el" user-emacs-directory))
 (load custom-file 'noerror 'nomessage)

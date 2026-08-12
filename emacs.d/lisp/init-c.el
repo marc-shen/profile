@@ -2,10 +2,10 @@
 
 (use-package cc-mode
   :ensure nil
-  :hook ((c-mode . (lambda () (my-eglot-ensure-if-available "clangd")))
-         (c++-mode . (lambda () (my-eglot-ensure-if-available "clangd")))
-         (c-ts-mode . (lambda () (my-eglot-ensure-if-available "clangd")))
-         (c++-ts-mode . (lambda () (my-eglot-ensure-if-available "clangd"))))
+  :hook ((c-mode . (lambda () (init-eglot-ensure-if-available "clangd")))
+         (c++-mode . (lambda () (init-eglot-ensure-if-available "clangd")))
+         (c-ts-mode . (lambda () (init-eglot-ensure-if-available "clangd")))
+         (c++-ts-mode . (lambda () (init-eglot-ensure-if-available "clangd"))))
   :custom (c-default-style "linux") (c-basic-offset 4))
 
 (with-eval-after-load 'eglot

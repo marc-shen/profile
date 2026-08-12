@@ -13,11 +13,11 @@
 (setenv "LC_MESSAGES" "C")
 
 ;; File-name handlers are mainly for remote files and slow down startup.
-(defvar my-file-name-handler-alist file-name-handler-alist)
+(defvar init-file-name-handler-alist file-name-handler-alist)
 (setq file-name-handler-alist nil)
 (add-hook 'emacs-startup-hook
           (lambda ()
-            (setq file-name-handler-alist my-file-name-handler-alist)))
+            (setq file-name-handler-alist init-file-name-handler-alist)))
 
 (dolist (mode '(menu-bar-mode tool-bar-mode scroll-bar-mode))
   (when (fboundp mode)
