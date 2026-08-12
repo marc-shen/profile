@@ -12,7 +12,6 @@
 
 (use-package diff-hl
   :demand t
-  :config
   :hook ((dired-mode . diff-hl-dired-mode)
          (magit-post-refresh . diff-hl-magit-post-refresh)
          (prog-mode . diff-hl-mode)
