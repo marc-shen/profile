@@ -314,6 +314,50 @@ Magit 的大写前缀有意义，例如推送使用大写 `P`，拉取使用大�
 
 vterm 只有在插件及本机动态模块依赖安装成功后才可用。
 
+## 浏览器（embr）
+
+embr 用无头 Chromium 渲染网页，把画面贴进普通缓冲区。
+
+| 快捷键 | 功能 | 来源 |
+| --- | --- | --- |
+| `C-c b b` | 打开 embr，并提示输入网址或搜索词 | 自定义配置 |
+| `C-c b i` | 用一次性的隐身会话打开网址 | 自定义配置/embr |
+| `C-c b ?` | 查看 embr 已安装了哪些组件 | 自定义配置/embr |
+| `C-c C-l` | 在 embr 缓冲区内输入新的网址或搜索词 | 自定义配置/embr |
+| `C-c C-c` | 打开 embr 的命令菜单 | 自定义配置/embr |
+| `C-c C-c o` | 同 `C-c C-l`，从命令菜单进入 | embr |
+| `C-c C-c ?` | 列出全部浏览器键位 | embr |
+
+`M-x embr-browse` 本身不接受网址，只会打开 `embr-home-url`；`C-c b b`
+是把它和 `embr-navigate` 串起来的封装，加前缀参数（`C-u C-c b b`）则
+只切回浏览器不提示。
+
+`URL/Search:` 提示符接受两种输入：像网址的（`example.com`、
+`https://…`）直接访问，其余当作搜索词交给 DuckDuckGo。提示符带历史
+补全，上下键可翻已访问过的地址；`C-u C-c C-l` 清空这份历史。
+
+embr 默认把命令菜单放在 `C-c`、把输入网址放在 `C-l`。本配置把菜单移到
+`C-c C-c`、输入网址移到 `C-c C-l`，好让 `C-l` 保持 Emacs 原本的
+`recenter-top-bottom`。一个键不能既是命令又是前缀，所以这两处必须一起
+改；菜单键由 `embr-dispatch-key` 控制。
+
+在 embr 缓冲区内，其余按键基本都转发给网页，全局键位不再生效；`C-x`、
+`M-x` 保留给 Emacs。鼠标左键点击顶部的地址栏，会复制当前网址并直接进入
+`URL/Search:` 提示符。缓冲区外任意位置的网址也可以直接点击打开
+（`goto-address`），Org、帮助、编译输出里的链接同样会走 embr。
+
+配置使用开源的 Playwright Chromium 引擎。**每台机器都要各跑一次**
+`M-x init-browser-setup`：它用 uv 在 `~/.local/share/embr/.venv` 建立
+Python 环境并下载浏览器，都在仓库之外。前提是装好 uv，除此之外不依赖
+系统上任何一个 python3——uv 会自己下载对应版本的 CPython，macOS 和
+Linux 因此用的是同一个解释器。重复执行即更新。
+
+显示模式按机器自动判断：装了 Xvfb 的 Linux 用 `headed-offscreen`，
+macOS 和没有 Xvfb 的机器用无头模式。无头模式下网页没有滚动条，也装不了
+uBlock Origin 之类的扩展——它们都要先在有界面的浏览器里启用一次。两种
+模式下都可用的广告拦截是域名黑名单：`M-x embr-install-or-update-blocklist`，
+它与引擎无关，用 `M-x embr-remove-blocklist` 移除。
+
 ## 其他常用命令
 
 这些命令没有固定快捷键，通过 `M-x` 调用：
@@ -321,6 +365,7 @@ vterm 只有在插件及本机动态模块依赖安装成功后才可用。
 | 命令 | 功能 |
 | --- | --- |
 | `my-install-packages` | 安装当前配置声明但尚未安装的插件 |
+| `init-browser-setup` | 用 uv 建立/更新 embr 的 Python 环境和浏览器 |
 | `eglot` | 手动为当前项目启动语言服务器 |
 | `eglot-reconnect` | 重新连接当前语言服务器 |
 | `eglot-stderr-buffer` | 查看语言服务器错误输出 |

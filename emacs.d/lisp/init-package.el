@@ -1,6 +1,7 @@
 ;;; init-package.el --- Package management -*- lexical-binding: t; -*-
 
 (require 'package)
+(require 'package-vc)
 (require 'cl-lib)
 (require 'seq)
 
@@ -41,6 +42,14 @@
   (delete-dups (append my-core-packages my-optional-packages))
   "All third-party packages managed by this configuration.")
 
+(defconst my-vc-packages
+  '((embr . "https://github.com/emacs-os/embr.el"))
+  "Packages installed from a Git checkout instead of a package archive.
+
+`package-vc-install' clones the whole repository, which embr requires: it
+looks for `embr.py' and `setup.sh' next to the `embr.el' it was loaded
+from, and an archive built from the Lisp files alone would not carry them.")
+
 (defun my-install-packages ()
   "Install all missing packages declared by this configuration.
 
@@ -51,11 +60,13 @@ package database."
   (let* ((pending (seq-filter (lambda (package)
                                 (not (package-installed-p package)))
                               my-config-packages))
-         (success-count (- (length my-config-packages) (length pending)))
+         (pending-vc (seq-filter (lambda (entry)
+                                   (not (package-installed-p (car entry))))
+                                 my-vc-packages))
+         (declared (+ (length my-config-packages) (length my-vc-packages)))
+         (success-count (- declared (+ (length pending) (length pending-vc))))
          failed)
-    (if (null pending)
-        (message "All packages installed (%d success, 0 failed)."
-                 success-count)
+    (when pending
       (condition-case err
           (unless package-archive-contents
             (message "Refreshing package archives...")
@@ -65,28 +76,42 @@ package database."
          (setq failed
                (mapcar (lambda (package)
                          (cons package (error-message-string err)))
-                       pending))))
-      (unless failed
-        (cl-loop for package in pending
-                 for index from 1
-                 do (message "Installing package %d/%d: %s..."
-                             index (length pending) package)
-                 do (redisplay)
-                 do (condition-case err
-                        (progn
-                          (package-install package)
-                          (cl-incf success-count))
-                      (error
-                       (push (cons package (error-message-string err))
-                             failed)))))
-      (if (null failed)
-          (message "All packages installed (%d success, 0 failed)."
-                   success-count)
-        (message "Package installation completed (%d success, %d failed): %s"
-                 success-count (length failed)
-                 (mapconcat (lambda (entry)
-                              (format "%s (%s)" (car entry) (cdr entry)))
-                            (nreverse failed) "; "))))))
+                       pending))
+         ;; The archives are the only source for these, so skip them rather
+         ;; than report the same failure once per package install attempt.
+         (setq pending nil))))
+    (cl-loop for package in pending
+             for index from 1
+             do (message "Installing package %d/%d: %s..."
+                         index (length pending) package)
+             do (redisplay)
+             do (condition-case err
+                    (progn
+                      (package-install package)
+                      (cl-incf success-count))
+                  (error
+                   (push (cons package (error-message-string err))
+                         failed))))
+    (cl-loop for (package . url) in pending-vc
+             for index from 1
+             do (message "Cloning package %d/%d: %s..."
+                         index (length pending-vc) package)
+             do (redisplay)
+             do (condition-case err
+                    (progn
+                      (package-vc-install url)
+                      (cl-incf success-count))
+                  (error
+                   (push (cons package (error-message-string err))
+                         failed))))
+    (if (null failed)
+        (message "All packages installed (%d success, 0 failed)."
+                 success-count)
+      (message "Package installation completed (%d success, %d failed): %s"
+               success-count (length failed)
+               (mapconcat (lambda (entry)
+                            (format "%s (%s)" (car entry) (cdr entry)))
+                          (nreverse failed) "; ")))))
 
 (provide 'init-package)
 
