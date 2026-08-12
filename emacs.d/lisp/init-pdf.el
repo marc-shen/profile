@@ -1,15 +1,11 @@
 ;;; init-pdf.el --- PDF viewing environment -*- lexical-binding: t; -*-
 
-;; The commands bound in `:config' and the AUCTeX variables set at the end of
-;; this file only come into existence once their packages load, which `:defer'
-;; postpones to the first PDF.  Loading them at compile time is enough for the
-;; byte-compiler to see them and costs nothing at startup; `noerror' keeps the
-;; file compilable on a machine where the packages are not installed yet.
-(eval-when-compile
-  (require 'pdf-view nil t)
-  (require 'pdf-annot nil t)
-  (require 'image-mode nil t)
-  (require 'tex nil t))
+;; Byte-compiling this file warns that the commands bound in `:config' are not
+;; known to be defined.  Do not silence that with `eval-when-compile': this
+;; configuration is loaded as source, and `eval-when-compile' evaluates its
+;; body at load time in that case, so requiring pdf-tools there would both
+;; defeat `:defer' and break startup outright on a machine where epdfinfo has
+;; not been built yet.  The warnings are compile-time only and harmless.
 
 (use-package pdf-tools
   :if (package-installed-p 'pdf-tools)
