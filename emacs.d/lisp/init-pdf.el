@@ -1,8 +1,15 @@
 ;;; init-pdf.el --- PDF viewing environment -*- lexical-binding: t; -*-
 
-(defun init-pdf-disable-line-numbers ()
-  "Disable line numbers in PDF buffers."
-  (display-line-numbers-mode -1))
+;; The commands bound in `:config' and the AUCTeX variables set at the end of
+;; this file only come into existence once their packages load, which `:defer'
+;; postpones to the first PDF.  Loading them at compile time is enough for the
+;; byte-compiler to see them and costs nothing at startup; `noerror' keeps the
+;; file compilable on a machine where the packages are not installed yet.
+(eval-when-compile
+  (require 'pdf-view nil t)
+  (require 'pdf-annot nil t)
+  (require 'image-mode nil t)
+  (require 'tex nil t))
 
 (use-package pdf-tools
   :if (package-installed-p 'pdf-tools)
@@ -16,7 +23,7 @@
   ("\\.pdf\\'" . pdf-view-mode)
 
   :hook
-  ((pdf-view-mode . init-pdf-disable-line-numbers))
+  ((pdf-view-mode . init-ui-disable-line-numbers))
 
   :custom
   (pdf-annot-activate-created-annotations t)
@@ -24,13 +31,6 @@
   (pdf-view-midnight-colors '("#d8dee9" . "#2e3440"))
 
   :config
-  ;; `pdf-view-mode' checks incompatible modes before running its mode hook.
-  ;; The hook below still disables line numbers; removing this entry only
-  ;; prevents the premature warning.
-  (setq pdf-view-incompatible-modes
-        (remove 'display-line-numbers-mode
-                pdf-view-incompatible-modes))
-
   ;; Scrolling.
   (keymap-set pdf-view-mode-map
               "j" #'pdf-view-next-line-or-next-page)

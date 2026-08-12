@@ -23,6 +23,17 @@
 
 (setq display-line-numbers-type 'relative)
 (global-display-line-numbers-mode 1)
+
+(defun init-ui-disable-line-numbers ()
+  "Disable line numbers in the current buffer.
+
+`global-display-line-numbers-mode' has no exempt-modes list to opt out
+of, so buffers that render something other than text -- a PDF page, a
+browser frame -- switch it off from their own mode hook.  Mode hooks run
+before `after-change-major-mode-hook', but the globalized mode does not
+turn it back on there, so the result sticks."
+  (display-line-numbers-mode -1))
+
 (column-number-mode 1)
 (global-hl-line-mode 1)
 (add-hook 'prog-mode-hook
