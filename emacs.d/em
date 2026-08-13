@@ -1,8 +1,20 @@
 #!/bin/sh
 
 if [ "$#" -eq 0 ]; then
-    set -- "$HOME/"
+    set -- "$PWD"
 fi
+
+# emacsclient resolves relative names against the server's working directory,
+# not ours, so turn every path argument into an absolute one first.
+for arg in "$@"; do
+    case "$arg" in
+        -*|+[0-9]*) ;;
+        /*) ;;
+        *) arg="$PWD/$arg" ;;
+    esac
+    set -- "$@" "$arg"
+    shift
+done
 
 if emacsclient -n "$@" 2>/dev/null; then
     exit 0
