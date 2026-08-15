@@ -23,6 +23,45 @@ minor mode 以及已安装插件为准。
 Python 缓冲区中会发送整个 Python 缓冲区，在 LaTeX 中则会执行 AUCTeX
 命令。
 
+## Helix 模态编辑
+
+本配置启用了 [helix-mode](https://github.com/mgmarlow/helix-mode)，普通
+文件缓冲区默认处于 **normal 状态**（模式行显示 `helix[N]`，光标为方块），
+`i`/`a` 进入 **insert 状态**（`helix[I]`，光标为竖线），`ESC` 回到
+normal。终端下 ESC 无法与 Meta 前缀区分，改用连按 `jj` 退出 insert。
+
+它只是一层键位映射，不是 Evil 那样的完整模拟：**没有被 Helix 占用的键仍
+然走原来的 Emacs 绑定**。因此 normal 状态下 `C-x`、`M-x` 和整个 `C-c`
+前缀（`C-c r`、`C-c c`、`C-c g b`、`C-c e l` 等）都照常可用。上游把
+`C-c` 绑成了注释，本配置已解绑以保住前缀——注释请用 Emacs 原生的 `M-;`。
+
+Helix 是"先选择后操作"：`w` 不只是移动，还会把整个词选中，`d` 删除的是
+当前选区。
+
+| 快捷键 | 功能 |
+| --- | --- |
+| `h` `j` `k` `l` | 左/下/上/右移动 |
+| `w` `e` `b` | 下一词首 / 词尾 / 上一词（大写为 WORD） |
+| `f` `t` `F` `T` | 跳到 / 跳到之前 某字符，`M-.` 重复 |
+| `x` | 选中整行 |
+| `v` | 开始选择 |
+| `M-o` `M-i` | 按语法树扩大 / 缩小选区（需 tree-sitter） |
+| `d` `y` `p` | 删除 / 复制选区，粘贴 |
+| `r` `R` | 用一个字符替换选区 / 用剪贴板内容替换选区 |
+| `o` `O` | 下方 / 上方插入新行并进入 insert |
+| `u` | 撤销 |
+| `/` `?` `n` `N` | 向后 / 向前搜索，继续搜索 |
+| `s` `C` `,` | 选区内正则建多光标 / 选中下一个相同项 / 退出多光标 |
+| `g` 前缀 | `gg` 文件头、`ge` 文件尾、`gh` 行首、`gl` 行尾、`gs` 首个非空白、`gd` 定义、`gr` 引用、`gw` 跳词（Avy） |
+| `C-w` 前缀 | `C-w v/s` 分屏、`C-w h/j/k/l` 切窗口、`C-w q` 关闭、`C-w o` 只留当前 |
+| `SPC` 前缀 | `SPC f` 项目内找文件、`SPC b` 项目缓冲区、`SPC j` 切项目、`SPC /` 项目内搜索 |
+| `:` | 命令行，如 `:write`、`:quit` |
+| `C-f` `C-b` | 翻页 |
+
+Magit、Dired、vterm、PDF、compilation 等自带单键操作的缓冲区不启用
+Helix（见 `my-helix-exempt-modes`），在那里一切照旧。`M-x helix-mode`
+可全局开关 Helix。
+
 ## 随时可用的帮助
 
 | 快捷键 | 功能 | 来源 |

@@ -28,6 +28,9 @@
 (require 'init-terminal)
 (require 'init-agent)
 (require 'init-development)
+;; After init-development so `multiple-cursors' is on the load path when
+;; helix-mode probes for its integrations.
+(require 'init-helix)
 (require 'init-python)
 (require 'init-c)
 (require 'init-fortran)

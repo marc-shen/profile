@@ -37,7 +37,10 @@
     rainbow-delimiters multiple-cursors zoxide consult-dir pet reformatter
     csv-mode cmake-mode auctex pdf-tools citar writegood-mode org-modern
     markdown-mode edit-indirect markdown-toc visual-fill-column texfrag
-    minuet agent-shell)
+    minuet agent-shell
+    ;; `avy' is not used on its own; helix-mode detects it with
+    ;; `locate-library' and only then defines `gw' (goto word).
+    helix avy)
   "Third-party packages that add optional features.")
 
 (defconst my-config-packages
