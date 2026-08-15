@@ -12,6 +12,11 @@
   :ensure nil
   :custom
   (dired-kill-when-opening-new-dired-buffer t)
+  ;; With two Dired windows on screen, `C' and `R' default to the directory of
+  ;; the other one instead of the current one -- the two-pane file manager
+  ;; arrangement.  It falls back to the old default whenever no second Dired is
+  ;; visible, so nothing changes for a lone window.
+  (dired-dwim-target t)
   (dired-use-ls-dired (eq system-type 'gnu/linux))
   (dired-listing-switches
    (if (eq system-type 'gnu/linux)
