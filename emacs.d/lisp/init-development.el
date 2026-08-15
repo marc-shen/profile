@@ -20,12 +20,17 @@
   (eglot-confirm-server-initiated-edits nil)
   (eglot-events-buffer-size 0)
   (eglot-send-changes-idle-time 0.2)
+  ;; `C-c s' for "server", not the `C-c l' that lsp-mode made conventional.
+  ;; A prefix key shadows the single key of the same name for as long as the
+  ;; mode is on, and `C-c l' is `windmove-right' -- one quarter of the
+  ;; `C-c h/j/k/l' window movement set, which would then be missing in exactly
+  ;; the buffers a language server runs in.
   :bind (:map eglot-mode-map
-              ("C-c l a" . eglot-code-actions)
-              ("C-c l r" . eglot-rename)
-              ("C-c l f" . eglot-format-buffer)
-              ("C-c l d" . eldoc-doc-buffer)
-              ("C-c l q" . eglot-shutdown)))
+              ("C-c s a" . eglot-code-actions)
+              ("C-c s r" . eglot-rename)
+              ("C-c s f" . eglot-format-buffer)
+              ("C-c s d" . eldoc-doc-buffer)
+              ("C-c s q" . eglot-shutdown)))
 
 ;; Eglot's capf declares itself exclusive, which suppresses the Cape backends
 ;; whenever a server replies.  Making it non-exclusive lets keyword and dabbrev
@@ -47,7 +52,7 @@
 
 (use-package consult-eglot
   :after (consult eglot)
-  :bind (:map eglot-mode-map ("C-c l s" . consult-eglot-symbols)))
+  :bind (:map eglot-mode-map ("C-c s s" . consult-eglot-symbols)))
 
 (use-package flymake
   :ensure nil

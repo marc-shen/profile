@@ -26,6 +26,7 @@
 (require 'init-completion)
 (require 'init-project)
 (require 'init-terminal)
+(require 'init-agent)
 (require 'init-development)
 (require 'init-python)
 (require 'init-c)

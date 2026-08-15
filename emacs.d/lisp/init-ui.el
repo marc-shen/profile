@@ -47,7 +47,27 @@ turn it back on there, so the result sticks."
 (use-package which-key
   :if (package-installed-p 'which-key)
   :demand t
-  :config (which-key-mode 1)
+  :config
+  (which-key-mode 1)
+  ;; Paging through a long popup.  which-key normally puts this on the help
+  ;; key after a prefix -- `C-c C-h' -- but `init-completion.el' points
+  ;; `prefix-help-command' at `embark-prefix-help-command', which answers
+  ;; `C-c C-h' with a searchable list instead.  That is the better tool when
+  ;; the command's name is known and the key is not, so it keeps the help key;
+  ;; paging gets its own.
+  ;;
+  ;; `which-key-paging-prefixes' is the documented way to do this and does not
+  ;; work from here: `define-minor-mode' builds `which-key-mode-map' out of
+  ;; that variable while which-key.el loads, so a value set afterwards is
+  ;; never read.  Binding the key directly has the same effect.
+  ;;
+  ;; After `C-c <f5>' the popup stays up under a transient map, so paging
+  ;; continues on bare `n' and `p'; `u' undoes the last key of the prefix and
+  ;; `a' aborts.  Raise `which-key-side-window-max-height' (0.25 by default)
+  ;; if a taller popup would suit better than paging.
+  (dolist (prefix '("C-c" "C-x" "M-g" "M-s"))
+    (keymap-set which-key-mode-map (concat prefix " <f5>")
+                #'which-key-C-h-dispatch))
   :custom (which-key-idle-delay 0.35)
   (which-key-idle-secondary-delay 0.05)
   (which-key-side-window-location 'bottom)
