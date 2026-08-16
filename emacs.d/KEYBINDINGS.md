@@ -28,7 +28,9 @@ Python 缓冲区中会发送整个 Python 缓冲区，在 LaTeX 中则会执行 
 本配置启用了 [helix-mode](https://github.com/mgmarlow/helix-mode)，普通
 文件缓冲区默认处于 **normal 状态**（模式行显示 `helix[N]`，光标为方块），
 `i`/`a` 进入 **insert 状态**（`helix[I]`，光标为竖线），`ESC` 回到
-normal。终端下 ESC 无法与 Meta 前缀区分，改用连按 `jj` 退出 insert。
+normal。insert 状态下依次按 `jk`（间隔 0.2 秒内）等价于 ESC，图形界面和
+终端都可用——终端下 ESC 无法与 Meta 前缀区分，`jk` 是唯一可靠的退出方式。
+`j` 后若 0.2 秒内没有按 `k`，被暂存的 `j` 会照常插入。
 
 它只是一层键位映射，不是 Evil 那样的完整模拟：**没有被 Helix 占用的键仍
 然走原来的 Emacs 绑定**。因此 normal 状态下 `C-x`、`M-x` 和整个 `C-c`

@@ -34,6 +34,10 @@ before `after-change-major-mode-hook', but the globalized mode does not
 turn it back on there, so the result sticks."
   (display-line-numbers-mode -1))
 
+;; A steady cursor everywhere: `blink-cursor-mode' is a global minor mode, so
+;; this covers frames created later by `emacsclient' too.
+(blink-cursor-mode -1)
+
 (column-number-mode 1)
 (global-hl-line-mode 1)
 (add-hook 'prog-mode-hook
