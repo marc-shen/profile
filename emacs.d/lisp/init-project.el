@@ -99,6 +99,49 @@ point of zoxide, and Vertico would otherwise re-sort the candidates."
 (global-set-key (kbd "C-c z") #'my-zoxide-find-file)
 (global-set-key (kbd "C-c Z") #'my-zoxide-dired)
 
+;; Hand the current file to the desktop's own file manager.  Both back ends
+;; take the *file* and select it in its parent directory rather than opening
+;; the directory blind, which is what "show me where this is" actually means.
+;; Dolphin needs `--select' for that; Finder's equivalent is `open -R'.  The
+;; xdg-open fallback has no such option, so it gets the containing directory.
+(declare-function dired-get-filename "dired" (&optional localp no-error-if-not-filep))
+
+(defun init-project--reveal-target ()
+  "Return the file the file manager should select.
+In Dired that is the entry at point, in a file buffer the file itself, and
+anywhere else the buffer's `default-directory'."
+  (let ((target (or (and (derived-mode-p 'dired-mode) (dired-get-filename nil t))
+                    buffer-file-name
+                    default-directory)))
+    (when (file-remote-p target)
+      (user-error "Cannot reveal a remote file in the file manager"))
+    (expand-file-name target)))
+
+(defun my-reveal-in-file-manager (&optional arg)
+  "Reveal the current file in the system file manager.
+A directory is opened rather than selected in its parent, since a window
+showing its contents is what the name of a directory asks for.  With a prefix
+ARG, open the containing directory instead of selecting the file in it."
+  (interactive "P")
+  (let* ((target (init-project--reveal-target))
+         (directory (or (file-directory-p target) arg))
+         (path (if directory
+                   (file-name-as-directory
+                    (if (file-directory-p target)
+                        target
+                      (file-name-directory target)))
+                 target)))
+    (pcase system-type
+      ('darwin (if directory
+                   (call-process "open" nil 0 nil path)
+                 (call-process "open" nil 0 nil "-R" path)))
+      (_ (if (and (not directory) (executable-find "dolphin"))
+             (call-process "dolphin" nil 0 nil "--select" path)
+           (call-process (or (executable-find "dolphin") "xdg-open")
+                         nil 0 nil path))))))
+
+(global-set-key (kbd "C-c o") #'my-reveal-in-file-manager)
+
 ;; `consult-dir' rewrites the directory part of a file prompt, so the same jump
 ;; list is reachable from inside `C-x C-f' and `C-x d' instead of only from a
 ;; separate command.  `C-x C-d' replaces `list-directory', which Dired covers.

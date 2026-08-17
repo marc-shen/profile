@@ -506,6 +506,7 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 | `C-c m` | `consult-mode-command` | 列出当前模式提供的命令 |
 | `C-c M-g` | `magit-file-dispatch` | 打开针对当前文件的 Magit 菜单 |
 | `C-c n` | `org-capture` | 快速记录（捕获） |
+| `C-c o` | `my-reveal-in-file-manager` | 在 Finder/Dolphin 中显示当前文件（前缀参数打开所在目录） |
 | `C-c r` | `revert-buffer` | 丢弃修改，从磁盘重新加载文件 |
 | `C-c t` | `treemacs` | 打开或关闭项目树 |
 | `C-c V` | `vterm-other-window` | 在另一窗口打开 vterm 终端 |
