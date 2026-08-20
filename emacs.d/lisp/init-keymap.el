@@ -19,6 +19,9 @@
 (global-set-key (kbd "<escape>") #'keyboard-escape-quit)
 (global-set-key (kbd "C-c r") #'revert-buffer)
 (global-set-key (kbd "C-c c") #'compile)
+;; `C-c s' is an Eglot prefix in programming buffers, so the scratch buffer takes
+;; `C-c d' -- d as in draft -- which nothing else binds, globally or in a mode.
+(global-set-key (kbd "C-c d") #'my-scratch-buffer)
 (global-set-key (kbd "C-c C-c") #'recompile)
 
 ;; Reserve a conventional prefix for Git commands such as `C-c g b'.

@@ -102,10 +102,15 @@ Helix（见 `my-helix-exempt-modes`），在那里一切照旧。`M-x helix-mode
 | `C-x 4 b` | 在另一个窗口中切换缓冲区 | Consult |
 | `C-x C-r` | 从最近访问的文件中选择并打开 | Consult |
 | `C-c r` | 从磁盘重新载入当前文件 | 自定义配置 |
+| `C-c d` | 跳到 `*scratch*` 草稿缓冲区，再按一次返回 | 自定义配置 |
 | `C-x f` | 修改当前缓冲区的 `fill-column`；不是打开文件 | Emacs |
 
 配置会自动恢复上次光标位置，并把最近文件、历史记录、自动保存和备份
 保存在 `~/.emacs.d/var/` 下。
+
+`C-c d` 在任何缓冲区都能直接跳到 `*scratch*`：它被关掉过也会按
+`initial-major-mode` 重新建出来。人已经在 `*scratch*` 里时再按一次就回到刚才
+的缓冲区。加前缀 `C-u C-c d` 则在另一个窗口显示草稿缓冲区，当前窗口不动。
 
 ## 基础编辑
 

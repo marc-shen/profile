@@ -79,7 +79,7 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 
 `C-c` 加单个字母是留给用户的保留区。以下字母目前全局和各模式都没用到，可以放心拿来绑新命令：
 
-- 小写：`C-c d`、`C-c f`、`C-c h`、`C-c i`、`C-c j`、`C-c k`、`C-c l`、`C-c o`、`C-c p`、`C-c q`、`C-c u`、`C-c w`、`C-c x`、`C-c y`
+- 小写：`C-c f`、`C-c h`、`C-c i`、`C-c j`、`C-c k`、`C-c l`、`C-c o`、`C-c p`、`C-c q`、`C-c u`、`C-c w`、`C-c x`、`C-c y`
 - 大写：`C-c B`、`C-c C`、`C-c D`、`C-c E`、`C-c F`、`C-c G`、`C-c H`、`C-c I`、`C-c J`、`C-c K`、`C-c L`、`C-c M`、`C-c N`、`C-c O`、`C-c P`、`C-c Q`、`C-c R`、`C-c S`、`C-c T`、`C-c U`、`C-c W`、`C-c X`、`C-c Y`
 
 ## 目录
@@ -502,6 +502,7 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 | `C-c A` | `agent-shell` | 打开或复用当前项目的智能体会话 |
 | `C-c a` | `org-agenda` | 打开 Org 议程视图 |
 | `C-c c` | `compile` | 编译当前项目，默认运行 make |
+| `C-c d` | `my-scratch-buffer` | 跳到 `*scratch*`（已关闭则重建），再按一次返回原缓冲区 |
 | `C-c C-c` | `recompile` | 用上次的命令重新编译 |
 | `C-c m` | `consult-mode-command` | 列出当前模式提供的命令 |
 | `C-c M-g` | `magit-file-dispatch` | 打开针对当前文件的 Magit 菜单 |

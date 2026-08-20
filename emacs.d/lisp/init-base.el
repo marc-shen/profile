@@ -63,6 +63,26 @@
 (global-so-long-mode 1)
 (minibuffer-depth-indicate-mode 1)
 
+;; `*scratch*' is the one buffer that is always safe to type in, but reaching it
+;; costs a buffer switch and it is gone for good once killed.  `my-scratch-buffer'
+;; recreates it when needed and toggles back to the previous buffer on a second
+;; press, so the same key both goes there and comes back.
+(defun my-scratch-buffer (&optional arg)
+  "Switch to `*scratch*', creating it if it was killed.
+Pressing the same key again from inside `*scratch*' returns to the buffer it
+was invoked from.  With a prefix ARG, show `*scratch*' in another window and
+leave the current window alone."
+  (interactive "P")
+  (if (and (not arg) (string= (buffer-name) "*scratch*"))
+      (switch-to-prev-buffer)
+    (let ((buffer (get-buffer-create "*scratch*")))
+      (with-current-buffer buffer
+        (unless (derived-mode-p initial-major-mode)
+          (funcall initial-major-mode)))
+      (if arg
+          (switch-to-buffer-other-window buffer)
+        (switch-to-buffer buffer)))))
+
 (provide 'init-base)
 
 ;;; init-base.el ends here
