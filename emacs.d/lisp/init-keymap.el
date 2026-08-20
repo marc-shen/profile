@@ -19,10 +19,35 @@
 (global-set-key (kbd "<escape>") #'keyboard-escape-quit)
 (global-set-key (kbd "C-c r") #'revert-buffer)
 (global-set-key (kbd "C-c c") #'compile)
-;; `C-c s' is an Eglot prefix in programming buffers, so the scratch buffer takes
-;; `C-c d' -- d as in draft -- which nothing else binds, globally or in a mode.
-(global-set-key (kbd "C-c d") #'my-scratch-buffer)
 (global-set-key (kbd "C-c C-c") #'recompile)
+
+;; Bindings that have to work in every buffer, whatever the major mode did with
+;; the key.  `global-set-key' is the weakest map there is: a major mode map, any
+;; minor mode map and Helix's modal maps all shadow it, and a terminal mode such
+;; as vterm swallows the key entirely.  `emulation-mode-map-alists' is consulted
+;; before all of those, so a map parked there is the only way to make a key
+;; unconditional.  Keep the list short -- everything here is taken away from
+;; every mode that might want the key.
+(defvar my-override-map (make-sparse-keymap)
+  "Keymap for bindings that outrank major and minor mode maps.")
+
+(define-minor-mode my-override-mode
+  "Global minor mode holding the bindings in `my-override-map'."
+  :init-value t
+  :global t
+  :keymap my-override-map)
+
+(defvar my-override-map-alist
+  `((my-override-mode . ,my-override-map))
+  "Entry for `emulation-mode-map-alists' activating `my-override-map'.")
+
+;; A symbol rather than the alist itself, so reloading this file does not add a
+;; second, equal-but-not-`eq' entry.
+(add-to-list 'emulation-mode-map-alists 'my-override-map-alist)
+
+;; `C-c s' is an Eglot prefix in programming buffers, so the scratch buffer takes
+;; `C-c d' -- d as in draft.
+(keymap-set my-override-map "C-c d" #'my-scratch-buffer)
 
 ;; Reserve a conventional prefix for Git commands such as `C-c g b'.
 (define-prefix-command 'init-keymap-git-prefix)

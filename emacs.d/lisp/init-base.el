@@ -65,8 +65,11 @@
 
 ;; `*scratch*' is the one buffer that is always safe to type in, but reaching it
 ;; costs a buffer switch and it is gone for good once killed.  `my-scratch-buffer'
-;; recreates it when needed and toggles back to the previous buffer on a second
-;; press, so the same key both goes there and comes back.
+;; recreates it when needed and toggles back to the buffer it came from on a
+;; second press, so the same key both goes there and comes back.
+(defvar my-scratch--origin nil
+  "Buffer `my-scratch-buffer' last jumped to `*scratch*' from.")
+
 (defun my-scratch-buffer (&optional arg)
   "Switch to `*scratch*', creating it if it was killed.
 Pressing the same key again from inside `*scratch*' returns to the buffer it
@@ -74,7 +77,15 @@ was invoked from.  With a prefix ARG, show `*scratch*' in another window and
 leave the current window alone."
   (interactive "P")
   (if (and (not arg) (string= (buffer-name) "*scratch*"))
-      (switch-to-prev-buffer)
+      ;; Going back through `switch-to-prev-buffer' would land on whatever this
+      ;; window happened to show before, which right after startup is a log
+      ;; buffer such as *Async-native-compile-log*.  The buffer the jump
+      ;; actually started from is remembered instead.
+      (if (buffer-live-p my-scratch--origin)
+          (switch-to-buffer my-scratch--origin)
+        (user-error "No buffer to return to from *scratch*"))
+    (unless (string= (buffer-name) "*scratch*")
+      (setq my-scratch--origin (current-buffer)))
     (let ((buffer (get-buffer-create "*scratch*")))
       (with-current-buffer buffer
         (unless (derived-mode-p initial-major-mode)

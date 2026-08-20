@@ -109,8 +109,12 @@ Helix（见 `my-helix-exempt-modes`），在那里一切照旧。`M-x helix-mode
 保存在 `~/.emacs.d/var/` 下。
 
 `C-c d` 在任何缓冲区都能直接跳到 `*scratch*`：它被关掉过也会按
-`initial-major-mode` 重新建出来。人已经在 `*scratch*` 里时再按一次就回到刚才
-的缓冲区。加前缀 `C-u C-c d` 则在另一个窗口显示草稿缓冲区，当前窗口不动。
+`initial-major-mode` 重新建出来。人已经在 `*scratch*` 里时再按一次就回到跳进来
+之前的那个缓冲区。加前缀 `C-u C-c d` 则在另一个窗口显示草稿缓冲区，当前窗口不动。
+
+这个键放在一张覆盖键表里（`emulation-mode-map-alists`），优先级高于主模式、次
+要模式和 Helix 的模式映射，所以在 Magit、Dired、vterm、PDF 等自己占用大量单键
+的缓冲区里同样有效。
 
 ## 基础编辑
 
