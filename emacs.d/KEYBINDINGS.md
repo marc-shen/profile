@@ -98,6 +98,7 @@ Helix（见 `my-helix-exempt-modes`），在那里一切照旧。`M-x helix-mode
 | `C-x C-s` | 保存当前文件 | Emacs |
 | `C-x s` | 询问并保存所有已修改文件 | Emacs |
 | `C-x k` | 关闭当前缓冲区 | Emacs |
+| `C-x K` | 关闭所有用户缓冲区，保留 `*` 开头的系统缓冲区 | 自定义配置 |
 | `C-x b` | 搜索并切换缓冲区 | Consult |
 | `C-x 4 b` | 在另一个窗口中切换缓冲区 | Consult |
 | `C-x C-r` | 从最近访问的文件中选择并打开 | Consult |
@@ -111,6 +112,10 @@ Helix（见 `my-helix-exempt-modes`），在那里一切照旧。`M-x helix-mode
 `C-c d` 在任何缓冲区都能直接跳到 `*scratch*`：它被关掉过也会按
 `initial-major-mode` 重新建出来。人已经在 `*scratch*` 里时再按一次就回到跳进来
 之前的那个缓冲区。加前缀 `C-u C-c d` 则在另一个窗口显示草稿缓冲区，当前窗口不动。
+
+`C-x K` 一次关掉所有用户缓冲区：名字以 `*` 或空格开头的算系统缓冲区（`*scratch*`、
+`*Messages*`、各种日志和 REPL），会被留下，其余的文件缓冲区全部关闭；有未保存
+改动的文件缓冲区在关闭前照常询问。
 
 这个键放在一张覆盖键表里（`emulation-mode-map-alists`），优先级高于主模式、次
 要模式和 Helix 的模式映射，所以在 Magit、Dired、vterm、PDF 等自己占用大量单键

@@ -94,6 +94,28 @@ leave the current window alone."
           (switch-to-buffer-other-window buffer)
         (switch-to-buffer buffer)))))
 
+;; `C-x k' kills one buffer at a time, which is the wrong tool after a long
+;; session has left dozens of files open.  Killing everything is not right
+;; either: `*scratch*', `*Messages*' and the various log and REPL buffers are
+;; the ones worth keeping.  The split falls neatly along the `*' convention --
+;; buffers whose name starts with `*' (or with a space, which marks Emacs's own
+;; internal buffers) are the system's, the rest are the files being worked on.
+(defun my-kill-all-user-buffers ()
+  "Kill every user buffer, keeping the system buffers.
+A buffer counts as the system's when its name starts with `*' or a space, so
+`*scratch*', `*Messages*' and friends survive.  Buffers visiting a file with
+unsaved changes ask before they go."
+  (interactive)
+  (let ((killed 0))
+    (dolist (buffer (buffer-list))
+      (let ((name (buffer-name buffer)))
+        (when (and name
+                   (not (string-prefix-p "*" name))
+                   (not (string-prefix-p " " name))
+                   (kill-buffer buffer))
+          (setq killed (1+ killed)))))
+    (message "Killed %d user buffer%s" killed (if (= killed 1) "" "s"))))
+
 (provide 'init-base)
 
 ;;; init-base.el ends here

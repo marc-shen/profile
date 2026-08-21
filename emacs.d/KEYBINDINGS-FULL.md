@@ -652,6 +652,7 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 | `C-x h` | `mark-whole-buffer` | 全选 |
 | `C-x i` | `insert-file` | 把文件内容插入到此处 |
 | `C-x k` | `kill-buffer` | 关闭指定缓冲区 |
+| `C-x K` | `my-kill-all-user-buffers` | 关闭所有用户缓冲区，名字以 `*` 或空格开头的系统缓冲区保留 |
 | `C-x l` | `count-lines-page` | 统计当前页的行数 |
 | `C-x m` | `compose-mail` | 撰写邮件 |
 | `C-x M-:` | `repeat-complex-command` | 编辑并重新执行上一条复杂命令 |

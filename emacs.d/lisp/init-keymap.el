@@ -49,6 +49,10 @@
 ;; `C-c d' -- d as in draft.
 (keymap-set my-override-map "C-c d" #'my-scratch-buffer)
 
+;; `C-x K' -- the shifted sibling of `C-x k' -- clears out the file buffers in
+;; one go and leaves the `*'-named system buffers alone.
+(global-set-key (kbd "C-x K") #'my-kill-all-user-buffers)
+
 ;; Reserve a conventional prefix for Git commands such as `C-c g b'.
 (define-prefix-command 'init-keymap-git-prefix)
 (global-set-key (kbd "C-c g") #'init-keymap-git-prefix)
