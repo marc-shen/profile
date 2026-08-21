@@ -1,24 +1,50 @@
 #!/bin/sh
 
+# Cross-platform Emacs launcher
+
 if [ "$#" -eq 0 ]; then
     set -- "$PWD"
 fi
 
-# emacsclient resolves relative names against the server's working directory,
-# not ours, so turn every path argument into an absolute one first.
+
+# Convert relative paths to absolute paths
+args=""
+
 for arg in "$@"; do
     case "$arg" in
-        -*|+[0-9]*) ;;
-        /*) ;;
-        *) arg="$PWD/$arg" ;;
+        -*|+[0-9]*)
+            args="$args \"$arg\""
+            ;;
+        /*)
+            args="$args \"$arg\""
+            ;;
+        *)
+            args="$args \"$PWD/$arg\""
+            ;;
     esac
-    set -- "$@" "$arg"
-    shift
 done
 
-if emacsclient -n "$@" 2>/dev/null; then
-    exit 0
-else
-    emacs "$@" >/dev/null 2>&1 </dev/null &
-    command -v disown >/dev/null 2>&1 && disown
+eval "set -- $args"
+
+
+# Try existing Emacs server
+if command -v emacsclient >/dev/null 2>&1; then
+    if emacsclient -n -c "$@"; then
+        exit 0
+    fi
 fi
+
+
+# Start Emacs as daemon
+if command -v emacs >/dev/null 2>&1; then
+    emacs --daemon >/dev/null 2>&1
+
+    sleep 0.5
+
+    emacsclient -n "$@"
+    exit 0
+fi
+
+
+echo "Cannot find Emacs" >&2
+exit 1
