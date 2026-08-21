@@ -1,13 +1,11 @@
 #!/bin/sh
 
-# Cross-platform Emacs launcher
-
 if [ "$#" -eq 0 ]; then
     set -- "$PWD"
 fi
 
 
-# Convert relative paths to absolute paths
+# absolute paths
 args=""
 
 for arg in "$@"; do
@@ -27,24 +25,10 @@ done
 eval "set -- $args"
 
 
-# Try existing Emacs server
-if command -v emacsclient >/dev/null 2>&1; then
-    if emacsclient -n -c "$@"; then
-        exit 0
-    fi
-fi
-
-
-# Start Emacs as daemon
-if command -v emacs >/dev/null 2>&1; then
-    emacs --daemon >/dev/null 2>&1
-
-    sleep 0.5
-
-    emacsclient -n "$@"
+if emacsclient -n -c "$@" >/dev/null 2>&1; then
     exit 0
 fi
 
 
-echo "Cannot find Emacs" >&2
+echo "Emacs server is not running" >&2
 exit 1
