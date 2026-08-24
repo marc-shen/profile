@@ -79,7 +79,7 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 
 `C-c` 加单个字母是留给用户的保留区。以下字母目前全局和各模式都没用到，可以放心拿来绑新命令：
 
-- 小写：`C-c f`、`C-c h`、`C-c i`、`C-c j`、`C-c k`、`C-c l`、`C-c o`、`C-c p`、`C-c q`、`C-c u`、`C-c w`、`C-c x`、`C-c y`
+- 小写：`C-c f`、`C-c h`、`C-c i`、`C-c j`、`C-c k`、`C-c l`、`C-c p`、`C-c q`、`C-c u`、`C-c w`、`C-c x`、`C-c y`
 - 大写：`C-c B`、`C-c C`、`C-c D`、`C-c E`、`C-c F`、`C-c G`、`C-c H`、`C-c I`、`C-c J`、`C-c K`、`C-c L`、`C-c M`、`C-c N`、`C-c O`、`C-c P`、`C-c Q`、`C-c R`、`C-c S`、`C-c T`、`C-c U`、`C-c W`、`C-c X`、`C-c Y`
 
 ## 目录
@@ -507,7 +507,7 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 | `C-c m` | `consult-mode-command` | 列出当前模式提供的命令 |
 | `C-c M-g` | `magit-file-dispatch` | 打开针对当前文件的 Magit 菜单 |
 | `C-c n` | `org-capture` | 快速记录（捕获） |
-| `C-c o` | `my-reveal-in-file-manager` | 在 Finder/Dolphin 中显示当前文件（前缀参数打开所在目录） |
+| `C-c o` | `my-reveal-in-file-manager` | 在 Finder/Dolphin 中显示当前文件（前缀参数打开所在目录）；覆盖键表，任何模式下都生效 |
 | `C-c r` | `revert-buffer` | 丢弃修改，从磁盘重新加载文件 |
 | `C-c t` | `treemacs` | 打开或关闭项目树 |
 | `C-c V` | `vterm-other-window` | 在另一窗口打开 vterm 终端 |

@@ -140,7 +140,12 @@ ARG, open the containing directory instead of selecting the file in it."
            (call-process (or (executable-find "dolphin") "xdg-open")
                          nil 0 nil path))))))
 
-(global-set-key (kbd "C-c o") #'my-reveal-in-file-manager)
+;; Parked in `my-override-map' rather than the global map: "show me this file
+;; in the file manager" is a question about the buffer, not about its mode, so
+;; the key has to survive major modes that claim `C-c o' (Org's `org-open-at-
+;; point' menu, Markdown's `C-c C-c o'-style prefixes) and terminal buffers
+;; that would otherwise pass the key through to the shell.
+(keymap-set my-override-map "C-c o" #'my-reveal-in-file-manager)
 
 ;; `consult-dir' rewrites the directory part of a file prompt, so the same jump
 ;; list is reachable from inside `C-x C-f' and `C-x d' instead of only from a
