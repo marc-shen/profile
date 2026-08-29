@@ -92,6 +92,19 @@
   (define-key corfu-map [remap next-line] nil)
   (define-key corfu-map [remap previous-line] nil))
 
+;; Dabbrev is loaded here, eagerly, rather than left to the `require' inside
+;; `cape--dabbrev-bounds'.  That `require' runs from `cape-dabbrev', which
+;; Corfu calls from the `corfu-auto-delay' timer inside `while-no-input': a
+;; keystroke arriving while dabbrev.el is being loaded aborts the load
+;; part-way.  When the load is a native-compiled unit, the aborted unit stays
+;; registered in the process with its relocations half-filled, and every later
+;; attempt to load it fails -- in this session with `(setting-constant nil)',
+;; reported by Corfu as "Corfu detected an error" on every keypress, since the
+;; feature never got provided and each `cape-dabbrev' call retries the require.
+;; Loading it at startup, outside any timer, is the whole fix; nothing below
+;; changes what Cape does once dabbrev is in.
+(require 'dabbrev)
+
 (use-package cape
   :init
   ;; Use `add-hook' rather than `add-to-list': init.el is loaded inside
