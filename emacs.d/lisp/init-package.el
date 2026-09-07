@@ -4,6 +4,7 @@
 (require 'package-vc)
 (require 'cl-lib)
 (require 'seq)
+(require 'treesit)
 
 (setq package-user-dir (expand-file-name "elpa" user-emacs-directory))
 (setq package-archives
@@ -15,13 +16,9 @@
 ;; a quickstart file left behind by an interrupted installation, cannot become
 ;; stale and cause already-installed packages to be installed repeatedly.
 (setq package-quickstart nil)
-(unless package--initialized
-  (package-initialize))
+(package-initialize)
 
-(unless (package-installed-p 'use-package)
-  (package-refresh-contents)
-  (package-install 'use-package))
-
+;; `use-package' is built into Emacs 31.
 (require 'use-package)
 
 (setq use-package-always-ensure nil
@@ -33,11 +30,10 @@
   "Third-party packages required by the main configuration.")
 
 (defconst my-optional-packages
-  '(which-key embark embark-consult dired-subtree treemacs vterm helpful hl-todo
+  '(embark embark-consult dired-subtree treemacs vterm helpful hl-todo
     rainbow-delimiters multiple-cursors zoxide consult-dir pet reformatter
     csv-mode cmake-mode auctex pdf-tools citar writegood-mode org-modern
-    markdown-mode edit-indirect markdown-toc visual-fill-column texfrag
-    minuet agent-shell
+    visual-fill-column mathjax minuet agent-shell
     ;; `avy' is not used on its own; helix-mode detects it with
     ;; `locate-library' and only then defines `gw' (goto word).
     helix avy)
@@ -48,12 +44,17 @@
   "All third-party packages managed by this configuration.")
 
 (defconst my-vc-packages
-  '((embr . "https://github.com/emacs-os/embr.el"))
+  '((embr . "https://github.com/emacs-os/embr.el")
+    (markdown-ts-appear . "https://github.com/Thysrael/markdown-ts-appear"))
   "Packages installed from a Git checkout instead of a package archive.
 
-`package-vc-install' clones the whole repository, which embr requires: it
-looks for `embr.py' and `setup.sh' next to the `embr.el' it was loaded
-from, and an archive built from the Lisp files alone would not carry them.")
+This keeps packages that are unavailable from the configured archives, or
+whose repository contents are needed at runtime, on their upstream heads.")
+
+(defun init-package-markdown-parsers-installed-p ()
+  "Return non-nil when both parsers required by `markdown-ts-mode' exist."
+  (and (treesit-language-available-p 'markdown)
+       (treesit-language-available-p 'markdown-inline)))
 
 (defun my-install-packages ()
   "Install all missing packages declared by this configuration.
@@ -68,8 +69,12 @@ package database."
          (pending-vc (seq-filter (lambda (entry)
                                    (not (package-installed-p (car entry))))
                                  my-vc-packages))
-         (declared (+ (length my-config-packages) (length my-vc-packages)))
-         (success-count (- declared (+ (length pending) (length pending-vc))))
+         (parsers-installed (init-package-markdown-parsers-installed-p))
+         (declared (1+ (+ (length my-config-packages)
+                          (length my-vc-packages))))
+         (success-count (+ (- (1- declared)
+                              (+ (length pending) (length pending-vc)))
+                           (if parsers-installed 1 0)))
          failed)
     (when pending
       (condition-case err
@@ -109,10 +114,22 @@ package database."
                   (error
                    (push (cons package (error-message-string err))
                          failed))))
+    (unless parsers-installed
+      (message "Installing Markdown Tree-sitter parsers...")
+      (redisplay)
+      (condition-case err
+          (progn
+            (require 'markdown-ts-mode)
+            (markdown-ts-mode-install-parsers nil)
+            (cl-incf success-count))
+        (error
+         (push (cons 'markdown-tree-sitter-parsers
+                     (error-message-string err))
+               failed))))
     (if (null failed)
-        (message "All packages installed (%d success, 0 failed)."
+        (message "All configuration dependencies installed (%d success, 0 failed)."
                  success-count)
-      (message "Package installation completed (%d success, %d failed): %s"
+      (message "Dependency installation completed (%d success, %d failed): %s"
                success-count (length failed)
                (mapconcat (lambda (entry)
                             (format "%s (%s)" (car entry) (cdr entry)))

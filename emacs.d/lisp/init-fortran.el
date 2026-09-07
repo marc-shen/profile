@@ -1,5 +1,7 @@
 ;;; init-fortran.el --- Fortran development -*- lexical-binding: t; -*-
 
+(defvar cape-keyword-list)
+
 (use-package f90
   :ensure nil
   :mode (("\\.f90\\'" . f90-mode) ("\\.F90\\'" . f90-mode)

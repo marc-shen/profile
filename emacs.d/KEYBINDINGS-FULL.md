@@ -1,6 +1,6 @@
 # Emacs 快捷键全表
 
-本文件由脚本从**实际加载的配置**中导出，不是手写的摘要：它以 `emacs --batch` 加载 `init.el`，再把所有插件的模式加载起来，然后遍历各个 keymap。因此这里出现的每一条都是当前真实生效的绑定，共 2403 条。
+本文件由脚本从**实际加载的配置**中导出，不是手写的摘要：它以 `emacs --batch` 加载 `init.el`，再把所有插件的模式加载起来，然后遍历各个 keymap。因此这里出现的是当前真实生效的绑定快照。
 
 想看精简版、按使用场景组织的常用键位，见 [KEYBINDINGS.md](KEYBINDINGS.md)。本文件的用途相反：把全部功能摊开，便于发现没用过的命令，以及审查键位是否合理。
 
@@ -9,7 +9,7 @@
 ## 怎么读这份表
 
 - **模式内的键位优先于全局键位。** 同一个按键在不同缓冲区可以是不同命令，下面每一节标题写明了它在什么场合生效。
-- **前缀键会整体屏蔽同名的单键。** markdown-mode 定义了 `C-c C-c e`、`C-c C-c p` 等等，于是在 Markdown 缓冲区里 `C-c C-c` 只能是前缀，全局绑在它上面的 `recompile` 按不出来。这类冲突已在下一节逐条列出。
+- **模式键位优先于同名的全局键位。** 例如 `markdown-ts-mode` 把 `C-c C-c` 绑定为切换任务勾选框，因此 Markdown 缓冲区里按不到全局的 `recompile`。这类冲突已在下一节逐条列出。
 - **自插入字符、鼠标事件、菜单栏没有列出。** 它们数量大且没有查阅价值。
 
 ## 怎么改键位
@@ -18,16 +18,16 @@
 
 ```elisp
 ;; 一、全局键位：写在 lisp/init-keymap.el
-(global-set-key (kbd "C-c q") #'some-command)
+(keymap-global-set "C-c q" #'some-command)
 
 ;; 二、某个插件自己的键位：写在该插件的 use-package 里
 (use-package treemacs
   :bind (("C-c t" . treemacs)))
 
 ;; 三、只在某个模式里生效：绑到该模式的 keymap
-(use-package markdown-mode
-  :bind (:map markdown-mode-map
-         ("C-c C-x a" . markdown-table-align)))
+(with-eval-after-load 'markdown-ts-mode
+  (keymap-set markdown-ts-mode-map
+              "C-c C-x a" #'markdown-ts-table-align-table))
 ```
 
 取消一个碍事的绑定用 `(keymap-global-unset "C-c x")`，或在模式里 `(keymap-unset some-mode-map "C-c x")`。
@@ -53,13 +53,14 @@
 | `M-g i` | `consult-imenu` | `imenu` | 在当前文件的符号列表中检索跳转 |
 | `C-x 4 b` | `consult-buffer-other-window` | `switch-to-buffer-other-window` | 在另一窗口切换缓冲区 |
 
-### 被模式前缀吃掉的全局键位
+### 被模式键位盖住的全局键位
 
-下面这些全局键位在特定模式里按不出来，因为该模式把同样的按键当成了前缀。
+下面这些全局键位在特定模式里按不出来，因为该模式直接绑定了同样的键，
+或把它当成了更长组合键的前缀。
 
 | 全局键位 | 全局命令 | 在哪些模式里失效 | 因为该模式有 |
 | --- | --- | --- | --- |
-| `C-c C-c` | `recompile` | markdown | `C-c C-c ]`、`C-c C-c ^`、`C-c C-c c` 等 14 个 |
+| `C-c C-c` | `recompile` | markdown-ts | `markdown-ts-toggle-checkbox` |
 | `C-t` | `transpose-chars` | dired | `C-t .`、`C-t C-t`、`C-t a` 等 12 个 |
 
 ### 次模式盖住主模式的键位
@@ -1708,125 +1709,61 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 | `C-x n e` | `org-narrow-to-element` | 只显示当前元素 |
 | `C-x n s` | `org-narrow-to-subtree` | 只显示当前子树 |
 
-## Markdown
+## Markdown（Emacs 31 Tree-sitter）
 
 | 快捷键 | 命令 | 说明 |
 | --- | --- | --- |
-| `<backtab>` | `markdown-shifttab` | 按情境处理 Shift-Tab（全局折叠） |
-| `C-M-{` | `markdown-backward-block` | 跳到当前块的开头 |
-| `C-M-}` | `markdown-forward-block` | 跳到当前块的末尾 |
-| `DEL` | `markdown-outdent-or-delete` | 退格时按缩进级别回退 |
-| `M-n` | `markdown-next-link` | 跳到下一个链接 |
-| `M-p` | `markdown-previous-link` | 跳到上一个链接 |
-| `M-RET` | `markdown-insert-list-item` | 插入新的列表项 |
-| `RET` | `markdown-enter-key` | 按情境处理回车（自动续列表等） |
-| `TAB` | `markdown-cycle` | 循环折叠或展开标题 |
-| `C-c '` | `markdown-edit-code-block` | 在独立缓冲区中编辑代码块 |
-| `C-c -` | `markdown-insert-hr` | 插入水平分割线 |
-| `C-c <` | `markdown-outdent-region` | 反缩进区域 |
-| `C-c <down>` | `markdown-move-down` | 把光标处的元素下移 |
-| `C-c <left>` | `markdown-promote` | 升级或左移光标处的元素 |
-| `C-c <right>` | `markdown-demote` | 降级或右移光标处的元素 |
-| `C-c <up>` | `markdown-move-up` | 把光标处的元素上移 |
-| `C-c >` | `markdown-indent-region` | 按情境缩进区域 |
-| `C-c C--` | `markdown-promote` | 升级或左移光标处的元素 |
-| `C-c C-=` | `markdown-demote` | 降级或右移光标处的元素 |
-| `C-c C-]` | `markdown-complete` | 补全光标处或区域的标记语法 |
-| `C-c C-b` | `markdown-outline-previous-same-level` | 跳到上一个同级标题或列表项 |
-| `C-c C-d` | `markdown-do` | 按当前情境做合适的事 |
-| `C-c C-e` | `preview-at-point` | 预览光标处的公式或图片 |
-| `C-c C-f` | `markdown-outline-next-same-level` | 跳到下一个同级标题或列表项 |
-| `C-c C-j` | `markdown-insert-list-item` | 插入新的列表项 |
-| `C-c C-k` | `markdown-kill-thing-at-point` | 剪切光标处对象，去掉标记后进剪切环 |
-| `C-c C-l` | `markdown-insert-link` | 插入或修改链接 |
-| `C-c C-M-h` | `markdown-mark-subtree` | 选中当前标题下的整棵子树 |
-| `C-c C-n` | `markdown-outline-next` | 跳到下一个列表项或标题 |
-| `C-c C-o` | `markdown-follow-thing-at-point` | 跟随光标处的链接 |
-| `C-c C-p` | `markdown-outline-previous` | 跳到上一个列表项或标题 |
-| `C-c C-u` | `markdown-outline-up` | 跳到上一级标题 |
-| `C-c C-v` | `my-markdown-preview-mode` | 以渲染效果查看 Markdown |
-| `C-c M-h` | `markdown-mark-block` | 选中当前块 |
-| `C-c S-<down>` | `markdown-table-insert-row` | 插入表格行 |
-| `C-c S-<left>` | `markdown-table-delete-column` | 删除表格当前列 |
-| `C-c S-<right>` | `markdown-table-insert-column` | 插入表格列 |
-| `C-c S-<up>` | `markdown-table-delete-row` | 删除表格当前行 |
-| `C-c TAB` | `markdown-insert-image` | 插入或修改图片 |
-| `C-c C-a f` | `markdown-insert-footnote` | 插入脚注并跳到脚注定义处 |
-| `C-c C-a L` | `markdown-insert-link` | 插入或修改链接 |
-| `C-c C-a l` | `markdown-insert-link` | 插入或修改链接 |
-| `C-c C-a r` | `markdown-insert-link` | 插入或修改链接 |
-| `C-c C-a u` | `markdown-insert-uri` | 插入行内网址 |
-| `C-c C-a w` | `markdown-insert-wiki-link` | 插入 [[WikiLink]] 形式的链接 |
-| `C-c C-c ]` | `markdown-complete-buffer` | 补全全文的标记语法 |
-| `C-c C-c ^` | `markdown-table-sort-lines` | 按当前列排序表格 |
-| `C-c C-c c` | `markdown-check-refs` | 列出所有未定义的引用 |
-| `C-c C-c e` | `markdown-export` | 导出为 HTML 文件 |
-| `C-c C-c l` | `markdown-live-preview-mode` | 开关保存时自动预览 |
-| `C-c C-c m` | `markdown-other-window` | 渲染当前缓冲区并在另一窗口显示 |
-| `C-c C-c n` | `markdown-cleanup-list-numbers` | 重排有序列表的编号 |
-| `C-c C-c o` | `markdown-open` | 用外部程序打开当前文件 |
-| `C-c C-c p` | `markdown-preview` | 渲染并在浏览器中预览 |
-| `C-c C-c t` | `markdown-table-transpose` | 转置表格的行列 |
-| `C-c C-c u` | `markdown-unused-refs` | 列出所有没用到的引用定义 |
-| `C-c C-c v` | `markdown-export-and-preview` | 导出 HTML 并在浏览器中打开 |
-| `C-c C-c w` | `markdown-kill-ring-save` | 把渲染结果复制到剪切环 |
-| `C-c C-c |` | `markdown-table-convert-region` | 把区域按分隔符转成表格 |
-| `C-c C-s !` | `markdown-insert-header-setext-1` | 插入下划线式一级标题 |
-| `C-c C-s -` | `markdown-insert-hr` | 插入水平分割线 |
-| `C-c C-s 1` | `markdown-insert-header-atx-1` | 插入一级标题 |
-| `C-c C-s 2` | `markdown-insert-header-atx-2` | 插入二级标题 |
-| `C-c C-s 3` | `markdown-insert-header-atx-3` | 插入三级标题 |
-| `C-c C-s 4` | `markdown-insert-header-atx-4` | 插入四级标题 |
-| `C-c C-s 5` | `markdown-insert-header-atx-5` | 插入五级标题 |
-| `C-c C-s 6` | `markdown-insert-header-atx-6` | 插入六级标题 |
-| `C-c C-s @` | `markdown-insert-header-setext-2` | 插入下划线式二级标题 |
-| `C-c C-s [` | `markdown-insert-gfm-checkbox` | 插入任务列表复选框 |
-| `C-c C-s b` | `markdown-insert-bold` | 插入粗体标记 |
-| `C-c C-s C` | `markdown-insert-gfm-code-block` | 插入带语言标注的代码块 |
-| `C-c C-s c` | `markdown-insert-code` | 插入行内代码标记 |
-| `C-c C-s e` | `markdown-insert-italic` | 插入斜体标记 |
-| `C-c C-s F` | `markdown-insert-foldable-block` | 插入可折叠的 details 块 |
-| `C-c C-s f` | `markdown-insert-footnote` | 插入脚注并跳到脚注定义处 |
-| `C-c C-s H` | `markdown-insert-header-setext-dwim` | 按情境插入下划线式标题 |
-| `C-c C-s h` | `markdown-insert-header-dwim` | 按情境插入或替换标题标记 |
-| `C-c C-s i` | `markdown-insert-italic` | 插入斜体标记 |
-| `C-c C-s k` | `markdown-insert-kbd` | 用 <kbd> 标签包裹 |
-| `C-c C-s l` | `markdown-insert-link` | 插入或修改链接 |
-| `C-c C-s P` | `markdown-pre-region` | 把区域变成预格式化文本 |
-| `C-c C-s p` | `markdown-insert-pre` | 插入预格式化块 |
-| `C-c C-s Q` | `markdown-blockquote-region` | 把区域变成引用块 |
-| `C-c C-s q` | `markdown-insert-blockquote` | 插入引用块 |
-| `C-c C-s s` | `markdown-insert-strike-through` | 插入删除线标记 |
-| `C-c C-s t` | `markdown-insert-table` | 插入空表格 |
-| `C-c C-s w` | `markdown-insert-wiki-link` | 插入 [[WikiLink]] 形式的链接 |
-| `C-c C-t !` | `markdown-insert-header-setext-1` | 插入下划线式一级标题 |
-| `C-c C-t 1` | `markdown-insert-header-atx-1` | 插入一级标题 |
-| `C-c C-t 2` | `markdown-insert-header-atx-2` | 插入二级标题 |
-| `C-c C-t 3` | `markdown-insert-header-atx-3` | 插入三级标题 |
-| `C-c C-t 4` | `markdown-insert-header-atx-4` | 插入四级标题 |
-| `C-c C-t 5` | `markdown-insert-header-atx-5` | 插入五级标题 |
-| `C-c C-t 6` | `markdown-insert-header-atx-6` | 插入六级标题 |
-| `C-c C-t @` | `markdown-insert-header-setext-2` | 插入下划线式二级标题 |
-| `C-c C-t H` | `markdown-insert-header-setext-dwim` | 按情境插入下划线式标题 |
-| `C-c C-t h` | `markdown-insert-header-dwim` | 按情境插入或替换标题标记 |
-| `C-c C-t s` | `markdown-insert-header-setext-2` | 插入下划线式二级标题 |
-| `C-c C-t t` | `markdown-insert-header-setext-1` | 插入下划线式一级标题 |
-| `C-c C-x a` | `markdown-table-align` | 对齐光标处的表格 |
-| `C-c C-x C-e` | `markdown-toggle-math` | 开关 LaTeX 数学公式支持 |
-| `C-c C-x C-f` | `markdown-toggle-fontify-code-blocks-natively` | 开关代码块的语法高亮 |
-| `C-c C-x C-l` | `markdown-toggle-url-hiding` | 开关网址的隐藏 |
-| `C-c C-x C-x` | `markdown-toggle-gfm-checkbox` | 勾选或取消任务列表复选框 |
-| `C-c C-x d` | `markdown-move-down` | 把光标处的元素下移 |
-| `C-c C-x l` | `markdown-promote` | 升级或左移光标处的元素 |
-| `C-c C-x m` | `markdown-insert-list-item` | 插入新的列表项 |
-| `C-c C-x r` | `markdown-demote` | 降级或右移光标处的元素 |
-| `C-c C-x RET` | `markdown-toggle-markup-hiding` | 开关标记符号的隐藏 |
-| `C-c C-x t` | `markdown-toc-generate-or-refresh-toc` | 生成或刷新目录 |
-| `C-c C-x TAB` | `markdown-toggle-inline-images` | 开关行内图片显示 |
-| `C-c C-x u` | `markdown-move-up` | 把光标处的元素上移 |
-| `C-x n b` | `markdown-narrow-to-block` | 只显示当前块 |
-| `C-x n s` | `markdown-narrow-to-subtree` | 只显示当前子树 |
+| `TAB` | `markdown-ts-outline-cycle` | 折叠或展开光标处标题 |
+| `M-RET` | `markdown-ts-insert-list-item` | 插入下一个列表项 |
+| `RET` | `markdown-ts-newline` | 延续列表或引用上下文后换行 |
+| `M-<left>` | `markdown-ts-promote` | 提升当前标题或列表项 |
+| `M-<right>` | `markdown-ts-demote` | 降低当前标题或列表项 |
+| `M-<up>` | `markdown-ts-move-subtree-up` | 上移当前标题子树或列表项 |
+| `M-<down>` | `markdown-ts-move-subtree-down` | 下移当前标题子树或列表项 |
+| `C-c C-b` | `outline-backward-same-level` | 跳到上一个同级标题 |
+| `C-c C-f` | `outline-forward-same-level` | 跳到下一个同级标题 |
+| `C-c C-n` | `outline-next-heading` | 跳到下一个标题 |
+| `C-c C-p` | `outline-previous-heading` | 跳到上一个标题 |
+| `C-c C-u` | `outline-up-heading` | 跳到上一级标题 |
+| `C-c C-c` | `markdown-ts-toggle-checkbox` | 切换任务列表勾选框 |
+| `C-c C-r` | `markdown-ts-renumber-list` | 重排当前有序列表编号 |
+| `C-c C-,` | `markdown-ts-insert-structure` | 插入代码块、引用、分隔线或表格 |
+| `C-c C-v n` | `markdown-ts-move-to-next-code-block` | 跳到下一个代码块 |
+| `C-c C-v p` | `markdown-ts-move-to-previous-code-block` | 跳到上一个代码块 |
+| `C-c C-x C-f` | `markdown-ts-emphasize` | 插入或修改强调、删除线、行内代码 |
+| `C-c C-x RET` | `markdown-ts-toggle-hide-markup` | 开关 Markdown 标记隐藏 |
+| `C-c C-x C-v` | `markdown-ts-toggle-inline-images` | 开关内联图片 |
 
+启用 `markdown-ts-appear-mode` 后，标记会在阅读时隐藏，只在光标所在的最小
+语法元素上展开；数学公式由 MathJax 异步渲染，无需额外的预览模式快捷键。
+
+### Markdown 代码块上下文
+
+| 快捷键 | 命令 | 说明 |
+| --- | --- | --- |
+| `TAB` | `indent-for-tab-command` | 使用代码块语言的规则缩进 |
+| `RET` / `C-j` / `M-RET` | `markdown-ts--code-block-newline` | 在代码块语言上下文中换行 |
+| `M-q` | `markdown-ts--code-block-fill-paragraph` | 使用代码块语言的规则整理段落 |
+| `M-.` | `markdown-ts--code-block-xref-find-definitions` | 在代码块语言上下文中跳转定义 |
+
+### Markdown 表格上下文
+
+| 快捷键 | 命令 | 说明 |
+| --- | --- | --- |
+| `TAB` | `markdown-ts-table-next-cell` | 移到下一个单元格 |
+| `S-TAB` | `markdown-ts-table-previous-cell` | 移到上一个单元格 |
+| `RET` | `markdown-ts-table-next-row` | 移到下一行 |
+| `S-RET` | `markdown-ts-table-previous-row` | 移到上一行 |
+| `M-RET` | `markdown-ts-table-insert-row-below` | 在下方插入一行 |
+| `M-<left>` / `M-<right>` | `markdown-ts-table-move-column-left/right` | 左移或右移当前列 |
+| `M-<up>` / `M-<down>` | `markdown-ts-table-move-row-up/down` | 上移或下移当前行 |
+| `M-S-<left>` | `markdown-ts-table-delete-column` | 删除当前列 |
+| `M-S-<right>` | `markdown-ts-table-insert-column-left` | 在左侧插入一列 |
+| `M-S-<up>` | `markdown-ts-table-insert-row-above` | 在上方插入一行 |
+| `M-S-<down>` | `markdown-ts-table-delete-row` | 删除当前行 |
+| `C-c C-c` | `markdown-ts-table-align-table` | 对齐整张表 |
+| `C-c C-t a` | `markdown-ts-table-align-column` | 调整当前列对齐 |
+| `C-c C-t t` | `markdown-ts-table-transpose-table` | 转置表格 |
 ## LaTeX（AUCTeX）
 
 | 快捷键 | 命令 | 说明 |
@@ -2846,4 +2783,3 @@ LaTeX 模式继承这一层，上一节列出的是 LaTeX 特有的部分。
 - **vterm**：它的键位表要等本机动态模块编译完成才存在，导出时跳过了。vterm 缓冲区里绝大多数按键会直接转发给终端里的程序。
 - **Magit 的 transient 菜单**：`C-c C-c`、`C-x g` 之后弹出的那些菜单，键位是运行时生成的，不在 keymap 里。菜单自己会把可用按键都显示出来。
 - **which-key 提示**：按下前缀键停顿一下会列出后续按键，这是查阅本表之外最快的办法。
-

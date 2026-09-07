@@ -1,5 +1,7 @@
 ;;; init-latex.el --- LaTeX writing environment -*- lexical-binding: t; -*-
 
+(defvar LaTeX-mode-map)
+
 ;; Pick whichever spell checker the machine has: the Linux box uses hunspell
 ;; (Fedora's hunspell-en exposes regional dictionaries such as en_US, not the
 ;; generic `en' name some locales infer), this Mac has aspell.  Naming a
@@ -32,8 +34,7 @@ leave the mode it supports unavailable, not signal on every file visit."
   (TeX-save-query nil)
   ;; A new run supersedes the one still going, so asking whether to abort it
   ;; has only one answer -- the same reasoning as `compilation-always-kill' in
-  ;; `init-development'.  Without this, re-entering `my-markdown-preview-mode'
-  ;; before the previous formula render finished stops to ask.
+  ;; `init-development'.
   (TeX-kill-process-without-query t)
   (TeX-command-default "LaTeXMk")
   (TeX-source-correlate-mode t)
@@ -63,7 +64,7 @@ leave the mode it supports unavailable, not signal on every file visit."
   :if (package-installed-p 'writegood-mode)
   :defer t
   :hook ((LaTeX-mode . writegood-mode) (org-mode . writegood-mode)
-         (markdown-mode . writegood-mode)))
+         (markdown-ts-mode . writegood-mode)))
 
 (provide 'init-latex)
 

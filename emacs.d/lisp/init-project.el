@@ -96,8 +96,8 @@ point of zoxide, and Vertico would otherwise re-sort the candidates."
   (interactive)
   (dired (init-project-zoxide-read-directory "Zoxide dired: ")))
 
-(global-set-key (kbd "C-c z") #'my-zoxide-find-file)
-(global-set-key (kbd "C-c Z") #'my-zoxide-dired)
+(keymap-global-set "C-c z" #'my-zoxide-find-file)
+(keymap-global-set "C-c Z" #'my-zoxide-dired)
 
 ;; Hand the current file to the desktop's own file manager.  Both back ends
 ;; take the *file* and select it in its parent directory rather than opening

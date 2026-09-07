@@ -1,5 +1,9 @@
 ;;; early-init.el --- Early initialization -*- lexical-binding: t; -*-
 
+(when (version< emacs-version "31.1")
+  (error "This configuration requires Emacs 31.1 or newer (running %s)"
+         emacs-version))
+
 (setq package-enable-at-startup nil
       gc-cons-threshold most-positive-fixnum
       gc-cons-percentage 0.6

@@ -1,5 +1,9 @@
 ;;; init-python.el --- Python development -*- lexical-binding: t; -*-
 
+(defgroup init-python nil
+  "Python development configuration."
+  :group 'languages)
+
 (use-package python
   :ensure nil
   :mode ("\\.py\\'" . python-mode)
@@ -29,8 +33,10 @@
 (use-package reformatter
   :if (package-installed-p 'reformatter)
   :config
-  (reformatter-define ruff-format :program "ruff" :args '("format" "-"))
-  (reformatter-define black-format :program "black" :args '("-")))
+  (reformatter-define ruff-format
+    :program "ruff" :args '("format" "-") :group 'init-python)
+  (reformatter-define black-format
+    :program "black" :args '("-") :group 'init-python))
 (use-package csv-mode
   :if (package-installed-p 'csv-mode)
   :mode "\\.csv\\'")

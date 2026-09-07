@@ -49,7 +49,7 @@ turn it back on there, so the result sticks."
       mouse-wheel-progressive-speed nil)
 
 (use-package which-key
-  :if (package-installed-p 'which-key)
+  :ensure nil
   :demand t
   :config
   (which-key-mode 1)

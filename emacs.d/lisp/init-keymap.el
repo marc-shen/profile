@@ -1,5 +1,9 @@
 ;;; init-keymap.el --- Global key bindings -*- lexical-binding: t; -*-
 
+(defgroup my-keymap nil
+  "Personal global and overriding key bindings."
+  :group 'convenience)
+
 ;; Splitting and closing windows are left at their built-in bindings -- `C-x
 ;; 2/3' and `C-x 0/1' -- rather than aliased to `C-c w v/s/d/o' as they once
 ;; were.  Moving between windows keeps two: `C-x o' cycles, and the shift-arrow
@@ -16,13 +20,13 @@
 ;; same commands for exactly this case, so nothing becomes unreachable.
 (windmove-default-keybindings)
 
-(global-set-key (kbd "<escape>") #'keyboard-escape-quit)
-(global-set-key (kbd "C-c r") #'revert-buffer)
-(global-set-key (kbd "C-c c") #'compile)
-(global-set-key (kbd "C-c C-c") #'recompile)
+(keymap-global-set "<escape>" #'keyboard-escape-quit)
+(keymap-global-set "C-c r" #'revert-buffer)
+(keymap-global-set "C-c c" #'compile)
+(keymap-global-set "C-c C-c" #'recompile)
 
 ;; Bindings that have to work in every buffer, whatever the major mode did with
-;; the key.  `global-set-key' is the weakest map there is: a major mode map, any
+;; the key.  The global map is the weakest map there is: a major mode map, any
 ;; minor mode map and Helix's modal maps all shadow it, and a terminal mode such
 ;; as vterm swallows the key entirely.  `emulation-mode-map-alists' is consulted
 ;; before all of those, so a map parked there is the only way to make a key
@@ -35,6 +39,7 @@
   "Global minor mode holding the bindings in `my-override-map'."
   :init-value t
   :global t
+  :group 'my-keymap
   :keymap my-override-map)
 
 (defvar my-override-map-alist
@@ -51,18 +56,16 @@
 
 ;; `C-x K' -- the shifted sibling of `C-x k' -- clears out the file buffers in
 ;; one go and leaves the `*'-named system buffers alone.
-(global-set-key (kbd "C-x K") #'my-kill-all-user-buffers)
+(keymap-global-set "C-x K" #'my-kill-all-user-buffers)
 
 ;; Reserve a conventional prefix for Git commands such as `C-c g b'.
 (define-prefix-command 'init-keymap-git-prefix)
-(global-set-key (kbd "C-c g") #'init-keymap-git-prefix)
+(keymap-global-set "C-c g" #'init-keymap-git-prefix)
 
 ;; Replace the default transient-input-method binding.
-(global-set-key (kbd "C-x |")
-                #'my-rotate-windows-clockwise)
+(keymap-global-set "C-x |" #'my-rotate-windows-clockwise)
 
-(global-set-key (kbd "C-x \\")
-                #'my-rotate-windows-counterclockwise)
+(keymap-global-set "C-x \\" #'my-rotate-windows-counterclockwise)
 
 (keymap-set tab-prefix-map "<tab>" #'tab-next)
 (keymap-set tab-prefix-map "<backtab>" #'tab-previous)

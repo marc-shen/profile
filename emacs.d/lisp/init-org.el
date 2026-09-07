@@ -1,5 +1,7 @@
 ;;; init-org.el --- Org mode configuration -*- lexical-binding: t; -*-
 
+(defvar org-capture-templates)
+
 (use-package org
   :ensure nil
   :hook ((org-mode . visual-line-mode) (org-mode . variable-pitch-mode))

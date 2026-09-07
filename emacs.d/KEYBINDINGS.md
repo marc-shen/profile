@@ -359,12 +359,13 @@ Capture 模板中可选择任务、研究笔记和会议笔记。
 
 ## Markdown
 
-`.md`、`.markdown`、`.mdx` 等扩展名自动进入 `markdown-mode`；
-`README.md`、`CONTRIBUTING.md`、`CHANGELOG.md` 进入 GitHub 方言
-`gfm-mode`。其余文件可用 `M-x gfm-mode` 手动切换。两者的键位相同。
+Emacs 31 用内置 `markdown-ts-mode` 打开 `.md`、`.markdown`、`.mdx` 等文件。
+它同时支持 CommonMark 和常用 GFM 扩展，不再区分 `markdown-mode` 与
+`gfm-mode`。首次安装时，`M-x my-install-packages` 会同时安装 `markdown`、
+`markdown-inline` 两套 Tree-sitter grammar，以及 `markdown-ts-appear`。
 
-打开文件时自动生效：软换行（在第 88 列处折行，而不是在窗口边缘）、
-拼写检查（本机装了 aspell 或 hunspell 时）、行文检查，以及显示本地图片。
+打开文件时自动生效：按语法树着色、软换行（第 88 列）、拼写与行文检查、
+本地图片显示，以及 `markdown-ts-appear` 的“阅读时渲染、光标处显示源码”。
 
 折行只改变显示，不会往文件里插入换行符，所以 diff 不受影响。宽度取自
 `fill-column`（默认 88），用 `C-x f` 可为当前缓冲区改成别的值，立即生效。
@@ -374,137 +375,63 @@ Capture 模板中可选择任务、研究笔记和会议笔记。
 
 | 快捷键 | 功能 | 来源 |
 | --- | --- | --- |
-| `TAB` | 折叠或展开光标处标题（在标题行上按） | markdown-mode |
-| `S-TAB` | 循环整个文档的折叠状态 | markdown-mode |
-| `C-x n s` | 只显示当前标题及其内容 | markdown-mode |
-| `C-x n w` | 取消上面的收窄 | Emacs |
+| `TAB` | 折叠或展开光标处标题（在标题行上按） | markdown-ts-mode |
 | `M-g i` | 按标题跳转，标题层级以 `/` 分隔 | Consult/Imenu |
-| `C-c C-n` / `C-c C-p` | 跳到下一个/上一个标题 | markdown-mode |
-| `C-c C-f` / `C-c C-b` | 跳到同级的下一个/上一个标题 | markdown-mode |
-| `C-c C-u` | 跳到上一级标题 | markdown-mode |
-| `C-c C-o` | 打开光标处的链接，或跳到目录指向的标题 | markdown-mode |
-
-### 目录
-
-| 快捷键 | 功能 | 来源 |
-| --- | --- | --- |
-| `C-c C-x t` | 在光标处生成目录；再按一次按当前标题刷新 | 自定义配置/markdown-toc |
-
-目录写在自己的 HTML 注释标记之间，因此标题改动后重新按一次即可更新，
-不会破坏正文。只是想跳转、不想在文件里留目录时用 `M-g i`。
+| `C-c C-n` / `C-c C-p` | 跳到下一个/上一个标题 | markdown-ts-mode |
+| `C-c C-f` / `C-c C-b` | 跳到同级的下一个/上一个标题 | markdown-ts-mode |
+| `C-c C-u` | 跳到上一级标题 | markdown-ts-mode |
+| `M-<up>` / `M-<down>` | 上移/下移当前标题子树或列表项 | markdown-ts-mode |
+| `M-<left>` / `M-<right>` | 提升/降低当前标题或列表项 | markdown-ts-mode |
 
 ### 结构与编辑
 
 | 快捷键 | 功能 | 来源 |
 | --- | --- | --- |
-| `C-c C-t h` | 按上下文插入合适层级的标题 | markdown-mode |
-| `C-c C-t 1` … `C-c C-t 6` | 插入指定层级的标题 | markdown-mode |
-| `C-c <left>` / `C-c <right>` | 提升/降低当前标题连同其子树 | markdown-mode |
-| `RET` | 列表内自动续下一项 | markdown-mode |
-| `C-c C-x m` | 插入列表项 | markdown-mode |
-| `C-c C-x C-x` | 切换任务列表勾选框 | markdown-mode |
-| `C-c C-s b` / `C-c C-s e` | 加粗/斜体 | markdown-mode |
-| `C-c C-s c` | 行内代码 | markdown-mode |
-| `C-c C-s s` | 删除线 | markdown-mode |
-| `C-c C-l` | 插入链接 | markdown-mode |
-| `C-c C-i` | 插入图片 | markdown-mode |
-| `C-c C-s t` | 插入表格 | markdown-mode |
-| `C-c C-x a` | 对齐当前表格 | 自定义配置/markdown-mode |
+| `RET` | 延续列表或引用上下文；空列表项再次回车退出 | markdown-ts-mode |
+| `M-RET` | 插入下一个列表项 | markdown-ts-mode |
+| `C-c C-c` | 切换当前任务列表勾选框 | markdown-ts-mode |
+| `C-c C-r` | 重新编号当前有序列表 | markdown-ts-mode |
+| `C-c C-x C-f` | 选择粗体、斜体、删除线或行内代码 | markdown-ts-mode |
+| `C-c C-,` | 选择插入代码块、引用、分隔线或表格 | markdown-ts-mode |
 
 ### 代码块
 
 | 快捷键 | 功能 | 来源 |
 | --- | --- | --- |
-| `C-c C-s C` | 插入带语言标记的围栏代码块 | markdown-mode |
-| `C-c C-x C-f` | 开关围栏代码的语言着色 | markdown-mode |
-| `C-c '` | 在独立缓冲区中以该语言的模式编辑当前代码块 | markdown-mode/edit-indirect |
+| `C-c C-v n` / `C-c C-v p` | 跳到下一个/上一个代码块 | markdown-ts-mode |
+| `TAB` | 在代码块语言的模式中缩进 | markdown-ts-mode |
+| `M-q` | 按代码块语言的规则整理当前段落 | markdown-ts-mode |
+| `M-.` | 在代码块语言上下文中跳转定义 | markdown-ts-mode |
 
 围栏内的代码按语言着色。装了对应的 tree-sitter 语法后自动改用
-`*-ts-mode`，无需改配置。`C-c '` 打开的缓冲区是真正的语言模式，
-补全、缩进和诊断都可用，`C-c C-c` 写回原文件。
+`*-ts-mode`，无需离开 Markdown 缓冲区；缩进、填充和跳转会直接使用该语言
+模式的上下文。
 
-### 编辑模式与预览模式
+### 即时渲染与公式
 
-Markdown 缓冲区默认是**编辑模式**：公式、`**`、链接地址都以源码显示并着色，
-所见即文件内容。
+`markdown-ts-appear` 默认隐藏 `**`、链接地址、围栏等标记，并把标题、引用、
+callout、代码标签和表格显示成阅读形态。光标进入最小语法元素时只展开该元素
+的真实源码，移开后立即恢复渲染，因此不再需要手动切换编辑/预览模式。
 
-| 快捷键 | 功能 | 来源 |
-| --- | --- | --- |
-| `C-c C-v` | 在编辑模式与预览模式之间切换（v = view） | 自定义配置 |
-| `C-c C-e` | 光标处公式：图片与源码来回切换（e = equation） | preview.el |
-
-`C-c C-e` 是写公式时最常用的一个键：在渲染好的公式上按它变回源码以便修改，
-改完再按一次就地重新渲染那一个 —— 不必整个模式来回切。缓冲区里还没渲染过
-任何公式时，第一次按它会把全篇公式一次渲染出来。
-
-切到**预览模式**后（状态栏出现 ` Preview`）：
-
-- 公式渲染成图片
-- `**`、`_` 等只起标记作用的字符隐藏，只留下加粗、斜体的效果
-- 链接只显示文字，不显示地址
-
-再按一次 `C-c C-v` 回到编辑模式，图片撤掉、标记恢复。内联图片不受模式
-影响 —— 图片是内容而不是标记，两种模式下都显示。
-
-**公式渲染需要图形界面的 Emacs。** 渲染的本质是把图片贴在公式位置上，
-终端里的 Emacs（`emacs -nw`）无法显示任何图片，此时预览模式只隐藏标记，
-公式仍是源码。用 `M-: (display-images-p)` 可以确认，结果应为 `t`。
-
-### 公式：少用的命令
-
-日常只需要上面两个键。剩下的放在三键的组里，用 which-key 就能看到：
-
-| 快捷键 | 功能 | 来源 |
-| --- | --- | --- |
-| `C-c C-x v C-d` | 渲染整个文件的公式（不改变模式） | texfrag |
-| `C-c C-x v C-l` | 公式编译报错时查看 LaTeX 日志 | texfrag |
-| `C-c C-x v C-p` | 同 `C-c C-e` | texfrag/preview.el |
-| `M-x texfrag-scale` | 调整渲染出来的公式大小 | texfrag |
-| `C-c C-x C-e` | 开关 `$...$` 的数学着色（不渲染） | markdown-mode |
-
-支持 `$...$`、`$$...$$`、`\(...\)`、`\[...\]` 以及
-`\begin{align}...\end{align}` 这类环境。句子里的 `$5`、`$10` 不算公式，
-不含公式的文件不会白跑一次 LaTeX。
-
-渲染由本机的 TeX Live 加 dvipng 完成，和写 LaTeX 论文用的是同一套工具，
-所以公式的字形与论文里一致。一份 200 行、66 个公式的笔记 LaTeX 约需 0.3 秒。
-中间文件写到 `~/.emacs.d/var/texfrag`，不会在仓库里留下 `texfrag/` 目录。
-
-导言区默认只有 `amsmath` 和 `amsfonts`。公式用到别的宏包时，把宏包加进
-`texfrag-header-default` 即可。没装 LaTeX 的机器上该功能自动关闭，
-其余 Markdown 功能不受影响。
-
-**注意一个 MathJax 与真 LaTeX 的差异**：不要把 `\begin{align}` 套在
-`$$...$$` 里面。`align` 本身就是行间公式，真 LaTeX 会报
-`\begin{align} allowed only in paragraph mode`，而且一处出错会导致该文件
-后面所有公式都渲染不出来。Obsidian、GitHub 用的 MathJax 会容错，所以这种
-写法很常见。同理，`\end{align}` 前面多余的 `\\` 加空白行会被当成分段，
-也会报错。`C-c C-x v C-l` 里能看到具体是哪一行。
+`$...$` 与 `$$...$$` 由 MathJax 和 Node 异步渲染成 SVG；光标进入公式时显示
+源码，移开后重新渲染。公式预览只在图形界面且支持 SVG 时启用，终端中其余
+Markdown 功能照常工作。
 
 ### 显示开关
 
 | 快捷键 | 功能 | 来源 |
 | --- | --- | --- |
-| `C-c C-x TAB` | 显示或隐藏内联图片 | markdown-mode |
-| `C-c C-x RET` | 隐藏或显示 `**`、`_` 等标记字符 | markdown-mode |
-| `C-c C-x C-l` | 隐藏或显示链接地址 | markdown-mode |
+| `C-c C-x C-v` | 显示或隐藏内联图片 | markdown-ts-mode |
+| `C-c C-x RET` | 隐藏或显示 Markdown 标记 | markdown-ts-mode |
 
-图片默认打开就显示，最宽 1024 像素，因此截图不会撑破窗口。只读取本地
-文件，不会因为打开文件而访问网络。
+图片默认打开就显示，宽度自动限制在当前窗口内；只读取本地文件，不会因为
+打开文档而访问远程图片。
 
-### 预览与导出
+### 表格上下文
 
-| 快捷键 | 功能 | 来源 |
-| --- | --- | --- |
-| `C-c C-c p` | 预览当前文件 | markdown-mode |
-| `C-c C-c l` | 编辑时实时预览 | markdown-mode |
-| `C-c C-c v` | 导出 HTML 并打开 | markdown-mode |
-| `C-c C-c w` | 把渲染结果复制到 kill ring | markdown-mode |
-
-预览需要一个转换程序，配置会自动选用本机的 pandoc、multimarkdown 或
-cmark。三个都没有时，只有以上四个命令报错提示缺少程序，其他功能不受影响；
-装上任意一个即可，无需改配置。预览结果由 `browse-url` 打开，因此会落在
-embr 浏览器里。
+进入表格后会自动启用一组上下文键：`TAB` / `S-TAB` 移动单元格，`RET` /
+`S-RET` 移动行，`M-方向键` 移动行列，`M-S-方向键` 插入或删除行列，
+`C-c C-c` 对齐整张表，`C-c C-t a` 调整当前列对齐，`C-c C-t t` 转置表格。
 
 ## Git 与 Magit
 

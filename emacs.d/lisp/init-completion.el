@@ -89,6 +89,8 @@
   ;; Corfu grabs C-n/C-p through `next-line'/`previous-line' remappings.  Undo
   ;; them so those keys always move point; the popup then closes on its own,
   ;; since neither command matches `corfu-continue-commands'.
+  ;; Remapping events use vector syntax, which `keymap-unset' deliberately
+  ;; rejects even on Emacs 31; `define-key' is the public API for these entries.
   (define-key corfu-map [remap next-line] nil)
   (define-key corfu-map [remap previous-line] nil))
 

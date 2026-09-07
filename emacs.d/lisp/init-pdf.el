@@ -1,11 +1,25 @@
 ;;; init-pdf.el --- PDF viewing environment -*- lexical-binding: t; -*-
 
-;; Byte-compiling this file warns that the commands bound in `:config' are not
-;; known to be defined.  Do not silence that with `eval-when-compile': this
-;; configuration is loaded as source, and `eval-when-compile' evaluates its
-;; body at load time in that case, so requiring pdf-tools there would both
-;; defeat `:defer' and break startup outright on a machine where epdfinfo has
-;; not been built yet.  The warnings are compile-time only and harmless.
+;; Keep PDF Tools deferred: loading it can offer to rebuild epdfinfo.  Function
+;; declarations make the byte compiler aware of the annotation commands
+;; without triggering that package-side effect while compiling this file.
+
+(declare-function pdf-annot-add-highlight-markup-annotation "pdf-annot")
+(declare-function pdf-annot-add-underline-markup-annotation "pdf-annot")
+(declare-function pdf-annot-add-text-annotation "pdf-annot")
+(declare-function pdf-view-next-line-or-next-page "pdf-view")
+(declare-function pdf-view-previous-line-or-previous-page "pdf-view")
+(declare-function pdf-view-next-page-command "pdf-view")
+(declare-function pdf-view-previous-page-command "pdf-view")
+(declare-function pdf-view-goto-page "pdf-view")
+(declare-function pdf-view-enlarge "pdf-view")
+(declare-function pdf-view-shrink "pdf-view")
+(declare-function pdf-view-scale-reset "pdf-view")
+(declare-function pdf-view-fit-width-to-window "pdf-view")
+(declare-function pdf-view-fit-page-to-window "pdf-view")
+(declare-function pdf-view-midnight-minor-mode "pdf-view")
+(declare-function image-backward-hscroll "image-mode")
+(declare-function image-forward-hscroll "image-mode")
 
 (use-package pdf-tools
   :if (package-installed-p 'pdf-tools)
