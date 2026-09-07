@@ -18,6 +18,7 @@
 (setq custom-file (expand-file-name "custom.el" user-emacs-directory))
 (load custom-file 'noerror 'nomessage)
 
+(require 'init-treesit)
 (require 'init-package)
 (require 'init-base)
 (require 'init-ui)

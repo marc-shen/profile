@@ -280,6 +280,15 @@ vterm、Helix 模态状态等自己占用 `C-c o` 的地方也一样生效。
 
 ## Eglot 与语言服务器
 
+`M-x my-install-packages` 会安装 Python、C、C++、Bash、JSON、YAML、
+Markdown 和 Markdown Inline 共八套 grammar。普通主模式会自动迁移为
+`python-ts-mode`、`c-ts-mode`、`c++-ts-mode`、`bash-ts-mode`、
+`json-ts-mode` 和 `yaml-ts-mode`；统一使用最高的 Tree-sitter 着色级别。
+grammar 尚未装好时会先使用传统模式，不影响 Fedora 新机首次打开文件。
+
+只想补装 grammar 时可运行 `M-x my-install-tree-sitter-grammars`。配置使用
+Emacs 31 内置且固定版本的 grammar 配方，不另行维护 URL 或 commit。
+
 以下键位只在 Eglot 正在管理当前缓冲区时生效。
 
 | 快捷键 | 功能 |
@@ -294,12 +303,33 @@ vterm、Helix 模态状态等自己占用 `C-c o` 的地方也一样生效。
 | `M-?` | 查找引用 |
 | `M-,` | 返回跳转前的位置 |
 
-配置会在相应服务器存在时自动启动：Python 使用
-`pyright-langserver`，C/C++ 使用 `clangd`，Fortran 使用 `fortls`。
+配置会在相应服务器存在时自动启动：Python 依次支持 BasedPyright、Pyright
+和 pylsp，C/C++ 支持 clangd 或 ccls，Bash、JSON、YAML 与 Fortran 分别支持
+`bash-language-server`、VS Code JSON Language Server、
+`yaml-language-server` 和 `fortls`。没有安装服务器时仍可使用相应主模式，
+不会产生启动错误。
+
+在新机器上可先运行 `M-x my-development-environment-report`，集中检查 Emacs
+版本、Tree-sitter runtime、八套 grammar、各语言服务器及 Fortran 编译器。
+
+### Fedora 准备
+
+配置没有写死 Homebrew 路径，macOS 和 Fedora 都从 `PATH` 找语言服务器；
+`~/.local/bin` 会由 Emacs 主动加入 `PATH`。Fedora 上先准备 grammar 编译器与
+Fortran 工具链：
+
+```sh
+sudo dnf install gcc gcc-c++ gcc-gfortran git
+uv tool install --upgrade fortls
+```
+
+然后启动 Emacs，运行 `M-x my-install-packages`。其他语言服务器仍是可选项，
+缺哪个只会让相应缓冲区不自动启动 Eglot。Fedora 应使用带 Tree-sitter 支持的
+Emacs 31 构建；诊断报告中的 `Tree-sitter runtime` 应显示 `OK`。
 
 ## Python
 
-以下键位只在 `python-mode` 中生效。
+以下键位默认在 `python-ts-mode` 中生效；手动进入传统 `python-mode` 时也相同。
 
 | 快捷键 | 功能 |
 | --- | --- |
@@ -317,10 +347,18 @@ C/C++ 和 Fortran 没有额外的语言专属自定义键位，主要使用 Eglo
 
 - C/C++ 语言服务器：`clangd`
 - Fortran 语言服务器：`fortls`
+- Fortran 自由格式：`.f90/.F90`、`.f95/.F95`、`.f03/.F03`、
+  `.f08/.F08`、`.f18/.F18`，使用内置 `f90-mode`
+- Fortran 固定格式：`.f/.F`、`.for/.FOR`、`.ftn/.FTN`、`.f77/.F77`，
+  使用内置 `fortran-mode`
 - 定义跳转：`M-.`
 - 查找引用：`M-?`
 - 重命名：`C-c s r`
 - 格式化：`C-c s f`
+
+Emacs 31.1 目前没有内置 `fortran-ts-mode`，因此 Fortran 有意保留上述两个
+内置传统模式；语义补全、诊断与跳转由 Emacs 31 自带的 Eglot 配合 `fortls`
+提供，而不是引入来源和维护状态不明确的第三方 TS 主模式。
 
 ## LaTeX 与 AUCTeX
 
@@ -543,7 +581,9 @@ uBlock Origin 之类的扩展——它们都要先在有界面的浏览器里启
 
 | 命令 | 功能 |
 | --- | --- |
-| `my-install-packages` | 安装当前配置声明但尚未安装的插件 |
+| `my-install-packages` | 安装插件及八套 Tree-sitter grammar |
+| `my-install-tree-sitter-grammars` | 只安装缺失的 Tree-sitter grammar |
+| `my-development-environment-report` | 检查 grammars、语言服务器和编译器 |
 | `my-browser-setup` | 用 uv 建立/更新 embr 的 Python 环境和浏览器 |
 | `eglot` | 手动为当前项目启动语言服务器 |
 | `eglot-reconnect` | 重新连接当前语言服务器 |

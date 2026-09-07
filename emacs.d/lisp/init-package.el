@@ -4,7 +4,6 @@
 (require 'package-vc)
 (require 'cl-lib)
 (require 'seq)
-(require 'treesit)
 
 (setq package-user-dir (expand-file-name "elpa" user-emacs-directory))
 (setq package-archives
@@ -26,7 +25,7 @@
 
 (defconst my-core-packages
   '(doom-themes vertico orderless marginalia consult corfu cape consult-eglot
-    yasnippet yasnippet-snippets magit diff-hl)
+    yasnippet yasnippet-snippets yaml-mode magit diff-hl)
   "Third-party packages required by the main configuration.")
 
 (defconst my-optional-packages
@@ -51,13 +50,8 @@
 This keeps packages that are unavailable from the configured archives, or
 whose repository contents are needed at runtime, on their upstream heads.")
 
-(defun init-package-markdown-parsers-installed-p ()
-  "Return non-nil when both parsers required by `markdown-ts-mode' exist."
-  (and (treesit-language-available-p 'markdown)
-       (treesit-language-available-p 'markdown-inline)))
-
 (defun my-install-packages ()
-  "Install all missing packages declared by this configuration.
+  "Install all missing packages and Tree-sitter grammars.
 
 The command performs network access only when called interactively.  Its final
 message reports counts maintained during this run instead of rescanning the
@@ -69,12 +63,12 @@ package database."
          (pending-vc (seq-filter (lambda (entry)
                                    (not (package-installed-p (car entry))))
                                  my-vc-packages))
-         (parsers-installed (init-package-markdown-parsers-installed-p))
-         (declared (1+ (+ (length my-config-packages)
-                          (length my-vc-packages))))
-         (success-count (+ (- (1- declared)
-                              (+ (length pending) (length pending-vc)))
-                           (if parsers-installed 1 0)))
+         (declared (+ (length my-config-packages)
+                      (length my-vc-packages)
+                      (length init-treesit-languages)))
+         (success-count (- (+ (length my-config-packages)
+                              (length my-vc-packages))
+                           (+ (length pending) (length pending-vc))))
          failed)
     (when pending
       (condition-case err
@@ -114,18 +108,11 @@ package database."
                   (error
                    (push (cons package (error-message-string err))
                          failed))))
-    (unless parsers-installed
-      (message "Installing Markdown Tree-sitter parsers...")
-      (redisplay)
-      (condition-case err
-          (progn
-            (require 'markdown-ts-mode)
-            (markdown-ts-mode-install-parsers nil)
-            (cl-incf success-count))
-        (error
-         (push (cons 'markdown-tree-sitter-parsers
-                     (error-message-string err))
-               failed))))
+    (setq failed
+          (nconc failed (init-treesit-install-missing-grammars)))
+    (cl-incf success-count
+             (seq-count #'init-treesit-grammar-installed-p
+                        init-treesit-languages))
     (if (null failed)
         (message "All configuration dependencies installed (%d success, 0 failed)."
                  success-count)

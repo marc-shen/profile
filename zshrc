@@ -61,6 +61,12 @@ elif [[ "$PLATFORM" == "linux" ]]; then
 fi
 
 ################# PATH 配置 #################
+# User-wide tools installed by uv/pipx and the repository's `em' launcher.
+# Keep this unconditional: `link.sh' creates the directory on a new machine,
+# and zsh's unique path array prevents duplicates on both macOS and Fedora.
+typeset -U path PATH
+path=("$HOME/.local/bin" $path)
+
 # WezTerm
 # macOS: brew install --cask wezterm
 # Linux: apt install wezterm

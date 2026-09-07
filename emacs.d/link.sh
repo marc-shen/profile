@@ -136,7 +136,7 @@ printf '\n%d linked, %d relinked, %d already correct' "$linked" "$relinked" "$un
 printf '\n'
 
 if [ "$linked" -gt 0 ] || [ "$relinked" -gt 0 ]; then
-  printf '\nStart Emacs, then run M-x my-install-packages to fetch the packages.\n'
+  printf '\nStart Emacs, then run M-x my-install-packages to fetch dependencies.\n'
 fi
 
 # A link nobody can reach is no better than no link at all.

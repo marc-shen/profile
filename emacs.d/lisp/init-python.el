@@ -6,10 +6,11 @@
 
 (use-package python
   :ensure nil
+  ;; `major-mode-remap-alist' promotes these to `python-ts-mode' when its
+  ;; grammar is present and leaves them usable as `python-mode' beforehand.
   :mode ("\\.py\\'" . python-mode)
-  :interpreter ("python3" . python-mode)
-  :hook ((python-mode . (lambda () (init-eglot-ensure-if-available "pyright-langserver")))
-         (python-ts-mode . (lambda () (init-eglot-ensure-if-available "pyright-langserver"))))
+  :interpreter (("python" . python-mode)
+                ("python3" . python-mode))
   :custom
   (python-indent-offset 4)
   (python-shell-interpreter "python")
@@ -17,10 +18,6 @@
               ("C-c C-c" . python-shell-send-buffer)
               ("C-c C-r" . python-shell-send-region)
               ("C-c C-z" . python-shell-switch-to-shell)))
-
-(with-eval-after-load 'eglot
-  (add-to-list 'eglot-server-programs
-               '((python-mode python-ts-mode) . ("pyright-langserver" "--stdio"))))
 
 ;; Pet resolves the project's virtualenv.  It has to run before `eglot-ensure',
 ;; otherwise Pyright indexes the global interpreter and cannot complete any

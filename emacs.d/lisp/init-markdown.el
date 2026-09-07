@@ -9,10 +9,19 @@
 
 (declare-function visual-fill-column-adjust "visual-fill-column")
 
+(defun init-markdown-mode ()
+  "Use `markdown-ts-mode', falling back to `text-mode' without its grammars."
+  (if (and (init-treesit-grammar-installed-p 'markdown)
+           (init-treesit-grammar-installed-p 'markdown-inline))
+      (markdown-ts-mode)
+    (text-mode)
+    (message "Markdown grammars are missing; run M-x my-install-tree-sitter-grammars")))
+
 (use-package markdown-ts-mode
   :ensure nil
   :defer t
-  :mode "\\.\\(?:md\\|markdown\\|mkd\\|mdown\\|mkdn\\|mdwn\\|mdx\\)\\'"
+  :mode ("\\.\\(?:md\\|markdown\\|mkd\\|mdown\\|mkdn\\|mdwn\\|mdx\\)\\'"
+         . init-markdown-mode)
   :hook ((markdown-ts-mode . visual-line-mode)
          (markdown-ts-mode . init-latex-flyspell-if-available))
   :custom

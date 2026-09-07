@@ -4,12 +4,12 @@
 ;; useful in any programming buffer.  Completion itself lives in
 ;; `init-completion', which is loaded first.
 
-;; Yasnippet must be loaded before Eglot connects: `eglot--snippet-expansion-fn'
-;; tests for `yas-minor-mode' to decide whether to advertise snippetSupport, and
-;; without it servers send plain labels instead of parameter placeholders.
+;; Emacs 31's Eglot recognizes the autoloaded `yas-minor-mode' and enables it
+;; before expanding a server snippet.  Mode hooks keep snippets available away
+;; from Eglot too, without loading Yasnippet during startup.
 (use-package yasnippet
-  :demand t
-  :config (yas-global-mode 1))
+  :hook ((prog-mode . yas-minor-mode)
+         (text-mode . yas-minor-mode)))
 (use-package yasnippet-snippets :after yasnippet)
 
 (use-package eglot
@@ -44,11 +44,76 @@
                                   (remq #'eglot-completion-at-point
                                         completion-at-point-functions)))))))
 
-;; Avoid startup errors when an optional language server is not installed.
-(defun init-eglot-ensure-if-available (program)
-  "Start Eglot only when PROGRAM is available on PATH."
-  (when (executable-find program)
+;; Start language servers only after the corresponding Tree-sitter major mode
+;; is active, and only when one of that language's supported servers exists.
+(defconst init-eglot-server-executables
+  '((python-mode "basedpyright-langserver" "pyright-langserver" "pylsp")
+    (python-ts-mode "basedpyright-langserver" "pyright-langserver" "pylsp")
+    (c-mode "clangd" "ccls")
+    (c-ts-mode "clangd" "ccls")
+    (c++-mode "clangd" "ccls")
+    (c++-ts-mode "clangd" "ccls")
+    (bash-ts-mode "bash-language-server")
+    (json-ts-mode "vscode-json-language-server"
+                  "vscode-json-languageserver" "json-languageserver")
+    (yaml-ts-mode "yaml-language-server")
+    (f90-mode "fortls")
+    (fortran-mode "fortls"))
+  "Language-server executables that permit automatic Eglot startup.")
+
+(defun init-eglot-ensure-if-available ()
+  "Start Eglot when the current major mode has an installed server."
+  (when (seq-some #'executable-find
+                  (alist-get major-mode init-eglot-server-executables))
     (eglot-ensure)))
+
+(dolist (mode '(python-mode python-ts-mode c-mode c-ts-mode c++-mode c++-ts-mode
+                bash-ts-mode json-ts-mode yaml-ts-mode f90-mode fortran-mode))
+  (add-hook (intern (format "%s-hook" mode))
+            #'init-eglot-ensure-if-available))
+
+(defconst init-development-tool-groups
+  '(("Python LSP" "basedpyright-langserver" "pyright-langserver" "pylsp")
+    ("C/C++ LSP" "clangd" "ccls")
+    ("Bash LSP" "bash-language-server")
+    ("JSON LSP" "vscode-json-language-server"
+                "vscode-json-languageserver" "json-languageserver")
+    ("YAML LSP" "yaml-language-server")
+    ("Fortran LSP" "fortls")
+    ("Fortran compiler" "gfortran" "ifx" "ifort" "nagfor")
+    ("Tree-sitter C compiler" "cc" "gcc" "clang")
+    ("Tree-sitter C++ compiler" "c++" "g++" "clang++")
+    ("Grammar downloader" "git"))
+  "External development tools checked by `my-development-environment-report'.")
+
+(defun my-development-environment-report ()
+  "Show whether this machine has the configured grammars and developer tools.
+
+The report is read-only.  It is particularly useful after installing the
+configuration on a second machine such as Fedora."
+  (interactive)
+  (let ((buffer (get-buffer-create "*Development environment*")))
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (format "Emacs %s on %s\n\n" emacs-version system-type)
+                (format "Tree-sitter runtime: %s\n"
+                        (if (treesit-available-p) "OK" "MISSING"))
+                "\nGrammars:\n")
+        (dolist (language init-treesit-languages)
+          (insert (format "  %-16s %s\n" language
+                          (if (init-treesit-grammar-installed-p language)
+                              "OK" "MISSING"))))
+        (insert "\nExternal tools (one executable per row is enough):\n")
+        (pcase-dolist (`(,label . ,executables) init-development-tool-groups)
+          (let ((found (seq-find #'executable-find executables)))
+            (insert (format "  %-24s %s\n" label (or found "MISSING")))))
+        (insert "\nMissing language servers are optional; their buffers still work "
+                "without Eglot.\nRun M-x my-install-tree-sitter-grammars to "
+                "install missing grammars.\n")
+        (goto-char (point-min))
+        (special-mode)))
+    (pop-to-buffer buffer)))
 
 (use-package consult-eglot
   :after (consult eglot)
