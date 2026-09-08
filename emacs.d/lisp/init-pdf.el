@@ -20,6 +20,11 @@
 (declare-function pdf-view-midnight-minor-mode "pdf-view")
 (declare-function image-backward-hscroll "image-mode")
 (declare-function image-forward-hscroll "image-mode")
+(declare-function TeX-pdf-tools-sync-view "tex")
+(declare-function TeX-revert-document-buffer "tex")
+
+(defvar TeX-view-program-list)
+(defvar TeX-view-program-selection)
 
 (use-package pdf-tools
   :if (package-installed-p 'pdf-tools)

@@ -6,7 +6,9 @@
 ;; gfm-mode.  Its two pinned grammar recipes are declared by the library itself;
 ;; `my-install-packages' installs them along with the external packages.
 (require 'init-latex)
+(require 'init-treesit)
 
+(declare-function markdown-ts-mode "markdown-ts-mode")
 (declare-function visual-fill-column-adjust "visual-fill-column")
 
 (defun init-markdown-mode ()

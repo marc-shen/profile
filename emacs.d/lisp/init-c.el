@@ -1,5 +1,7 @@
 ;;; init-c.el --- C and C++ development -*- lexical-binding: t; -*-
 
+(defvar eglot-server-programs)
+
 (use-package cc-mode
   :ensure nil
   :custom (c-default-style "linux") (c-basic-offset 4))

@@ -1,5 +1,7 @@
 ;;; init-ui.el --- User interface -*- lexical-binding: t; -*-
 
+(defvar display-line-numbers-type)
+
 ;; Do not enumerate system fonts during startup; Emacs falls back gracefully.
 (set-face-attribute 'default nil :family "MesloLGS NF" :height 160)
 

@@ -1,5 +1,8 @@
 ;;; init-keymap.el --- Global key bindings -*- lexical-binding: t; -*-
 
+(require 'init-base)
+(require 'init-ui)
+
 (defgroup my-keymap nil
   "Personal global and overriding key bindings."
   :group 'convenience)
@@ -60,6 +63,7 @@
 
 ;; Reserve a conventional prefix for Git commands such as `C-c g b'.
 (define-prefix-command 'init-keymap-git-prefix)
+(declare-function init-keymap-git-prefix nil)
 (keymap-global-set "C-c g" #'init-keymap-git-prefix)
 
 ;; Replace the default transient-input-method binding.

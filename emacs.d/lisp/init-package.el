@@ -4,6 +4,7 @@
 (require 'package-vc)
 (require 'cl-lib)
 (require 'seq)
+(require 'init-treesit)
 
 (setq package-user-dir (expand-file-name "elpa" user-emacs-directory))
 (setq package-archives
@@ -53,7 +54,7 @@ whose repository contents are needed at runtime, on their upstream heads.")
 (defun my-install-packages ()
   "Install all missing packages and Tree-sitter grammars.
 
-The command performs network access only when called interactively.  Its final
+Network access occurs only while a package or grammar is missing.  Its final
 message reports counts maintained during this run instead of rescanning the
 package database."
   (interactive)
@@ -63,16 +64,17 @@ package database."
          (pending-vc (seq-filter (lambda (entry)
                                    (not (package-installed-p (car entry))))
                                  my-vc-packages))
-         (declared (+ (length my-config-packages)
-                      (length my-vc-packages)
-                      (length init-treesit-languages)))
          (success-count (- (+ (length my-config-packages)
                               (length my-vc-packages))
                            (+ (length pending) (length pending-vc))))
          failed)
     (when pending
       (condition-case err
-          (unless package-archive-contents
+          ;; A non-nil archive cache can still name a package tarball that the
+          ;; rolling archive has already replaced.  Refresh whenever something
+          ;; is actually missing; this command is interactive and installations
+          ;; are rare, so correctness matters more than saving this request.
+          (progn
             (message "Refreshing package archives...")
             (redisplay)
             (package-refresh-contents))

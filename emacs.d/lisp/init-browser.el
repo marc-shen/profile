@@ -8,6 +8,7 @@
 ;; startup.
 
 (declare-function embr-navigate "embr" (url))
+(declare-function embr-dispatch "embr")
 
 (defconst init-browser-python-version "3.12"
   "Python version uv provisions for embr.  embr itself requires 3.10+.")
@@ -178,6 +179,12 @@ on machines that were never going to have Xvfb."
   ;; Removing the entry rather than binding it to nil lets the global
   ;; definition through again.
   (keymap-unset embr-mode-map "C-l" t)
+  ;; Build the prefix explicitly as well as setting `embr-dispatch-key' above.
+  ;; This keeps the map valid when embr was preloaded before this file (for
+  ;; example by a byte-compilation session), in which case its map was built
+  ;; with the default one-key C-c dispatch.
+  (keymap-set embr-mode-map "C-c" (make-sparse-keymap))
+  (keymap-set embr-mode-map "C-c C-c" #'embr-dispatch)
   (keymap-set embr-mode-map "C-c C-l" #'embr-navigate))
 
 ;; Inside an embr buffer nearly every key is forwarded to the page, so global

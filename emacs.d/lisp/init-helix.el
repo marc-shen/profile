@@ -16,6 +16,9 @@
 
 (require 'seq)
 
+(declare-function helix-define-key "helix-core")
+(declare-function helix-insert-exit "helix-core")
+
 (defvar my-helix-exempt-modes
   '(special-mode                        ; magit, compilation, org-agenda, ...
     dired-mode

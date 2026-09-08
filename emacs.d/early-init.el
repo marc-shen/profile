@@ -10,10 +10,13 @@
       frame-inhibit-implied-resize t)
 
 ;; Use English for Emacs packages and every subprocess it starts (including
-;; Git), while leaving UTF-8 file handling configured in `init-base'.
+;; Git).  Do not set LC_ALL=C: it overrides the inherited UTF-8 locale and
+;; makes subprocesses report US-ASCII on macOS, breaking non-ASCII output and
+;; file names.  LC_MESSAGES controls message language without changing the
+;; character encoding selected by LANG/LC_CTYPE.
 (set-language-environment "English")
 (setenv "LANGUAGE" "en")
-(setenv "LC_ALL" "C")
+(setenv "LC_ALL" nil)
 (setenv "LC_MESSAGES" "C")
 
 ;; Route keyboard input through the GTK input-method context instead of Emacs's
@@ -34,7 +37,13 @@
 (setq file-name-handler-alist nil)
 (add-hook 'emacs-startup-hook
           (lambda ()
-            (setq file-name-handler-alist init-file-name-handler-alist)))
+            ;; A package loaded during init may have registered another
+            ;; handler.  Preserve it instead of replacing the live list with
+            ;; the startup snapshot.
+            (setq file-name-handler-alist
+                  (delete-dups
+                   (append file-name-handler-alist
+                           init-file-name-handler-alist)))))
 
 (dolist (mode '(menu-bar-mode tool-bar-mode scroll-bar-mode))
   (when (fboundp mode)

@@ -1,5 +1,13 @@
 ;;; init-base.el --- Basic editing behavior -*- lexical-binding: t; -*-
 
+(defvar auto-revert-verbose)
+(defvar global-auto-revert-non-file-buffers)
+(defvar recentf-auto-cleanup)
+(defvar recentf-max-saved-items)
+(defvar recentf-save-file)
+(defvar savehist-file)
+(defvar save-place-file)
+
 (setq inhibit-startup-screen t
       inhibit-startup-message t
       inhibit-startup-echo-area-message user-login-name

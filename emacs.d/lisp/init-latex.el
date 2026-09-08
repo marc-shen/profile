@@ -1,6 +1,8 @@
 ;;; init-latex.el --- LaTeX writing environment -*- lexical-binding: t; -*-
 
 (defvar LaTeX-mode-map)
+(defvar ispell-dictionary)
+(defvar ispell-program-name)
 
 ;; Pick whichever spell checker the machine has: the Linux box uses hunspell
 ;; (Fedora's hunspell-en exposes regional dictionaries such as en_US, not the

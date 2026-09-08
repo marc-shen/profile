@@ -1,5 +1,10 @@
 ;;; init-project.el --- Project management -*- lexical-binding: t; -*-
 
+(require 'init-keymap)
+
+(defvar orderless-smart-case)
+(defvar vertico-map)
+
 (use-package project
   :ensure nil
   :custom

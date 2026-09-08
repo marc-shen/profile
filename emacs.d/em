@@ -1,34 +1,33 @@
-#!/bin/sh
+#!/usr/bin/env bash
+
+set -euo pipefail
 
 if [ "$#" -eq 0 ]; then
     set -- "$PWD"
 fi
 
+# Resolve relative paths before emacsclient changes the selected frame's
+# context.  Keep arguments in an array: an eval-based reconstruction would
+# misparse quotes and allow shell syntax embedded in a file name to execute.
+arguments=()
 
-# absolute paths
-args=""
-
-for arg in "$@"; do
-    case "$arg" in
+for argument in "$@"; do
+    case "$argument" in
         -*|+[0-9]*)
-            args="$args \"$arg\""
+            arguments+=("$argument")
             ;;
         /*)
-            args="$args \"$arg\""
+            arguments+=("$argument")
             ;;
         *)
-            args="$args \"$PWD/$arg\""
+            arguments+=("$PWD/$argument")
             ;;
     esac
 done
 
-eval "set -- $args"
-
-
-if emacsclient -n -c "$@" >/dev/null 2>&1; then
+if emacsclient -n -c "${arguments[@]}" >/dev/null 2>&1; then
     exit 0
 fi
-
 
 echo "Emacs server is not running" >&2
 exit 1

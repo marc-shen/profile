@@ -4,6 +4,10 @@
 ;; useful in any programming buffer.  Completion itself lives in
 ;; `init-completion', which is loaded first.
 
+(require 'init-treesit)
+
+(declare-function eglot-completion-at-point "eglot")
+
 ;; Emacs 31's Eglot recognizes the autoloaded `yas-minor-mode' and enables it
 ;; before expanding a server snippet.  Mode hooks keep snippets available away
 ;; from Eglot too, without loading Yasnippet during startup.
