@@ -23,8 +23,13 @@ set -euo pipefail
 # that `~/.emacs.d' shows the whole configuration rather than half of it.
 entries=(init.el early-init.el lisp snippets)
 
-# The entries that belong on `PATH' instead, so that `em' works from any shell.
-commands=(em)
+# The entries that belong on `PATH'.  `em' opens asynchronously for ordinary
+# shell use; `ec' waits and is suitable for EDITOR/VISUAL and Git.
+commands=(em ec)
+
+# macOS-specific launchd and Dock integration.
+launch_agents=(org.gnu.emacs.daemon.plist)
+applications=("Emacs Client.app")
 
 dry_run=false
 target=""
@@ -42,6 +47,8 @@ done
 source_directory=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 target=${target:-${EMACS_HOME:-$HOME/.emacs.d}}
 bin_target=${BIN_HOME:-$HOME/.local/bin}
+launch_agent_target=$HOME/Library/LaunchAgents
+application_target=$HOME/Applications
 
 printf 'source: %s\ntarget: %s\n   bin: %s\n\n' \
   "$source_directory" "$target" "$bin_target"
@@ -94,6 +101,40 @@ link_entry() {
   linked=$((linked + 1))
 }
 
+# Application bundles should be real directories.  LaunchServices and the
+# Dock do not handle a symlink standing in for the whole .app bundle reliably.
+install_application() {
+  local entry=$1 destination=$2
+  local source_path=$source_directory/$entry
+  local application_path=$destination/$entry
+  local backup
+
+  if [ ! -e "$source_path" ]; then
+    printf '  %-16s skipped, not in the repository\n' "$entry"
+    missing=$((missing + 1))
+    return
+  fi
+
+  if [ ! -L "$application_path" ] && [ -d "$application_path" ] &&
+     diff -qr "$source_path" "$application_path" >/dev/null 2>&1; then
+    printf '  %-16s ok\n' "$entry"
+    unchanged=$((unchanged + 1))
+    return
+  fi
+
+  if [ -e "$application_path" ] || [ -L "$application_path" ]; then
+    backup=$application_path.backup.$(date +%Y%m%d%H%M%S)
+    printf '  %-16s existing app kept as %s\n' "$entry" "$(basename "$backup")"
+    $dry_run || mv -- "$application_path" "$backup"
+    saved=$((saved + 1))
+  else
+    printf '  %-16s installed\n' "$entry"
+  fi
+
+  $dry_run || ditto "$source_path" "$application_path"
+  linked=$((linked + 1))
+}
+
 # A pull that renames or removes a tracked file leaves its link behind, pointing
 # at nothing.  Emacs would not care, but a dangling link is confusing to read,
 # so clear the ones this script is responsible for.  Only links into this
@@ -125,6 +166,18 @@ done
 for entry in "${commands[@]}"; do
   link_entry "$entry" "$bin_target"
 done
+
+if [ "$(uname -s)" = Darwin ]; then
+  $dry_run || mkdir -p "$launch_agent_target" "$application_target"
+  for entry in "${launch_agents[@]}"; do
+    link_entry "$entry" "$launch_agent_target"
+  done
+  for entry in "${applications[@]}"; do
+    install_application "$entry" "$application_target"
+  done
+  remove_stale_links "$launch_agent_target"
+  remove_stale_links "$application_target"
+fi
 
 remove_stale_links "$target"
 remove_stale_links "$bin_target"

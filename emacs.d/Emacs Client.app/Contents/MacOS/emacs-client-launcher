@@ -1,0 +1,29 @@
+#!/bin/bash
+
+set -euo pipefail
+
+client=/Applications/Emacs.app/Contents/MacOS/bin/emacsclient
+
+# LaunchServices may append a process serial number on older macOS versions;
+# it is not an Emacs argument.
+arguments=()
+for argument in "$@"; do
+  case "$argument" in
+    -psn_*) ;;
+    *) arguments+=("$argument") ;;
+  esac
+done
+
+if ! "$client" --eval t >/dev/null 2>&1; then
+  launchctl kickstart "gui/$(id -u)/org.gnu.emacs.daemon" >/dev/null 2>&1 || true
+  for _ in {1..20}; do
+    "$client" --eval t >/dev/null 2>&1 && break
+    sleep 0.25
+  done
+fi
+
+if [ "${#arguments[@]}" -gt 0 ]; then
+  exec "$client" --no-wait --create-frame "${arguments[@]}"
+else
+  exec "$client" --no-wait --create-frame
+fi

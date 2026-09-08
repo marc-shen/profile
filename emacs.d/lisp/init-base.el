@@ -14,10 +14,11 @@
       initial-buffer-choice nil
       initial-scratch-message nil)
 
-;; Let `emacsclient' reuse this Emacs instance.  `server-start' is idempotent
-;; here, so evaluating the configuration again does not create another server.
+;; Let `emacsclient' reuse an ordinary GUI instance too.  Daemon startup calls
+;; `server-start' after init has finished; doing it here as well would make the
+;; daemon unnecessarily stop and restart its socket during initialization.
 (require 'server)
-(unless (server-running-p)
+(unless (or (daemonp) (server-running-p))
   (server-start))
 
 ;; uv installs user-wide tools here on both macOS and Linux.  GUI Emacs may

@@ -22,8 +22,15 @@ autoload -U compinit; compinit
 bindkey -e
 
 ################# 环境变量和路径 #################
-export EDITOR=nvim
-export VISUAL=nvim
+if [[ "$PLATFORM" == "macos" ]]; then
+    # Reuse the launchd-managed Emacs daemon.  `ec' waits for server-edit, as
+    # required by Git and other programs that invoke an external editor.
+    export EDITOR="$HOME/.local/bin/ec"
+    export VISUAL="$EDITOR"
+else
+    export EDITOR=nvim
+    export VISUAL=nvim
+fi
 
 # DISPLAY 配置 (支持 SSH X11 转发)
 export DISPLAY="${DISPLAY:-:0}"

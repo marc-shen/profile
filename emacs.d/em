@@ -25,6 +25,16 @@ for argument in "$@"; do
     esac
 done
 
+# Recover the launchd service if it is temporarily unavailable, but never use
+# an empty alternate editor: that would start a second, unmanaged daemon.
+if ! emacsclient --eval t >/dev/null 2>&1 && [ "$(uname -s)" = Darwin ]; then
+    launchctl kickstart "gui/$(id -u)/org.gnu.emacs.daemon" >/dev/null 2>&1 || true
+    for _ in {1..20}; do
+        emacsclient --eval t >/dev/null 2>&1 && break
+        sleep 0.25
+    done
+fi
+
 if emacsclient -n -c "${arguments[@]}" >/dev/null 2>&1; then
     exit 0
 fi
