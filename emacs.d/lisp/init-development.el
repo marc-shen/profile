@@ -78,6 +78,7 @@
 
 (defconst init-development-tool-groups
   '(("Python LSP" "basedpyright-langserver" "pyright-langserver" "pylsp")
+    ("Jupytext notebooks" "jupytext")
     ("C/C++ LSP" "clangd" "ccls")
     ("Bash LSP" "bash-language-server")
     ("JSON LSP" "vscode-json-language-server"

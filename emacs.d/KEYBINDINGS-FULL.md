@@ -60,12 +60,12 @@
 
 | 全局键位 | 全局命令 | 在哪些模式里失效 | 因为该模式有 |
 | --- | --- | --- | --- |
-| `C-c C-c` | `recompile` | markdown-ts | `markdown-ts-toggle-checkbox` |
+| `C-c C-c` | `recompile` | markdown-ts、code-cells | `markdown-ts-toggle-checkbox`、`code-cells-eval` |
 | `C-t` | `transpose-chars` | dired | `C-t .`、`C-t C-t`、`C-t a` 等 12 个 |
 
 ### 次模式盖住主模式的键位
 
-次模式的 keymap 优先级高于所有主模式。下面这些键在对应的主模式里本来另有含义，被一直开着的次模式接管了。
+次模式的 keymap 优先级高于所有主模式。下面这些键在对应的主模式里本来另有含义，被启用的次模式接管了。
 
 | 快捷键 | 实际执行 | 在哪个模式里 | 本来是 |
 | --- | --- | --- | --- |
@@ -73,8 +73,9 @@
 | `S-<left>` | `windmove-left` | org | `org-shiftleft` —— 按情境向左调整（状态、优先级、日期） |
 | `S-<right>` | `windmove-right` | org | `org-shiftright` —— 按情境向右调整（状态、优先级、日期） |
 | `S-<up>` | `windmove-up` | org | `org-shiftup` —— 按情境向上调整 |
+| `C-c C-c` | `code-cells-eval` | python / python-ts | `python-shell-send-buffer` —— 执行整个缓冲区 |
 
-Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down>`，和被盖住的四个命令完全一样，所以没有功能真的丢失。
+Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down>`，和被盖住的四个命令完全一样，所以没有功能真的丢失。Code Cells 的覆盖则只发生在含单元格标记的 Python 文件中。
 
 ### 没有被占用的 C-c 单键
 
@@ -99,6 +100,7 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 - [Flymake 诊断](#flymake-诊断)（4 条）
 - [Python](#python)（29 条）
 - [Python（tree-sitter 模式）](#pythontree-sitter-模式)（29 条）
+- [Code Cells](#code-cells)（15 条）
 - [C](#c)（43 条）
 - [C++](#c-1)（46 条）
 - [Fortran（固定格式）](#fortran固定格式)（22 条）
@@ -1328,6 +1330,29 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 | `C-c TAB f` | `python-fix-imports` | 补上缺失的 import 并删掉没用的 |
 | `C-c TAB r` | `python-remove-import` | 删除一条 import 语句 |
 | `C-c TAB s` | `python-sort-imports` | 对 import 语句排序 |
+
+## Code Cells
+
+仅在打开带 `# %%` 或 `# In[]:` 标记的 Python 文件以及由 Jupytext 转换的
+`.ipynb` 文件时启用。其中 `C-c C-c` 会覆盖 Python 主模式的整缓冲区执行。
+
+| 快捷键 | 命令 | 说明 |
+| --- | --- | --- |
+| `C-c C-c` | `code-cells-eval` | 执行当前单元格 |
+| `C-c % @` | `code-cells-mark-cell` | 选中当前单元格 |
+| `C-c % ;` | `code-cells-comment-or-uncomment` | 注释或取消注释当前单元格 |
+| `C-c % C-w` | `code-cells-kill` | 剪切当前单元格 |
+| `C-c % N` | `code-cells-move-cell-down` | 当前单元格下移 |
+| `C-c % P` | `code-cells-move-cell-up` | 当前单元格上移 |
+| `C-c % \` | `code-cells-indent` | 缩进当前单元格 |
+| `C-c % a` | `code-cells-eval-above` | 执行当前及上方单元格 |
+| `C-c % d` | `code-cells-duplicate` | 复制当前单元格 |
+| `C-c % e` | `code-cells-eval` | 执行当前单元格 |
+| `C-c % j` | `my-jupytext-sync` | 同步当前 Jupytext 配对文件 |
+| `C-c % n` | `code-cells-forward-cell` | 移动到下一单元格 |
+| `C-c % p` | `code-cells-backward-cell` | 移动到上一单元格 |
+| `C-c % s` | `code-cells-eval-and-step` | 执行当前单元格并移到下一格 |
+| `C-c % w` | `code-cells-copy` | 复制当前单元格内容 |
 
 ## C
 

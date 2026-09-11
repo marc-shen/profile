@@ -341,6 +341,38 @@ Emacs 31 构建；诊断报告中的 `Tree-sitter runtime` 应显示 `OK`。
 格式化命令目前没有固定快捷键，可通过 `M-x ruff-format-buffer` 或
 `M-x black-format-buffer` 调用；前提是对应程序已安装。
 
+### Jupyter Notebook：Code Cells + Jupytext
+
+运行 `M-x my-install-packages` 安装 `code-cells`，并确保命令行可找到
+Jupytext（推荐 `uv tool install jupytext`）。打开含 `# %%` 或 `# In[]:`
+单元格标记的 Python 文件时会自动启用 `code-cells-mode`；普通 Python 文件
+不受影响。
+
+推荐使用配对文件，而不是长期直接编辑 `.ipynb`：
+
+1. 打开 `.ipynb`，运行 `M-x my-jupytext-pair-notebook`，生成对应的
+   `py:percent` 脚本。
+2. 在 Emacs 中编辑生成的 `.py` 文件，用 `# %%` 新建代码单元，或用
+   `# %% [markdown]` 新建 Markdown 单元。
+3. 用下面的单元格命令执行和移动；保存后运行 `C-c % j`，把最新内容同步
+   回 `.ipynb`。配对的 `.ipynb` 会保留已有输出。
+
+| 快捷键 | 功能 |
+| --- | --- |
+| `C-c C-c` | 执行当前单元格；只在 `code-cells-mode` 中覆盖“执行整个缓冲区” |
+| `C-c % e` | 执行当前单元格 |
+| `C-c % s` | 执行当前单元格并移动到下一格 |
+| `C-c % a` | 执行当前单元格及其上方所有单元格 |
+| `C-c % p` / `C-c % n` | 移动到上一个 / 下一个单元格 |
+| `C-c % P` / `C-c % N` | 把当前单元格上移 / 下移 |
+| `C-c % d` | 复制当前单元格 |
+| `C-c % j` | 用 Jupytext 同步当前配对文件 |
+
+也可以直接打开 `.ipynb`；`code-cells` 会通过 Jupytext 把它临时显示成脚本。
+但这种方式保存时会清除 Notebook 的输出，因此只适合不需要保留输出的文件。
+从任意带单元格标记的脚本生成 Notebook，可运行
+`M-x code-cells-write-ipynb`。
+
 ## C、C++ 与 Fortran
 
 C/C++ 和 Fortran 没有额外的语言专属自定义键位，主要使用 Eglot 的
