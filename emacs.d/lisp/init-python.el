@@ -107,7 +107,7 @@ absolute `pythonPath' already identifies the interpreter unambiguously."
     (funcall original command)))
 
 (defun init-python-project-try-python (directory)
-  "Return a transient project for a Python project above DIRECTORY.
+  "Return a lightweight project for a Python project above DIRECTORY.
 
 This makes standalone uv, Pixi, and conventional Python projects visible to
 `project.el', Pet, and Eglot even when they are not Git repositories."
@@ -120,7 +120,27 @@ This makes standalone uv, Pixi, and conventional Python projects visible to
                      (file-exists-p (expand-file-name marker parent)))
                    '("pyproject.toml" "uv.lock" "pixi.toml"
                      "setup.py" "setup.cfg" "requirements.txt"))))))
-    (cons 'transient root)))
+    (cons 'init-python-project root)))
+
+(cl-defmethod project-root ((project (head init-python-project)))
+  "Return the root directory of Python PROJECT."
+  (cdr project))
+
+(defconst init-python-project-ignored-directories
+  '(".venv/" "venv/" "env/" ".pixi/" ".tox/" ".nox/"
+    "__pycache__/" ".pytest_cache/" ".mypy_cache/" ".ruff_cache/"
+    "node_modules/")
+  "Generated directories excluded from non-VC Python projects.
+
+Besides making project commands more useful, this is important for Eglot:
+language servers commonly request a `**' file watch, and recursively watching
+an environment can synchronously traverse tens of thousands of package files
+while a newly opened buffer is becoming interactive.")
+
+(cl-defmethod project-ignores ((_project (head init-python-project)) dir)
+  "Return ignores for a standalone Python project rooted above DIR."
+  (append init-python-project-ignored-directories
+          (project-ignores nil dir)))
 
 ;; Keep VC projects as the first choice and use Python markers as a fallback.
 (add-hook 'project-find-functions #'init-python-project-try-python t)

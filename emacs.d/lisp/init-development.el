@@ -20,10 +20,17 @@
 (use-package eglot
   :ensure nil
   :commands (eglot eglot-ensure)
+  :init
+  ;; This is an Eglot internal tuning variable rather than a `defcustom', so
+  ;; set it before loading Eglot instead of using use-package's `:custom'.
+  (setq eglot-watch-files-outside-project-root nil)
   :custom
   (eglot-autoshutdown t)
   (eglot-confirm-server-initiated-edits nil)
   (eglot-events-buffer-size 0)
+  ;; Never hold the UI waiting for a language server handshake.  Completion
+  ;; becomes available as soon as initialization finishes in the background.
+  (eglot-sync-connect nil)
   (eglot-send-changes-idle-time 0.2)
   ;; `C-c s' for "server", not the `C-c l' that lsp-mode made conventional.
   ;; A prefix key shadows the single key of the same name for as long as the

@@ -225,7 +225,7 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 | `M-)` | `move-past-close-and-reindent` | 跳过右括号并重新缩进 |
 | `M-,` | `xref-go-back` | 跳回上一个位置 |
 | `M-.` | `xref-find-definitions` | 跳到光标处标识符的定义 |
-| `M-/` | `dabbrev-expand` | 用缓冲区中出现过的词动态补全 |
+| `M-/` | `completion-at-point` | 强制打开光标处的补全 |
 | `M-:` | `eval-expression` | 求值一个 Lisp 表达式并显示结果 |
 | `M-;` | `comment-dwim` | 按当前情境注释或取消注释 |
 | `M-<` | `beginning-of-buffer` | 跳到缓冲区开头 |

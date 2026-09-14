@@ -71,13 +71,17 @@
   :init (global-corfu-mode 1)
   :custom
   (corfu-auto t)
-  (corfu-auto-delay 0.15)
+  ;; Keep ordinary typing throttled, but make member access instantaneous via
+  ;; `corfu-auto-trigger' below.  Asking an LSP server after every single
+  ;; character creates needless traffic in large projects.
+  (corfu-auto-delay 0.10)
   (corfu-auto-prefix 2)
   (corfu-cycle t)
   (corfu-preselect 'prompt)
   (corfu-quit-no-match 'separator)
   (corfu-popupinfo-delay '(0.5 . 0.2))
-  :bind (:map corfu-map
+  :bind (("M-/" . completion-at-point)
+         :map corfu-map
               ;; TAB / S-TAB cycle the candidates, RET inserts the selection.
               ("TAB" . corfu-next) ([tab] . corfu-next)
               ("S-TAB" . corfu-previous) ([backtab] . corfu-previous)
@@ -93,6 +97,15 @@
   ;; rejects even on Emacs 31; `define-key' is the public API for these entries.
   (define-key corfu-map [remap next-line] nil)
   (define-key corfu-map [remap previous-line] nil))
+
+(defun init-completion-enable-programming-triggers ()
+  "Make member-access completion immediate in programming buffers."
+  ;; In recent Corfu releases a trigger bypasses both `corfu-auto-prefix' and
+  ;; `corfu-auto-delay'.  A buffer-local value avoids opening completion after
+  ;; every full stop in prose buffers.
+  (setq-local corfu-auto-trigger "."))
+
+(add-hook 'prog-mode-hook #'init-completion-enable-programming-triggers)
 
 (use-package cape
   :init
