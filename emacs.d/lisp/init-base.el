@@ -51,6 +51,11 @@
 (setq global-auto-revert-non-file-buffers t
       auto-revert-verbose nil)
 (save-place-mode 1)
+(require 'savehist)
+(defvar init-python-project-environments nil
+  "Project-specific Python environments persisted by `init-python'.")
+(add-to-list 'savehist-additional-variables
+             'init-python-project-environments)
 (savehist-mode 1)
 (setq history-length 200)
 (setq recentf-max-saved-items 300

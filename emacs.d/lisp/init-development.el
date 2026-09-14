@@ -7,6 +7,7 @@
 (require 'init-treesit)
 
 (declare-function eglot-completion-at-point "eglot")
+(declare-function pet-executable-find "pet" (executable &optional search-globally))
 
 ;; Emacs 31's Eglot recognizes the autoloaded `yas-minor-mode' and enables it
 ;; before expanding a server snippet.  Mode hooks keep snippets available away
@@ -65,9 +66,16 @@
     (fortran-mode "fortls"))
   "Language-server executables that permit automatic Eglot startup.")
 
+(defun init-eglot--executable-find (executable)
+  "Find EXECUTABLE, respecting Pet's project environment for Python."
+  (if (and (memq major-mode '(python-mode python-ts-mode))
+           (require 'pet nil t))
+      (pet-executable-find executable)
+    (executable-find executable)))
+
 (defun init-eglot-ensure-if-available ()
   "Start Eglot when the current major mode has an installed server."
-  (when (seq-some #'executable-find
+  (when (seq-some #'init-eglot--executable-find
                   (alist-get major-mode init-eglot-server-executables))
     (eglot-ensure)))
 

@@ -337,6 +337,27 @@ Emacs 31 构建；诊断报告中的 `Tree-sitter runtime` 应显示 `OK`。
 | `C-c C-c` | 把整个缓冲区发送到 Python 解释器 |
 | `C-c C-r` | 把选中区域发送到 Python 解释器 |
 | `C-c C-z` | 切换到 Python 解释器缓冲区 |
+| `C-c p` | 从本地和全局候选中选择当前项目的 Python 环境 |
+| `C-u C-c p` | 手动选择任意虚拟环境目录 |
+
+`C-c p` 类似 VS Code/Zed 的解释器选择器，同时发现：
+
+- **项目环境**：uv 项目的 `.venv`、Pixi 和 Hatch 的多个环境、Pet 为
+  Poetry/Pipenv 检测到的环境，以及项目根目录下带 Python 的普通 venv；
+- **全局环境**：Conda/Mamba 的全部已注册环境、pyenv/pyenv-virtualenv，
+  当前 `VIRTUAL_ENV` / `CONDA_PREFIX`、`~/.venv`、`WORKON_HOME`，以及
+  `~/.virtualenvs`、`~/.venvs`、`~/.local/share/virtualenvs` 下的环境；
+- **手动路径**：`C-u C-c p` 可选择未处于上述位置的环境目录。
+
+候选项会标明 `uv`、`pixi`、`conda`、`pyenv`、`global venv` 等来源并显示
+完整路径。选择结果按项目保存在 `~/.emacs.d/var/history`，不污染项目文件。
+uv 的 `uv python list` 列出的是基础 Python 安装而非虚拟环境，因此不会混入此
+列表；用 `uv venv` 创建项目 `.venv` 后，它会自动出现。
+
+GUI 或 daemon Emacs 不一定继承登录 shell 的 PATH。环境管理器除 `exec-path`
+外还会在 `~/.pixi/bin`、`~/.local/bin`、`~/.pyenv/bin` 及常见的
+Miniforge/Mambaforge/Miniconda/Anaconda 用户目录中查找；这些目录不会整体加入
+PATH，避免 Conda base 的 Python 意外取代系统解释器。
 
 格式化命令目前没有固定快捷键，可通过 `M-x ruff-format-buffer` 或
 `M-x black-format-buffer` 调用；前提是对应程序已安装。
@@ -372,6 +393,104 @@ Jupytext（推荐 `uv tool install jupytext`）。打开含 `# %%` 或 `# In[]:`
 但这种方式保存时会清除 Notebook 的输出，因此只适合不需要保留输出的文件。
 从任意带单元格标记的脚本生成 Notebook，可运行
 `M-x code-cells-write-ipynb`。
+
+### marimo：Emacs 编辑，浏览器执行
+
+marimo notebook 本身就是 Python 文件。这里让 Emacs 负责源码编辑、Eglot、
+Git 和项目虚拟环境，让 marimo 的浏览器页面负责响应式执行与富输出；启动参数
+`--watch` 会在 Emacs 保存文件后把改动同步到页面。首次使用运行
+`M-x my-marimo-setup`，它通过 uv 安装 `marimo[recommended]` 和用于高效文件
+监听的 `watchdog`。项目已经用 uv 管理 marimo 时，也可以直接执行
+`uv add --dev marimo watchdog`，配置会优先使用项目环境。
+
+| 快捷键 | 功能 |
+| --- | --- |
+| `C-c j e` | 启动/打开当前 notebook；当前不是文件时提示路径 |
+| `C-u C-c j e` | 提示选择或新建另一个 `.py` / `.md` notebook |
+| `C-c j o` | 重新打开当前运行中 notebook 的页面 |
+| `C-c j c` | 运行 `marimo check` |
+| `C-u C-c j c` | 运行 `marimo check --fix`，应用安全修复 |
+| `C-c j i` | 插入 Python 单元格；有选区时把选中代码包成单元格 |
+| `C-c j l` | 查看 marimo 服务器日志 |
+| `C-c j k` | 停止 marimo 服务器 |
+| `C-c j m` | 插入 Markdown 单元格 |
+| `C-c j s` | 安装或更新全局 marimo 工具环境 |
+
+文件名以 `*_mo.py` 结尾时会直接识别为 marimo notebook；普通 `.py` 文件则只
+扫描开头 16 KiB，检测 `marimo.App` 与 `__generated_with` / `@app.cell` 的组合。
+识别后模式行显示 `Mo`。文件名只是推荐约定，已有的 `notebook.py` 无需改名。
+插入模板时，如果 Yasnippet 已启用，可用 `TAB` 依次填写 cell 参数、正文和
+`return`；没有 Yasnippet 时也会插入完整骨架并把光标放在正文。
+
+推荐流程：打开（或新建）`notebook.py`，按 `C-c j e`；页面打开后继续在
+Emacs 中修改并用 `C-x C-s` 保存。外部改动默认只把受影响的单元格标为 stale，
+在页面按 **Run** / `runStale` 执行。希望每次保存都自动执行时，在项目的
+`pyproject.toml` 中加入：
+
+```toml
+[tool.marimo.runtime]
+watcher_on_save = "autorun"
+```
+
+marimo 页面固定使用系统默认浏览器，不经过 embr。它是包含 WebSocket、富输出、
+表格和交互控件的完整 Web 应用，原生浏览器在输入、剪贴板和复杂渲染上更可靠。
+服务只监听 `127.0.0.1`，并保留 marimo 默认的随机 token 验证。
+
+#### Python 与 marimo 如何选择环境
+
+打开 Python 文件时，`pet-mode` 先查找项目环境，再启动 Python shell 和 Eglot。
+Pet 的环境优先级是：已缓存/手动选择的环境、当前 `VIRTUAL_ENV`、Pixi、
+Conda/Mamba、Poetry、Hatch、Pipenv、项目根目录的 `.venv` / `venv` / `env`，
+最后是 `.python-version` 指定的 pyenv 环境。找到后：
+
+- `python-shell-interpreter` 指向该环境中的 Python；
+- Eglot 优先从该环境寻找 basedpyright、pyright 或 pylsp，并把该 Python 路径
+  告诉语言服务器；
+- Ruff、Black、pytest 等 Pet 支持的工具也优先从该环境解析。
+
+对于 basedpyright/pyright，只发送所选解释器的绝对 `pythonPath`。Pet 默认把
+具体环境根目录同时当作 `venvPath`，会让 Pyright 把其中的 `bin` 误认成另一个
+虚拟环境并报告“does not contain an executable Python”，这里会移除该歧义参数。
+
+启动 marimo 时采用相容的顺序：Pixi 环境通过
+`pixi run --environment <名称> marimo` 启动；其他已选项目环境直接使用该环境的
+`marimo`。若项目有 `uv.lock`，则使用 `uv run marimo` 同步并运行项目依赖。
+已经解析到非 uv 项目环境但其中没有 marimo 时会明确报错，不会偷用全局工具；
+只有没有项目环境时才尝试 PATH 中的全局 `marimo`，或对普通
+`pyproject.toml` 项目尝试 `uv run marimo`。
+
+因此项目 notebook 最推荐运行 `uv add --dev marimo watchdog`：Python、Eglot
+看到的项目依赖与 marimo kernel 使用同一个 `.venv`。`C-c j s` 安装的则是
+uv tool 管理的独立全局环境，适合没有项目环境的零散 notebook；它不会自动继承
+另一个项目虚拟环境里的包。可在 Python buffer 中运行 `M-x pet-verify-setup`
+查看 Pet 最终解析出的 Python、虚拟环境和各工具路径。
+
+Pixi 项目中，`C-c p` 会直接调用 `pixi info --json` 枚举项目中已创建的环境，
+例如 `default`、`dev`、`cuda`，不依赖 Pet 解析 `pixi.toml`，因此没有安装
+`dasel` / `tomlparse.el` 时也能识别。环境名称和路径都读取 Pixi 返回的
+`name` / `prefix`，兼容 detached environment，而不是用路径末段猜环境名。
+尚未安装的声明环境也会显示并标注 `[not installed]`；先运行
+`pixi install --environment <名称>`，再选择即可。
+选择会按项目保存在 Emacs 的
+本地 history 状态中（不写入项目、不进入 Git），下次启动仍会恢复。
+所有已打开的 Python buffer 都会刷新，已有 Eglot 会重连；模式行的
+`Py[default]` / `Py[cuda]` 表示当前 buffer 使用的环境。随后重新启动 marimo
+（`C-c j k`，再 `C-c j e`），它会以
+`pixi run --environment <名称> marimo` 启动，从而同时应用该环境的解释器、依赖
+和激活变量。已有 Python REPL 也需要关闭后重新运行，正在执行的进程不会被强制
+迁移。所选环境必须包含 marimo，例如默认环境运行 `pixi add marimo watchdog`；
+若 `dev` 环境由同名 feature 构成，则运行
+`pixi add --feature dev marimo watchdog`。
+
+同一规则适用于 Conda 和普通 venv：显式选择环境后，marimo 不会静默回退到
+全局安装。如果所选环境没有 marimo，`C-c j e` 会直接提示先在该环境安装；
+有 `uv.lock` 的 uv 项目是例外，它会通过 `uv run marimo` 先同步项目依赖。
+
+依赖管理按 notebook 的用途选择：项目内分析把 `marimo` 放进项目依赖并用同一
+`.venv`；需要独立分享的示例则可把 `--sandbox` 加入
+`init-marimo-edit-arguments`，由 marimo/uv 将依赖写进 PEP 723 元数据。不要把
+marimo notebook 当作 `# %%` 脚本交给 Code Cells 执行；其单元格是
+`@app.cell` 函数，运行和依赖顺序应交给 marimo。
 
 ## C、C++ 与 Fortran
 

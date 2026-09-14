@@ -37,6 +37,7 @@
 (when (eq system-type 'darwin)
   (require 'init-input-source))
 (require 'init-python)
+(require 'init-marimo)
 (require 'init-c)
 (require 'init-fortran)
 (require 'init-latex)

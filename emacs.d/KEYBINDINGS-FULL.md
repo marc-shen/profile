@@ -81,12 +81,12 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 
 `C-c` 加单个字母是留给用户的保留区。以下字母目前全局和各模式都没用到，可以放心拿来绑新命令：
 
-- 小写：`C-c f`、`C-c h`、`C-c i`、`C-c j`、`C-c k`、`C-c l`、`C-c p`、`C-c q`、`C-c u`、`C-c w`、`C-c x`、`C-c y`
+- 小写：`C-c f`、`C-c h`、`C-c i`、`C-c k`、`C-c l`、`C-c q`、`C-c u`、`C-c w`、`C-c x`、`C-c y`
 - 大写：`C-c B`、`C-c C`、`C-c D`、`C-c E`、`C-c F`、`C-c G`、`C-c H`、`C-c I`、`C-c J`、`C-c K`、`C-c L`、`C-c M`、`C-c N`、`C-c O`、`C-c P`、`C-c Q`、`C-c R`、`C-c S`、`C-c T`、`C-c U`、`C-c W`、`C-c X`、`C-c Y`
 
 ## 目录
 
-- [全局键位](#全局键位)（772 条）
+- [全局键位](#全局键位)（781 条）
 - [窗口移动（Windmove）](#窗口移动windmove)（4 条）
 - [Which-key 翻页](#which-key-翻页)（4 条）
 - [未提交改动（diff-hl）](#未提交改动diff-hl)（7 条）
@@ -511,6 +511,7 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 | `C-c M-g` | `magit-file-dispatch` | 打开针对当前文件的 Magit 菜单 |
 | `C-c n` | `org-capture` | 快速记录（捕获） |
 | `C-c o` | `my-reveal-in-file-manager` | 在 Finder/Dolphin 中显示当前文件（前缀参数打开所在目录）；覆盖键表，任何模式下都生效 |
+| `C-c p` | `my-python-select-environment` | 从本地和全局候选中选择 Python 环境；加前缀参数可手选目录 |
 | `C-c r` | `revert-buffer` | 丢弃修改，从磁盘重新加载文件 |
 | `C-c t` | `treemacs` | 打开或关闭项目树 |
 | `C-c V` | `vterm-other-window` | 在另一窗口打开 vterm 终端 |
@@ -528,6 +529,14 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 | `C-c e SPC` | `mc/vertical-align-with-space` | 用空格把所有光标对齐 |
 | `C-c e u` | `mc/unmark-next-like-this` | 取消下一处的标记 |
 | `C-c g b` | `magit-blame-addition` | 逐行显示是哪次提交加进来的 |
+| `C-c j c` | `my-marimo-check` | 检查当前 marimo notebook；加前缀参数时应用安全修复 |
+| `C-c j e` | `my-marimo-edit` | 启动当前 notebook 的监听服务器并打开编辑页面 |
+| `C-c j k` | `my-marimo-stop` | 停止 marimo 服务器 |
+| `C-c j i` | `my-marimo-insert-cell` | 插入 marimo Python 单元格；有选区时包裹选中代码 |
+| `C-c j l` | `my-marimo-log` | 查看 marimo 服务器日志 |
+| `C-c j o` | `my-marimo-open` | 重新打开运行中的 marimo 页面 |
+| `C-c j m` | `my-marimo-insert-markdown-cell` | 插入 marimo Markdown 单元格 |
+| `C-c j s` | `my-marimo-setup` | 用 uv 安装或更新 marimo 与 watchdog |
 
 ### C-h —— 帮助
 
