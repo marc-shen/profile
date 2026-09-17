@@ -17,11 +17,14 @@
 (require 'seq)
 
 (declare-function helix-define-key "helix-core")
+(declare-function helix-insert-mode "helix-core" (&optional arg))
 (declare-function helix-insert-exit "helix-core")
+(declare-function helix-normal-mode "helix-core" (&optional arg))
 
 (defvar my-helix-exempt-modes
   '(special-mode                        ; magit, compilation, org-agenda, ...
     dired-mode
+    wdired-mode
     magit-mode
     vterm-mode
     eshell-mode
@@ -34,10 +37,11 @@
 
 `helix-mode' is all-or-nothing: it hooks `after-change-major-mode-hook'
 and turns `helix-normal-mode' on in every non-minibuffer buffer.  In a
-Magit status buffer that would shadow `s'/`u'/`c', in Dired `d'/`x', and
-in vterm every key that should reach the shell -- so those modes are
-switched back off.  Entries are matched with `derived-mode-p', hence the
-`special-mode' catch-all.")
+Magit status buffer that would shadow `s'/`u'/`c', in Dired and WDired
+`d'/`x', and in vterm every key that should reach the shell -- so those
+modes are switched back off.  Entries are matched with `derived-mode-p',
+hence the `special-mode' catch-all.  WDired must be named separately: it
+changes `major-mode' without deriving from `dired-mode'.")
 
 (defun my-helix-exempt-p ()
   "Return non-nil if the current buffer should not use Helix keys."
@@ -65,11 +69,16 @@ switched back off.  Entries are matched with `derived-mode-p', hence the
 (defvar-local my-helix-jk--timer nil
   "Timer withholding the `j' of a possible `j k' sequence, or nil.")
 
+(defun my-helix-jk--cancel ()
+  "Cancel a pending `j k' sequence without inserting its withheld `j'."
+  (when my-helix-jk--timer
+    (cancel-timer my-helix-jk--timer)
+    (setq my-helix-jk--timer nil)))
+
 (defun my-helix-jk--flush ()
   "Insert the withheld `j' and cancel the pending sequence."
   (when my-helix-jk--timer
-    (cancel-timer my-helix-jk--timer)
-    (setq my-helix-jk--timer nil)
+    (my-helix-jk--cancel)
     ;; Not `self-insert-command': this also runs from the timer, where
     ;; `last-command-event' is whatever the last real command left behind.
     (insert "j")))
@@ -81,24 +90,32 @@ switched back off.  Entries are matched with `derived-mode-p', hence the
       (my-helix-jk--flush))))
 
 (defun my-helix-jk-j ()
-  "Withhold `j' for `my-helix-jk-timeout', waiting for a `k'."
+  "Withhold `j' for `my-helix-jk-timeout', waiting for a `k'.
+
+In a minibuffer insert it immediately: file names and command arguments must
+not acquire a delay or interpret a literal `j k' as a mode change."
   (interactive)
-  ;; A second `j' means the first one was not the start of an escape: emit it
-  ;; and let this one open a fresh window.
-  (my-helix-jk--flush)
-  (setq my-helix-jk--timer
-        (run-with-timer my-helix-jk-timeout nil
-                        #'my-helix-jk--flush-from-timer (current-buffer))))
+  (if (minibufferp)
+      (self-insert-command 1)
+    ;; A second `j' means the first one was not the start of an escape: emit it
+    ;; and let this one open a fresh window.
+    (my-helix-jk--flush)
+    (setq my-helix-jk--timer
+          (run-with-timer my-helix-jk-timeout nil
+                          #'my-helix-jk--flush-from-timer (current-buffer)))))
 
 (defun my-helix-jk-k ()
-  "Leave insert state when `k' completes a `j k' sequence, else insert `k'."
+  "Leave insert state when `k' completes a `j k' sequence, else insert `k'.
+
+In a minibuffer always insert `k' literally; use ESC to enter normal state."
   (interactive)
-  (if my-helix-jk--timer
-      (progn
-        (cancel-timer my-helix-jk--timer)
-        (setq my-helix-jk--timer nil)
-        (helix-insert-exit))
-    (self-insert-command 1)))
+  (if (minibufferp)
+      (self-insert-command 1)
+    (if my-helix-jk--timer
+        (progn
+          (my-helix-jk--cancel)
+          (helix-insert-exit))
+      (self-insert-command 1))))
 
 (defun my-helix-jk--maybe-flush ()
   "Flush a pending `j' before any command other than the sequence keys.
@@ -116,6 +133,51 @@ point or saves the file."
   (helix-define-key 'insert "j" #'my-helix-jk-j)
   (helix-define-key 'insert "k" #'my-helix-jk-k))
 
+;;; Helix in completion minibuffers.
+
+(defvar-local my-helix-minibuffer--active nil
+  "Non-nil when this minibuffer was put into Helix insert state.")
+
+(defvar-local my-helix-minibuffer--saved-cursor-type nil
+  "Value of `cursor-type' before Helix was enabled in this minibuffer.")
+
+(defvar-local my-helix-minibuffer--cursor-was-local nil
+  "Whether `cursor-type' was buffer-local before minibuffer Helix started.")
+
+(defun my-helix-minibuffer-setup ()
+  "Start a completion minibuffer in Helix insert state.
+
+Plain `read-string' and confirmation prompts have no completion table and keep
+their ordinary Emacs behavior.  Vertico's bindings fall through the sparse
+Helix insert map, while ESC switches to the full Helix normal state."
+  (when (and minibuffer-completion-table
+             (not my-helix-minibuffer--active))
+    (setq-local my-helix-minibuffer--active t
+                my-helix-minibuffer--saved-cursor-type cursor-type
+                my-helix-minibuffer--cursor-was-local
+                (local-variable-p 'cursor-type))
+    ;; Keep the cursor change local even if a future Emacs version stops making
+    ;; `cursor-type' automatically buffer-local.
+    (setq-local cursor-type cursor-type)
+    (when (bound-and-true-p helix-normal-mode)
+      (helix-normal-mode -1))
+    (helix-insert-mode 1)))
+
+(defun my-helix-minibuffer-cleanup ()
+  "Remove every Helix state installed by `my-helix-minibuffer-setup'."
+  (when my-helix-minibuffer--active
+    ;; A minibuffer can also disappear through `C-g' or an error.  Do not leave
+    ;; a timer able to insert into the hidden, reusable minibuffer afterward.
+    (my-helix-jk--cancel)
+    (when (bound-and-true-p helix-insert-mode)
+      (helix-insert-mode -1))
+    (when (bound-and-true-p helix-normal-mode)
+      (helix-normal-mode -1))
+    (if my-helix-minibuffer--cursor-was-local
+        (setq cursor-type my-helix-minibuffer--saved-cursor-type)
+      (kill-local-variable 'cursor-type))
+    (setq my-helix-minibuffer--active nil)))
+
 (use-package helix
   :if (package-installed-p 'helix)
   :config
@@ -132,8 +194,14 @@ point or saves the file."
 
   ;; A terminal cannot distinguish ESC from the meta prefix (helix-mode issue
   ;; #24), and even in a graphical frame ESC is a reach, so `j k' stands in for
-  ;; it everywhere.
+  ;; it everywhere except minibuffers, where both letters must remain literal.
   (my-helix-jk-setup)
+
+  ;; Upstream deliberately excludes minibuffers from `helix-mode'.  Completion
+  ;; minibuffers opt in separately and start in insert state, so file names and
+  ;; commands can be typed immediately; ESC exposes normal-state navigation.
+  (add-hook 'minibuffer-setup-hook #'my-helix-minibuffer-setup 90)
+  (add-hook 'minibuffer-exit-hook #'my-helix-minibuffer-cleanup -90)
 
   ;; `helix-mode' is a toggle, not a minor mode: calling it twice would turn
   ;; Helix back off if this file were ever reloaded.  It installs the

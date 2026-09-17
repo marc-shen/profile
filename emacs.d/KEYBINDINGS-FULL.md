@@ -1767,9 +1767,22 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 | `C-c C-x C-f` | `markdown-ts-emphasize` | 插入或修改强调、删除线、行内代码 |
 | `C-c C-x RET` | `markdown-ts-toggle-hide-markup` | 开关 Markdown 标记隐藏 |
 | `C-c C-x C-v` | `markdown-ts-toggle-inline-images` | 开关内联图片 |
+| `C-c C-x r` | `my-markdown-render-cycle` | 循环切换实时渲染、纯源码、只读预览 |
 
 启用 `markdown-ts-appear-mode` 后，标记会在阅读时隐藏，只在光标所在的最小
-语法元素上展开；数学公式由 MathJax 异步渲染，无需额外的预览模式快捷键。
+语法元素上展开；数学公式（包括 GFM 表格单元格中的公式）由 MathJax 异步渲染，
+无需额外的预览模式快捷键。表格使用等宽字体，并把 ASCII 管线替换为 Unicode
+边框；光标进入当前行时仍会显示可编辑的原始 Markdown。
+表格单元格另有 `markdown-inline` 解析范围，因此单元格中的强调、链接和公式也
+能正常即时渲染；视觉换行不会改变其语法识别。`valign-mode` 按实际像素宽度
+对齐中英文与公式图片，并在显示层绘制连续分隔线，不改写 Markdown 源文件。
+
+渲染模式可以直接通过 `my-markdown-render-live`、
+`my-markdown-render-source`、`my-markdown-render-preview` 选择。纯源码模式关闭
+MathJax、图片、标记隐藏、表格像素对齐和额外的表格内联解析，适合编辑大表格；
+只读预览模式停止光标跟踪，只进行完整的静态渲染。实时模式让整张表共享一个
+内联解析器，并将同一批公式完成后的布局请求合并为空闲时的一次重排。默认仍为
+实时渲染。
 
 ### Markdown 代码块上下文
 

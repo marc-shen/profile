@@ -12,9 +12,22 @@
 (use-package vertico
   :demand t
   :init (vertico-mode 1)
-  ;; Keys stay at their Vertico defaults here: TAB accepts the selection
-  ;; (`vertico-insert'), C-n/C-p move through candidates.  Only the Corfu popup
-  ;; cycles with TAB / S-TAB.
+  ;; Use the same candidate-navigation keys as Corfu.  Minibuffer history moves
+  ;; to C-M-n/C-M-p; M-TAB keeps `vertico-insert' available for completing a
+  ;; path component without leaving the minibuffer, and M-RET retains Vertico's
+  ;; default "submit the literal input" behavior.
+  :bind (:map vertico-map
+              ("C-n" . vertico-next) ("M-n" . vertico-next)
+              ([down] . vertico-next)
+              ("TAB" . vertico-next) ([tab] . vertico-next)
+              ("C-p" . vertico-previous) ("M-p" . vertico-previous)
+              ([up] . vertico-previous)
+              ("S-TAB" . vertico-previous) ([backtab] . vertico-previous)
+              ("RET" . vertico-exit) ([return] . vertico-exit)
+              ("M-TAB" . vertico-insert)
+              ("C-M-n" . next-history-element)
+              ("C-M-p" . previous-history-element)
+              ("C-g" . minibuffer-keyboard-quit))
   :custom (vertico-cycle t) (vertico-count 12))
 
 (use-package orderless
@@ -82,21 +95,19 @@
   (corfu-popupinfo-delay '(0.5 . 0.2))
   :bind (("M-/" . completion-at-point)
          :map corfu-map
-              ;; TAB / S-TAB cycle the candidates, RET inserts the selection.
+              ;; Match Vertico: all four navigation key families cycle through
+              ;; candidates, RET inserts the selection, and C-g cancels.
+              ("C-n" . corfu-next) ("M-n" . corfu-next)
+              ([down] . corfu-next)
               ("TAB" . corfu-next) ([tab] . corfu-next)
+              ("C-p" . corfu-previous) ("M-p" . corfu-previous)
+              ([up] . corfu-previous)
               ("S-TAB" . corfu-previous) ([backtab] . corfu-previous)
               ("RET" . corfu-insert) ([return] . corfu-insert)
               ("M-TAB" . corfu-expand)
               ("C-g" . corfu-quit) ("M-d" . corfu-info-documentation))
   :config
-  (corfu-popupinfo-mode 1)
-  ;; Corfu grabs C-n/C-p through `next-line'/`previous-line' remappings.  Undo
-  ;; them so those keys always move point; the popup then closes on its own,
-  ;; since neither command matches `corfu-continue-commands'.
-  ;; Remapping events use vector syntax, which `keymap-unset' deliberately
-  ;; rejects even on Emacs 31; `define-key' is the public API for these entries.
-  (define-key corfu-map [remap next-line] nil)
-  (define-key corfu-map [remap previous-line] nil))
+  (corfu-popupinfo-mode 1))
 
 (defun init-completion-enable-programming-triggers ()
   "Make member-access completion immediate in programming buffers."

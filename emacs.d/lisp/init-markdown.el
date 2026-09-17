@@ -9,7 +9,239 @@
 (require 'init-treesit)
 
 (declare-function markdown-ts-mode "markdown-ts-mode")
+(declare-function markdown-ts-at-table-p "markdown-ts-mode" (&optional pos quiet))
+(declare-function markdown-ts--remove-image-overlays "markdown-ts-mode")
+(declare-function markdown-ts--set-hide-markup "markdown-ts-mode" (value))
+(declare-function markdown-ts-appear--start "markdown-ts-appear")
+(declare-function markdown-ts-appear--stop "markdown-ts-appear")
+(declare-function valign-table "valign")
 (declare-function visual-fill-column-adjust "visual-fill-column")
+
+(defcustom init-markdown-default-render-mode 'live
+  "Rendering mode used when a Markdown buffer is opened."
+  :type '(choice (const :tag "Live rendering" live)
+                 (const :tag "Source only" source)
+                 (const :tag "Read-only preview" preview))
+  :group 'markdown-ts)
+
+(defcustom init-markdown-table-realign-delay 0.15
+  "Idle seconds used to coalesce table layouts after math rendering."
+  :type 'number
+  :group 'markdown-ts)
+
+(defvar-local init-markdown-render-mode nil
+  "Current Markdown rendering mode: `live', `source', or `preview'.")
+
+(defvar-local init-markdown--table-inline-range-settings nil
+  "Range settings added for parsing inline markup in table cells.")
+
+(defvar-local init-markdown--table-realign-timer nil
+  "Idle timer for a pending batch of table realignments.")
+
+(defvar-local init-markdown--tables-pending-realign nil
+  "Markers identifying tables waiting for one display-only realignment.")
+
+(defun init-markdown--setup-table-inline-ranges ()
+  "Parse inline Markdown, including math, inside GFM table cells.
+
+Emacs 31 only embeds the `markdown-inline' parser in ordinary `inline' nodes.
+The block grammar represents table contents as `pipe_table_cell' nodes, so
+without this extra range every `$...$' expression in a table remains plain
+source text."
+  (unless init-markdown--table-inline-range-settings
+    (setq init-markdown--table-inline-range-settings
+      (treesit-range-rules
+       :embed 'markdown-inline
+       :host 'markdown
+       :local t
+       ;; One parser per table is enough.  A parser per cell (or even per row)
+       ;; scales poorly in large tables; the validator below still prevents a
+       ;; math span from crossing cell boundaries.
+       '((pipe_table) @markdown-inline)))
+    (setq-local treesit-range-settings
+                (append treesit-range-settings
+                        init-markdown--table-inline-range-settings))
+    (treesit-update-ranges (point-min) (point-max))))
+
+(defun init-markdown--remove-table-inline-ranges ()
+  "Stop maintaining extra inline parsers for table cells."
+  (when init-markdown--table-inline-range-settings
+    (let ((settings init-markdown--table-inline-range-settings))
+      (setq-local treesit-range-settings
+                  (seq-remove (lambda (setting) (memq setting settings))
+                              treesit-range-settings)))
+    (setq init-markdown--table-inline-range-settings nil)
+    (treesit-update-ranges (point-min) (point-max))))
+
+(defun init-markdown--table-cell-at (position)
+  "Return the Markdown table cell containing POSITION, if any."
+  (when-let* ((node (treesit-node-at position 'markdown)))
+    (while (and node
+                (not (member (treesit-node-type node)
+                             '("pipe_table_cell"
+                               "pipe_table_delimiter_cell"))))
+      (setq node (treesit-node-parent node)))
+    node))
+
+(defun init-markdown--latex-block-valid-p (original node)
+  "Accept a LaTeX block NODE when it stays inside one table cell.
+
+Emacs 31's ORIGINAL validator requires both delimiters to belong to the same
+Markdown `inline' node.  GFM table cells have no such wrapper, so otherwise a
+perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
+  (or (funcall original node)
+      (when (and node (equal (treesit-node-type node) "latex_block"))
+        (let ((start-cell
+               (init-markdown--table-cell-at (treesit-node-start node)))
+              (end-cell
+               (init-markdown--table-cell-at (1- (treesit-node-end node)))))
+          (and start-cell end-cell (treesit-node-eq start-cell end-cell))))))
+
+(defun init-markdown--realign-table-after-math (original request data)
+  "Run ORIGINAL with REQUEST and DATA, then schedule its table layout."
+  (let ((buffer (car request))
+        (position (marker-position (cadr request)))
+        result)
+    (setq result (funcall original request data))
+    (when (and position (buffer-live-p buffer))
+      (init-markdown--schedule-table-realign buffer position))
+    result))
+
+(defun init-markdown--cancel-table-realign ()
+  "Cancel and release pending table layout work in the current buffer."
+  (when (timerp init-markdown--table-realign-timer)
+    (cancel-timer init-markdown--table-realign-timer))
+  (setq init-markdown--table-realign-timer nil)
+  (dolist (marker init-markdown--tables-pending-realign)
+    (set-marker marker nil))
+  (setq init-markdown--tables-pending-realign nil))
+
+(defun init-markdown--flush-table-realignments (buffer)
+  "Realign the tables queued in BUFFER, once per table."
+  (when (buffer-live-p buffer)
+    (with-current-buffer buffer
+      (let ((markers init-markdown--tables-pending-realign))
+        (setq init-markdown--table-realign-timer nil
+              init-markdown--tables-pending-realign nil)
+        (unwind-protect
+            (when (and (memq init-markdown-render-mode '(live preview))
+                       (bound-and-true-p valign-mode))
+              (dolist (marker markers)
+                (when (marker-position marker)
+                  (save-excursion
+                    (goto-char marker)
+                    ;; Layout failure must not turn a successful MathJax
+                    ;; render into a formula-preview error.
+                    (ignore-errors (valign-table))))))
+          (dolist (marker markers)
+            (set-marker marker nil)))))))
+
+(defun init-markdown--schedule-table-realign (buffer position)
+  "Queue the table at POSITION in BUFFER for one idle-time layout."
+  (when (buffer-live-p buffer)
+    (with-current-buffer buffer
+      (when (and (bound-and-true-p valign-mode)
+                 (memq init-markdown-render-mode '(live preview)))
+        (when-let* ((start
+                     (save-excursion
+                       (goto-char position)
+                       (when-let* ((at-table (markdown-ts-at-table-p nil t))
+                                   (table (cdr at-table)))
+                         (treesit-node-start table)))))
+            (unless (seq-some
+                     (lambda (marker) (equal (marker-position marker) start))
+                     init-markdown--tables-pending-realign)
+              (push (copy-marker start)
+                    init-markdown--tables-pending-realign))
+            (when (timerp init-markdown--table-realign-timer)
+              (cancel-timer init-markdown--table-realign-timer))
+            (setq init-markdown--table-realign-timer
+                  (run-with-idle-timer
+                   init-markdown-table-realign-delay nil
+                   #'init-markdown--flush-table-realignments buffer)))))))
+
+(defun init-markdown--enable-renderers ()
+  "Enable markup, math, image, and table rendering in this buffer."
+  (init-markdown--setup-table-inline-ranges)
+  (setq-local markdown-ts-inline-images t)
+  (when (require 'markdown-ts-appear nil t)
+    (unless markdown-ts-appear-mode
+      (markdown-ts-appear-mode 1)))
+  (when (and (display-graphic-p) (require 'valign nil t))
+    (unless valign-mode
+      (valign-mode 1))))
+
+(defun init-markdown--disable-renderers ()
+  "Disable all display-only Markdown rendering in this buffer."
+  (init-markdown--cancel-table-realign)
+  (when (bound-and-true-p markdown-ts-appear-mode)
+    (markdown-ts-appear-mode -1))
+  (when (bound-and-true-p valign-mode)
+    (valign-mode -1))
+  (init-markdown--remove-table-inline-ranges)
+  (setq-local markdown-ts-inline-images nil)
+  (markdown-ts--remove-image-overlays)
+  (setq-local markdown-ts-hide-markup nil)
+  (markdown-ts--set-hide-markup nil))
+
+(defun my-markdown-render-live ()
+  "Use editable live rendering in the current Markdown buffer."
+  (interactive)
+  (unless (derived-mode-p 'markdown-ts-mode)
+    (user-error "This is not a Markdown TS buffer"))
+  (read-only-mode -1)
+  (init-markdown--enable-renderers)
+  ;; Preview mode leaves appear enabled but stops point tracking.
+  (when (fboundp 'markdown-ts-appear--start)
+    (markdown-ts-appear--start))
+  (setq init-markdown-render-mode 'live)
+  (font-lock-flush)
+  (font-lock-ensure)
+  (message "Markdown rendering: live"))
+
+(defun my-markdown-render-source ()
+  "Show editable Markdown source without display-time rendering."
+  (interactive)
+  (unless (derived-mode-p 'markdown-ts-mode)
+    (user-error "This is not a Markdown TS buffer"))
+  (read-only-mode -1)
+  (init-markdown--disable-renderers)
+  (setq init-markdown-render-mode 'source)
+  (font-lock-flush)
+  (font-lock-ensure)
+  (message "Markdown rendering: source"))
+
+(defun my-markdown-render-preview ()
+  "Show a static, read-only rendered Markdown preview."
+  (interactive)
+  (unless (derived-mode-p 'markdown-ts-mode)
+    (user-error "This is not a Markdown TS buffer"))
+  (read-only-mode -1)
+  (init-markdown--enable-renderers)
+  ;; Keep all markup rendered instead of revealing the element at point.
+  (when (fboundp 'markdown-ts-appear--stop)
+    (markdown-ts-appear--stop))
+  (setq init-markdown-render-mode 'preview)
+  (font-lock-flush)
+  (font-lock-ensure)
+  (read-only-mode 1)
+  (message "Markdown rendering: preview (read-only)"))
+
+(defun my-markdown-render-cycle ()
+  "Cycle among live rendering, source, and read-only preview modes."
+  (interactive)
+  (pcase init-markdown-render-mode
+    ('live (my-markdown-render-source))
+    ('source (my-markdown-render-preview))
+    (_ (my-markdown-render-live))))
+
+(defun init-markdown--initialize-render-mode ()
+  "Apply `init-markdown-default-render-mode' to a new buffer."
+  (add-hook 'kill-buffer-hook #'init-markdown--cancel-table-realign nil t)
+  (pcase init-markdown-default-render-mode
+    ('source (my-markdown-render-source))
+    ('preview (my-markdown-render-preview))
+    (_ (my-markdown-render-live))))
 
 (defun init-markdown-mode ()
   "Use `markdown-ts-mode', falling back to `text-mode' without its grammars."
@@ -39,16 +271,34 @@
   (markdown-ts-enable-table-mode t)
   (markdown-ts-table-auto-align '(cell-navigation transpose))
   :config
+  ;; Rendering is initialized after ordinary Markdown setup hooks have run.
+  (add-hook 'markdown-ts-mode-hook
+            #'init-markdown--initialize-render-mode 90)
+  ;; Keep table geometry independent of surrounding prose faces.  In
+  ;; particular, a theme or a future variable-pitch Markdown setup must not
+  ;; make equal numbers of spaces occupy different widths.
+  (set-face-attribute 'markdown-ts-table nil
+                      :inherit '(fixed-pitch markdown-ts-code-block)
+                      :extend nil)
+  (set-face-attribute 'markdown-ts-table-header nil
+                      :inherit '(bold markdown-ts-table))
+  ;; `markdown-ts--latex-block-valid-p' currently rejects math in GFM table
+  ;; cells because those cells are not wrapped in Markdown `inline' nodes.
+  (unless (advice-member-p #'init-markdown--latex-block-valid-p
+                           'markdown-ts--latex-block-valid-p)
+    (advice-add 'markdown-ts--latex-block-valid-p :around
+                #'init-markdown--latex-block-valid-p))
   ;; Fence names that do not map cleanly to an Emacs major-mode name.
   (dolist (entry '((console sh-mode)
                    (shell-session sh-mode)
                    (zsh bash-ts-mode)))
-    (add-to-list 'markdown-ts-code-block-modes entry)))
+    (add-to-list 'markdown-ts-code-block-modes entry))
+  (keymap-set markdown-ts-mode-map "C-c C-x r"
+              #'my-markdown-render-cycle))
 
 (use-package markdown-ts-appear
   :if (package-installed-p 'markdown-ts-appear)
   :after markdown-ts-mode
-  :hook (markdown-ts-mode . markdown-ts-appear-mode)
   :custom
   ;; This configuration uses Helix rather than Evil or Meow.  The generic
   ;; trigger follows point in every modal state and therefore works in both
@@ -62,7 +312,26 @@
   (markdown-ts-appear-label-caps '("" . ""))
   (markdown-ts-appear-render-callouts t)
   (markdown-ts-appear-block-quote-marker "▎")
+  ;; Replace Markdown's ASCII pipes and delimiter row with box-drawing
+  ;; characters while keeping the underlying source directly editable.
   (markdown-ts-appear-table-style 'unicode))
+
+(use-package valign
+  :if (package-installed-p 'valign)
+  :after markdown-ts-mode
+  :custom
+  ;; Align by actual pixel width, so CJK text and rendered SVG formulas occupy
+  ;; the correct amount of space without rewriting the Markdown source.
+  (valign-fancy-bar t)
+  (valign-lighter nil)
+  :config
+  ;; Formula SVGs arrive asynchronously and change a cell's pixel width after
+  ;; its first layout.  Re-run display-only alignment when that happens.
+  (with-eval-after-load 'markdown-ts-appear
+    (unless (advice-member-p #'init-markdown--realign-table-after-math
+                             'markdown-ts-appear--math-display-result)
+      (advice-add 'markdown-ts-appear--math-display-result :around
+                  #'init-markdown--realign-table-after-math))))
 
 (use-package visual-fill-column
   :if (package-installed-p 'visual-fill-column)
