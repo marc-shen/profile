@@ -19,6 +19,7 @@
 (load custom-file 'noerror 'nomessage)
 
 (require 'init-treesit)
+(require 'init-proxy)
 (require 'init-package)
 (require 'init-tramp)
 (require 'init-base)
