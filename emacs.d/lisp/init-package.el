@@ -58,8 +58,56 @@
 This keeps packages that are unavailable from the configured archives, or
 whose repository contents are needed at runtime, on their upstream heads.")
 
+(defvar pdf-info-epdfinfo-program)
+(defvar vterm-always-compile-module)
+(declare-function pdf-info-check-epdfinfo "pdf-info" (&optional interactive-p))
+(declare-function pdf-tools-install "pdf-tools"
+                  (&optional no-query-p skip-dependencies-p
+                             no-error-p force-dependencies-p))
+
+(defun my-install-pdf-tools-server ()
+  "Build and verify the PDF Tools epdfinfo server when necessary."
+  (unless (package-installed-p 'pdf-tools)
+    (error "The pdf-tools package is not installed"))
+  (require 'pdf-tools)
+  ;; `pdf-tools-install' starts an asynchronous compilation when epdfinfo is
+  ;; absent.  Wait here so `my-install-packages' can report the real outcome
+  ;; instead of claiming success while the compiler is still running.
+  (let ((result (pdf-tools-install t)))
+    (when (bufferp result)
+      (when-let* ((process (get-buffer-process result)))
+        (while (process-live-p process)
+          (accept-process-output process 0.2)))))
+  (pdf-info-check-epdfinfo)
+  t)
+
+(defun my-install-vterm-module ()
+  "Build and load vterm's native module when necessary."
+  (unless (package-installed-p 'vterm)
+    (error "The vterm package is not installed"))
+  (unless module-file-suffix
+    (error "This Emacs was built without dynamic module support"))
+  (unless (require 'vterm-module nil t)
+    ;; Loading vterm performs its synchronous CMake build.  Suppress its
+    ;; confirmation question because this command is already explicitly an
+    ;; installation command.
+    (let ((vterm-always-compile-module t))
+      (require 'vterm)))
+  (unless (featurep 'vterm-module)
+    (error "The vterm native module did not load after compilation"))
+  t)
+
+(defconst my-package-builders
+  '((pdf-tools-build pdf-tools my-install-pdf-tools-server)
+    (vterm-module-build vterm my-install-vterm-module))
+  "Native build steps run by `my-install-packages'.
+
+Each entry is (TASK PACKAGE FUNCTION).  FUNCTION is run only when PACKAGE was
+installed successfully, so an archive failure is not reported a second time as
+a build failure.")
+
 (defun my-install-packages ()
-  "Install all missing packages and Tree-sitter grammars.
+  "Install packages and build their native components and grammars.
 
 Network access occurs only while a package or grammar is missing.  Its final
 message reports counts maintained during this run instead of rescanning the
@@ -120,6 +168,16 @@ package database."
                   (error
                    (push (cons package (error-message-string err))
                          failed))))
+    (cl-loop for (task package function) in my-package-builders
+             when (package-installed-p package)
+             do (message "Building native dependency: %s..." task)
+             do (redisplay)
+             do (condition-case err
+                    (progn
+                      (funcall function)
+                      (cl-incf success-count))
+                  (error
+                   (push (cons task (error-message-string err)) failed))))
     (setq failed
           (nconc failed (init-treesit-install-missing-grammars)))
     (cl-incf success-count
