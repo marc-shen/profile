@@ -2,6 +2,28 @@
 
 (defvar display-line-numbers-type)
 
+;; `Emacs Client.app' is the Dock-facing launcher.  A macOS daemon is a
+;; separate AppKit application, so without this it also gets its own Dock tile.
+;; Emacs promotes itself back to a regular application when it creates a GUI
+;; frame, hence this must run after every new frame rather than only at startup.
+;; Standalone Emacs is unchanged: it has no client launcher to represent it.
+(defun init-ui-hide-macos-daemon-dock-icon (&optional _frame)
+  "Keep the macOS Emacs daemon from adding a second Dock icon."
+  (when (and (eq system-type 'darwin)
+             (daemonp)
+             (featurep 'ns)
+             (fboundp 'ns-do-applescript))
+    (condition-case nil
+        (ns-do-applescript
+         (concat "use framework \"AppKit\"\n"
+                 "current application's NSApplication's sharedApplication()'s "
+                 "setActivationPolicy:1"))
+      (error nil))))
+
+(init-ui-hide-macos-daemon-dock-icon)
+(add-hook 'after-make-frame-functions
+          #'init-ui-hide-macos-daemon-dock-icon)
+
 ;; Do not enumerate system fonts during startup; Emacs falls back gracefully.
 (set-face-attribute 'default nil :family "MesloLGS NF" :height 160)
 

@@ -21,6 +21,10 @@
   <string>Emacs.icns</string>
   <key>LSMinimumSystemVersion</key>
   <string>12.0</string>
+  <!-- This bundle is only a launcher.  The pinned Dock tile remains usable,
+       but the short-lived emacsclient process must not create another tile. -->
+  <key>LSUIElement</key>
+  <true/>
   <key>NSHighResolutionCapable</key>
   <true/>
 </dict>

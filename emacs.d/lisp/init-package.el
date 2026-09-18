@@ -33,7 +33,7 @@
   '(embark embark-consult dired-subtree treemacs vterm helpful hl-todo
     rainbow-delimiters multiple-cursors zoxide consult-dir pet reformatter
     csv-mode code-cells cmake-mode auctex pdf-tools citar writegood-mode org-modern
-    visual-fill-column valign mathjax minuet agent-shell
+    visual-fill-column valign mathjax minuet agent-shell msgpack
     ;; `avy' is not used on its own; helix-mode detects it with
     ;; `locate-library' and only then defines `gw' (goto word).
     helix avy)
@@ -45,7 +45,8 @@
 
 (defconst my-vc-packages
   '((embr . "https://github.com/emacs-os/embr.el")
-    (markdown-ts-appear . "https://github.com/Thysrael/markdown-ts-appear"))
+    (markdown-ts-appear . "https://github.com/Thysrael/markdown-ts-appear")
+    (tramp-rpc . "https://github.com/ArthurHeymans/emacs-tramp-rpc"))
   "Packages installed from a Git checkout instead of a package archive.
 
 This keeps packages that are unavailable from the configured archives, or
@@ -105,7 +106,10 @@ package database."
              do (redisplay)
              do (condition-case err
                     (progn
-                      (package-vc-install url)
+                      ;; Pass the configured name explicitly.  Repository
+                      ;; names do not always match their Emacs package names
+                      ;; (for example emacs-tramp-rpc -> tramp-rpc).
+                      (package-vc-install url nil nil package)
                       (cl-incf success-count))
                   (error
                    (push (cons package (error-message-string err))

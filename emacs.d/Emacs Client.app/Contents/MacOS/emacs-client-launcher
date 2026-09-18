@@ -22,8 +22,20 @@ if ! "$client" --eval t >/dev/null 2>&1; then
   done
 fi
 
+# The Dock associates the frame with the daemon's Emacs.app process rather
+# than with this launcher.  Make that process an AppKit accessory so the
+# pinned Emacs Client tile is the only Emacs icon in the Dock.  Accessory apps
+# can still own normal windows; they simply have no separate Dock tile.
+hide_emacs_dock_icon="(when (and (featurep 'ns) (fboundp 'ns-do-applescript)) (ns-do-applescript \"use framework \\\"AppKit\\\"\\ncurrent application's NSApplication's sharedApplication()'s setActivationPolicy:1\"))"
+"$client" --eval "$hide_emacs_dock_icon" >/dev/null 2>&1 || true
+
 if [ "${#arguments[@]}" -gt 0 ]; then
-  exec "$client" --no-wait --create-frame "${arguments[@]}"
+  "$client" --no-wait --create-frame "${arguments[@]}"
 else
-  exec "$client" --no-wait --create-frame
+  "$client" --no-wait --create-frame
 fi
+
+# Creating the first GUI frame can promote a daemon back to a regular AppKit
+# application.  Apply the accessory policy again after Emacs has finished
+# creating the frame.
+"$client" --eval "$hide_emacs_dock_icon" >/dev/null 2>&1 || true

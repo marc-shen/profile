@@ -20,6 +20,7 @@
 
 (require 'init-treesit)
 (require 'init-package)
+(require 'init-tramp)
 (require 'init-base)
 (require 'init-ui)
 (require 'init-theme)
