@@ -43,6 +43,12 @@
   (delete-dups (append my-core-packages my-optional-packages))
   "All third-party packages managed by this configuration.")
 
+(defun my-missing-core-packages ()
+  "Return core configuration packages that are not installed."
+  (seq-filter (lambda (package)
+                (not (package-installed-p package)))
+              my-core-packages))
+
 (defconst my-vc-packages
   '((embr . "https://github.com/emacs-os/embr.el")
     (markdown-ts-appear . "https://github.com/Thysrael/markdown-ts-appear")
