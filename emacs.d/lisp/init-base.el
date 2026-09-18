@@ -1,5 +1,7 @@
 ;;; init-base.el --- Basic editing behavior -*- lexical-binding: t; -*-
 
+(require 'seq)
+
 (defvar auto-revert-verbose)
 (defvar global-auto-revert-non-file-buffers)
 (defvar recentf-auto-cleanup)
@@ -21,14 +23,34 @@
 (unless (or (daemonp) (server-running-p))
   (server-start))
 
-;; uv installs user-wide tools here on both macOS and Linux.  GUI Emacs may
-;; not inherit the shell's updated PATH, so keep `exec-path' in sync explicitly.
-(let ((user-bin-directory (expand-file-name "~/.local/bin")))
-  (add-to-list 'exec-path user-bin-directory)
-  (unless (member user-bin-directory
-                  (split-string (or (getenv "PATH") "") path-separator t))
-    (setenv "PATH"
-            (concat user-bin-directory path-separator (or (getenv "PATH") "")))))
+;; GUI and daemon Emacs processes do not necessarily inherit the interactive
+;; shell's PATH.  Keep both process lookup mechanisms in sync for user tools.
+(defun init-base--prepend-executable-directory (directory)
+  "Prepend an existing DIRECTORY to `exec-path' and PATH."
+  (when (file-directory-p directory)
+    (add-to-list 'exec-path directory)
+    (unless (member directory
+                    (split-string (or (getenv "PATH") "") path-separator t))
+      (setenv "PATH"
+              (concat directory path-separator (or (getenv "PATH") ""))))))
+
+;; uv and similar tools install user-wide commands here on macOS and Linux.
+(init-base--prepend-executable-directory
+ (expand-file-name "~/.local/bin"))
+
+;; NVM modifies PATH from interactive shell startup files, which a GUI Emacs
+;; never reads.  Prefer the newest installed Node version; normally this is the
+;; same version selected by NVM's default alias and keeps MathJax, LSP servers,
+;; and other Node-based tools available to Emacs subprocesses.
+(let ((versions-directory (expand-file-name "~/.nvm/versions/node")))
+  (when (file-directory-p versions-directory)
+    (when-let* ((versions
+                 (seq-filter
+                  #'file-directory-p
+                  (directory-files versions-directory t "\\`v[0-9]" t)))
+                (newest (car (last (sort versions #'version<)))))
+      (init-base--prepend-executable-directory
+       (expand-file-name "bin" newest)))))
 
 ;; Keep recovery data out of project directories instead of disabling it.
 (defconst init-var-directory (expand-file-name "var/" user-emacs-directory))

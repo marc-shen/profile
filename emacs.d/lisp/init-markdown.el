@@ -14,6 +14,7 @@
 (declare-function markdown-ts--set-hide-markup "markdown-ts-mode" (value))
 (declare-function markdown-ts-appear--start "markdown-ts-appear")
 (declare-function markdown-ts-appear--stop "markdown-ts-appear")
+(declare-function mathjax-available-p "mathjax")
 (declare-function valign-table "valign")
 (declare-function visual-fill-column-adjust "visual-fill-column")
 
@@ -40,6 +41,13 @@
 
 (defvar-local init-markdown--tables-pending-realign nil
   "Markers identifying tables waiting for one display-only realignment.")
+
+(defun init-markdown-math-preview-available-p ()
+  "Return non-nil when all Markdown MathJax preview dependencies exist."
+  (and (image-type-available-p 'svg)
+       (require 'mathjax nil t)
+       (fboundp 'mathjax-available-p)
+       (mathjax-available-p)))
 
 (defun init-markdown--setup-table-inline-ranges ()
   "Parse inline Markdown, including math, inside GFM table cells.
@@ -304,7 +312,10 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
   ;; trigger follows point in every modal state and therefore works in both
   ;; insert and normal state.
   (markdown-ts-appear-trigger 'always)
-  (markdown-ts-appear-enable-math-preview t)
+  ;; Missing Node, SVG, or mathjax should disable only formula previews, not
+  ;; abort Markdown mode with a file-mode specification error.
+  (markdown-ts-appear-enable-math-preview
+   (init-markdown-math-preview-available-p))
   (markdown-ts-appear-math-scale 1.1)
   (markdown-ts-appear-link-icon '("" . "↗"))
   (markdown-ts-appear-image-icon '("" . "▧"))
