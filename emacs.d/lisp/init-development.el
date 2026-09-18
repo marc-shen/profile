@@ -70,6 +70,7 @@
                   "vscode-json-languageserver" "json-languageserver")
     (yaml-ts-mode "yaml-language-server")
     (f90-mode "fortls")
+    (f90-ts-mode "fortls")
     (fortran-mode "fortls"))
   "Language-server executables that permit automatic Eglot startup.")
 
@@ -87,9 +88,15 @@
     (eglot-ensure)))
 
 (dolist (mode '(python-mode python-ts-mode c-mode c-ts-mode c++-mode c++-ts-mode
-                bash-ts-mode json-ts-mode yaml-ts-mode f90-mode fortran-mode))
+                bash-ts-mode json-ts-mode yaml-ts-mode
+                f90-mode f90-ts-mode fortran-mode))
   (add-hook (intern (format "%s-hook" mode))
             #'init-eglot-ensure-if-available))
+
+;; Emacs 31 knows the built-in Fortran modes, but not the external
+;; Tree-sitter mode.  Its name naturally maps to the same "f90" language id.
+(with-eval-after-load 'eglot
+  (add-to-list 'eglot-server-programs '(f90-ts-mode . ("fortls"))))
 
 (defconst init-development-tool-groups
   '(("Python LSP" "basedpyright-langserver" "pyright-langserver" "pylsp")

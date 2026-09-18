@@ -12,8 +12,13 @@
 (require 'yaml-ts-mode)
 (require 'markdown-ts-mode)
 
+;; Fortran does not have a Tree-sitter mode or source recipe in Emacs 31.
+;; `f90-ts-mode' uses the actively maintained upstream grammar directly.
+(add-to-list 'treesit-language-source-alist
+             '(fortran "https://github.com/stadelmanma/tree-sitter-fortran"))
+
 (defconst init-treesit-languages
-  '(python c cpp bash json yaml markdown markdown-inline)
+  '(python c cpp bash json yaml markdown markdown-inline fortran)
   "Tree-sitter grammars installed by this configuration.")
 
 (defconst init-treesit-major-mode-remaps

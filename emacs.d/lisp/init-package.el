@@ -33,7 +33,7 @@
   '(embark embark-consult dired-subtree treemacs vterm helpful hl-todo
     rainbow-delimiters multiple-cursors zoxide consult-dir pet reformatter
     csv-mode code-cells cmake-mode auctex pdf-tools citar writegood-mode org-modern
-    visual-fill-column valign mathjax minuet agent-shell msgpack
+    visual-fill-column valign mathjax minuet agent-shell msgpack f90-ts-mode
     ;; `avy' is not used on its own; helix-mode detects it with
     ;; `locate-library' and only then defines `gw' (goto word).
     helix avy)
