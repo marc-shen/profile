@@ -52,10 +52,23 @@ the duration of filename editing; see `my-helix-wdired-enter'.")
   (seq-some #'derived-mode-p my-helix-exempt-modes))
 
 (defun my-helix-disable-in-exempt-buffers ()
-  "Turn `helix-normal-mode' back off in `my-helix-exempt-modes' buffers."
-  (when (and (bound-and-true-p helix-normal-mode)
-             (my-helix-exempt-p))
-    (helix-normal-mode -1)))
+  "Turn every Helix state off in `my-helix-exempt-modes' buffers."
+  (when (my-helix-exempt-p)
+    (when (bound-and-true-p helix-insert-mode)
+      (helix-insert-mode -1))
+    (when (bound-and-true-p helix-normal-mode)
+      (helix-normal-mode -1))))
+
+(defun my-helix-activate-unless-exempt (function &rest arguments)
+  "Call FUNCTION with ARGUMENTS unless this buffer must remain non-modal.
+
+Newer helix-mode versions also activate buffers from `set-window-buffer',
+after the major-mode hooks have finished.  Guarding the package's central
+activation function keeps Dired and the other exempt modes non-modal no matter
+which activation path the installed helix-mode version uses."
+  (if (my-helix-exempt-p)
+      (my-helix-disable-in-exempt-buffers)
+    (apply function arguments)))
 
 ;;; `j k' as an alternative ESC.
 
@@ -225,6 +238,13 @@ Helix insert map, while ESC switches to the full Helix normal state."
 (use-package helix
   :if (package-installed-p 'helix)
   :config
+  ;; All automatic activation paths, including the `set-window-buffer' advice
+  ;; added by newer helix-mode releases, pass through this function.
+  (unless (advice-member-p #'my-helix-activate-unless-exempt
+                           'helix-mode-maybe-activate)
+    (advice-add 'helix-mode-maybe-activate
+                :around #'my-helix-activate-unless-exempt))
+
   ;; Helix binds `C-c' to `comment-line', which would swallow the whole `C-c'
   ;; prefix in normal state -- `C-c r', `C-c c', the `C-c g' Git prefix and the
   ;; `C-c e' multiple-cursors set all live there.  Emacs keeps the prefix;
