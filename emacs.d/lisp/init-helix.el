@@ -241,6 +241,11 @@ Helix insert map, while ESC switches to the full Helix normal state."
   ;; it everywhere except minibuffers, where both letters must remain literal.
   (my-helix-jk-setup)
 
+  ;; Match Dired's `q' binding: enter WDired from Dired and leave it again from
+  ;; WDired normal state.  Helix's mode-specific map outranks its global normal
+  ;; map, whose remapped self-insertion would otherwise make `q' undefined.
+  (helix-define-key 'normal "q" #'wdired-exit 'wdired-mode)
+
   ;; Upstream deliberately excludes minibuffers from `helix-mode'.  Completion
   ;; minibuffers opt in separately and start in insert state, so file names and
   ;; commands can be typed immediately; ESC exposes normal-state navigation.
