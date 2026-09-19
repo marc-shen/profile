@@ -207,24 +207,20 @@ Helix insert map, while ESC switches to the full Helix normal state."
           (helix-insert-mode -1))
         (helix-normal-mode 1)))))
 
-(defun my-helix-wdired-exit (function &rest arguments)
-  "Run FUNCTION with ARGUMENTS, then remove the Helix state owned by WDired."
-  (let ((active my-helix-wdired--active)
-        (saved-cursor-type my-helix-wdired--saved-cursor-type)
-        (cursor-was-local my-helix-wdired--cursor-was-local))
-    (prog1 (apply function arguments)
-      ;; WDired changes `major-mode' back by hand, so the ordinary
-      ;; `after-change-major-mode-hook' is not sufficient for this transition.
-      (when (and active (eq major-mode 'dired-mode))
-        (my-helix-jk--cancel)
-        (when (bound-and-true-p helix-insert-mode)
-          (helix-insert-mode -1))
-        (when (bound-and-true-p helix-normal-mode)
-          (helix-normal-mode -1))
-        (if cursor-was-local
-            (setq cursor-type saved-cursor-type)
-          (kill-local-variable 'cursor-type))
-        (setq my-helix-wdired--active nil)))))
+(defun my-helix-wdired-exit (&rest _)
+  "Remove the Helix state owned by WDired after returning to Dired."
+  ;; WDired changes `major-mode' back by hand, so the ordinary
+  ;; `after-change-major-mode-hook' is not sufficient for this transition.
+  (when (and my-helix-wdired--active (eq major-mode 'dired-mode))
+    (my-helix-jk--cancel)
+    (when (bound-and-true-p helix-insert-mode)
+      (helix-insert-mode -1))
+    (when (bound-and-true-p helix-normal-mode)
+      (helix-normal-mode -1))
+    (if my-helix-wdired--cursor-was-local
+        (setq cursor-type my-helix-wdired--saved-cursor-type)
+      (kill-local-variable 'cursor-type))
+    (setq my-helix-wdired--active nil)))
 
 (use-package helix
   :if (package-installed-p 'helix)
@@ -252,17 +248,16 @@ Helix insert map, while ESC switches to the full Helix normal state."
   (add-hook 'minibuffer-exit-hook #'my-helix-minibuffer-cleanup -90)
 
   ;; WDired changes major modes without a symmetric major-mode hook on exit.
-  ;; Advice both transition functions so normal and insert state cannot leak
-  ;; back into Dired, whether edits are committed or aborted.
+  ;; Advise its public exit commands rather than the internal mode-transition
+  ;; helper, which can be unavailable as a Lisp function in dumped Emacs builds.
   (with-eval-after-load 'wdired
     (unless (advice-member-p #'my-helix-wdired-enter
                              'wdired-change-to-wdired-mode)
       (advice-add 'wdired-change-to-wdired-mode
                   :around #'my-helix-wdired-enter))
-    (unless (advice-member-p #'my-helix-wdired-exit
-                             'wdired-change-to-dired-mode)
-      (advice-add 'wdired-change-to-dired-mode
-                  :around #'my-helix-wdired-exit)))
+    (dolist (command '(wdired-finish-edit wdired-abort-changes wdired-exit))
+      (unless (advice-member-p #'my-helix-wdired-exit command)
+        (advice-add command :after #'my-helix-wdired-exit))))
 
   ;; `helix-mode' is a toggle, not a minor mode: calling it twice would turn
   ;; Helix back off if this file were ever reloaded.  It installs the
