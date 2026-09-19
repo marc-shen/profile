@@ -5,6 +5,12 @@
 (defvar orderless-smart-case)
 (defvar vertico-map)
 
+(declare-function dired-get-filename "dired"
+                  (&optional localp no-error-if-not-filep))
+(declare-function dired-move-to-filename "dired" (&optional raise-error eol))
+(declare-function dired-copy-filename-as-kill "dired" (&optional arg))
+(declare-function wdired-change-to-wdired-mode "wdired")
+
 (use-package project
   :ensure nil
   :custom
@@ -12,6 +18,46 @@
    '((project-find-file "Find file" ?f) (consult-ripgrep "Ripgrep" ?g)
      (project-find-dir "Find directory" ?d) (project-eshell "Eshell" ?e)
      (magit-project-status "Magit" ?m) (project-compile "Compile" ?c))))
+
+(defun my-dired-entry-at-point-p ()
+  "Return non-nil on a real Dired entry other than `.' or `..'."
+  (let ((filename (dired-get-filename nil t)))
+    (and filename
+         (not (member (file-name-nondirectory filename) '("." ".."))))))
+
+(defun my-dired-first-entry ()
+  "Move to the first real file entry in the current Dired buffer."
+  (interactive)
+  (goto-char (point-min))
+  (while (and (not (eobp)) (not (my-dired-entry-at-point-p)))
+    (forward-line 1))
+  (unless (my-dired-entry-at-point-p)
+    (user-error "No file entries in this Dired buffer"))
+  (dired-move-to-filename))
+
+(defun my-dired-last-entry ()
+  "Move to the last real file entry in the current Dired buffer."
+  (interactive)
+  (goto-char (point-max))
+  (forward-line -1)
+  (while (and (not (bobp)) (not (my-dired-entry-at-point-p)))
+    (forward-line -1))
+  (unless (my-dired-entry-at-point-p)
+    (user-error "No file entries in this Dired buffer"))
+  (dired-move-to-filename))
+
+(defun my-dired-copy-absolute-path ()
+  "Copy absolute paths of the current or marked Dired entries."
+  (interactive)
+  (dired-copy-filename-as-kill 0))
+
+(defvar-keymap my-dired-goto-map
+  :doc "Helix-style goto prefix for Dired."
+  "g" #'my-dired-first-entry
+  "e" #'my-dired-last-entry
+  "r" #'revert-buffer
+  "j" #'dired-goto-file
+  "y" #'dired-show-file-type)
 
 (use-package dired
   :ensure nil
@@ -26,7 +72,31 @@
   (dired-listing-switches
    (if (eq system-type 'gnu/linux)
        "-alh --group-directories-first"
-     "-alh")))
+     "-alh"))
+  :config
+  ;; Dired remains exempt from the Helix minor mode: its mark set already acts
+  ;; like a selection, while a direct mode map avoids normal/insert state and
+  ;; preserves Dired's file-operation semantics.
+  (keymap-set dired-mode-map "h" #'dired-up-directory)
+  (keymap-set dired-mode-map "j" #'dired-next-line)
+  (keymap-set dired-mode-map "k" #'dired-previous-line)
+  (keymap-set dired-mode-map "l" #'dired-find-file)
+  (keymap-set dired-mode-map "G" #'my-dired-last-entry)
+  (keymap-set dired-mode-map "/" #'dired-isearch-filenames)
+  (keymap-set dired-mode-map "g" my-dired-goto-map)
+
+  ;; Treat marks as Helix selections.  Lower-case x selects instead of
+  ;; performing a destructive action; upper-case X executes deletion flags.
+  ;; The original commands displaced by j/k/y live under g j, K and g y.
+  (keymap-set dired-mode-map "x" #'dired-mark)
+  (keymap-set dired-mode-map "," #'dired-unmark)
+  (keymap-set dired-mode-map "X" #'dired-do-flagged-delete)
+  (keymap-set dired-mode-map "y" #'dired-copy-filename-as-kill)
+  (keymap-set dired-mode-map "Y" #'my-dired-copy-absolute-path)
+  (keymap-set dired-mode-map "r" #'dired-do-rename)
+  (keymap-set dired-mode-map "H" #'dired-kill-subdir)
+  (keymap-set dired-mode-map "K" #'dired-do-kill-lines)
+  (keymap-set dired-mode-map "q" #'wdired-change-to-wdired-mode))
 (use-package dired-subtree
   :if (package-installed-p 'dired-subtree)
   :after dired

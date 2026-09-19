@@ -67,9 +67,10 @@ Helix 是"先选择后操作"：`w` 不只是移动，还会把整个词选中�
 | `:` | 命令行，如 `:write`、`:quit` |
 | `C-f` `C-b` | 翻页 |
 
-Magit、Dired（包括可写的 WDired）、vterm、PDF、compilation 等自带单键操作的缓冲区不启用
-Helix（见 `my-helix-exempt-modes`），在那里一切照旧。`M-x helix-mode`
-可全局开关 Helix。
+Magit、普通 Dired、vterm、PDF、compilation 等自带单键操作的缓冲区不启用
+Helix（见 `my-helix-exempt-modes`），在那里一切照旧。WDired 是例外：进入文件名
+编辑后启用 Helix normal，退出并返回 Dired 时关闭。`M-x helix-mode` 可全局开关
+Helix。
 
 ## 随时可用的帮助
 
@@ -256,22 +257,40 @@ Emacs 内置 Project 使用 `C-x p` 作为前缀。
 
 | 快捷键 | 功能 | 来源 |
 | --- | --- | --- |
-| `RET` | 打开光标处文件或目录 | Dired |
-| `^` | 返回上一级目录 | Dired |
-| `g` | 刷新目录 | Dired |
+| `h` / `^` | 返回上一级目录 | Helix 风格 / Dired |
+| `j` / `n` | 移到下一个条目 | Helix 风格 / Dired |
+| `k` / `p` | 移到上一个条目 | Helix 风格 / Dired |
+| `l` / `RET` | 打开光标处文件或目录 | Helix 风格 / Dired |
+| `g g` | 跳到第一个文件条目 | Helix 风格 |
+| `g e` / `G` | 跳到最后一个文件条目 | Helix 风格 |
+| `g r` | 刷新目录 | Helix 风格 |
+| `g j` | 按文件名跳转 | 原 `j` |
+| `g y` | 显示文件类型 | 原 `y` |
+| `/` | 只在文件名中增量搜索 | Helix 风格 |
 | `TAB` | 展开/收起子目录 | Dired Subtree（安装后） |
-| `m` | 标记文件 | Dired |
-| `u` | 取消标记 | Dired |
+| `x` / `m` | 标记当前文件，相当于选择 | Helix 风格 / Dired |
+| `,` / `u` | 取消当前文件的标记 | Helix 风格 / Dired |
+| `U` | 清除所有标记 | Dired |
 | `d` | 标记为待删除 | Dired |
-| `x` | 执行所有待删除标记 | Dired |
+| `X` | 执行所有待删除标记 | 原 `x`，自定义大写键 |
+| `y` | 复制当前或已标记文件的文件名 | Helix 风格 |
+| `Y` | 复制当前或已标记文件的绝对路径 | Helix 风格 |
+| `r` / `R` | 移动或重命名文件 | Helix 风格 / Dired |
 | `C` | 复制文件 | Dired |
-| `R` | 移动或重命名文件 | Dired |
 | `D` | 立即删除文件 | Dired |
+| `v` | 只读查看文件 | Dired |
+| `o` | 在另一个窗口打开 | Dired |
+| `i` | 在当前缓冲区展开子目录 | Dired |
+| `K` | 从列表隐藏当前条目，不删除文件 | 原 `k` |
 | `+` | 创建目录 | Dired |
-| `q` | 关闭 Dired 窗口 | Dired |
+| `!` | 对当前或标记文件执行 shell 命令 | Dired |
+| `q` / `C-x C-q` | 进入 WDired，并启动 Helix normal | Helix 风格 / Dired |
 | `C-c o` | 在 Finder/Dolphin 中显示光标处文件 | 自定义配置 |
 
-`D` 和 `x` 会删除文件，执行前应确认目标是否正确。
+这里把 Dired 的 mark 当作 Helix 的 selection：`x` 只选择文件，不再执行删除；
+`d` 只添加删除标记。真正修改磁盘的是 `X` 和 `D`，执行前应确认目标是否正确。
+进入 WDired 后处于 Helix normal；按 `i`/`a` 进入 insert 后编辑文件名。按
+`C-c C-c` 应用修改，或按 `C-c ESC` 放弃修改；返回普通 Dired 后 Helix 自动关闭。
 
 `C-c o` 在任何缓冲区都可用：在 Dired 里定位光标处的条目，在文件缓冲区里定位
 该文件，其他情况打开 `default-directory`。加前缀 `C-u C-c o` 则直接打开文件
