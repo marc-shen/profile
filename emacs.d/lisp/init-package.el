@@ -113,6 +113,42 @@ a build failure.")
 (defvar my-package--restart-timer nil
   "Timer used to restart Emacs after successful package maintenance.")
 
+(defun my-emacs--systemd-user-service-p ()
+  "Return non-nil when this Emacs is the systemd user emacs.service process."
+  (when (and (eq system-type 'gnu/linux)
+             (daemonp)
+             (executable-find "systemctl"))
+    (with-temp-buffer
+      (let ((status
+             (call-process "systemctl" nil t nil
+                           "--user" "show" "emacs.service"
+                           "--property=MainPID" "--value")))
+        (and (integerp status)
+             (zerop status)
+             (= (emacs-pid)
+                (string-to-number (string-trim (buffer-string)))))))))
+
+(defun my-restart-emacs ()
+  "Restart Emacs correctly for the service manager on the current platform.
+
+On Linux, when the current daemon is managed by the systemd user unit
+emacs.service, request a non-blocking service restart.  This avoids the
+STOPPING/READY notification conflict caused by `restart-emacs' under a
+Type=notify unit.  On macOS and in non-systemd sessions, use the built-in
+`restart-emacs' implementation."
+  (interactive)
+  (if (my-emacs--systemd-user-service-p)
+      (with-temp-buffer
+        (let ((status
+               (call-process "systemctl" nil t nil
+                             "--user" "--no-block"
+                             "restart" "emacs.service")))
+          (unless (and (integerp status) (zerop status))
+            (error "Failed to restart emacs.service: %s"
+                   (string-trim (buffer-string))))
+          (message "Requested restart of systemd user service emacs.service")))
+    (restart-emacs)))
+
 (defun my-package--result (success failures)
   "Build a package-maintenance result from SUCCESS and FAILURES."
   (list :success success :failures failures))
@@ -186,7 +222,7 @@ Return the absolute log file name."
       (when (timerp my-package--restart-timer)
         (cancel-timer my-package--restart-timer))
       (setq my-package--restart-timer
-            (run-at-time 3 nil #'restart-emacs)))
+            (run-at-time 3 nil #'my-restart-emacs)))
     result))
 
 (defun my-install-packages--run ()
