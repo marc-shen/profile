@@ -1,5 +1,13 @@
 ;;; init-git.el --- Git integration -*- lexical-binding: t; -*-
 
+;; `git-commit-mode' is a global minor mode rather than a major mode selected
+;; by `auto-mode-alist'.  Load its small support library eagerly so commit
+;; message files opened by an external `git commit' are recognized even when
+;; Magit itself has not been invoked in this Emacs session.
+(use-package git-commit
+  :ensure nil
+  :demand t)
+
 (use-package magit
   :commands (magit-status magit-project-status)
   :bind (("C-x g" . magit-status) ("C-c g b" . magit-blame-addition))

@@ -5,6 +5,8 @@
 ;; Markdown extension instead of splitting files between markdown-mode and
 ;; gfm-mode.  Its two pinned grammar recipes are declared by the library itself;
 ;; `my-install-packages' installs them along with the external packages.
+(require 'cl-lib)
+(require 'seq)
 (require 'init-latex)
 (require 'init-treesit)
 
@@ -30,6 +32,25 @@
   :type 'number
   :group 'markdown-ts)
 
+(defcustom init-markdown-render-section-numbers t
+  "Whether rendered Markdown headings show level badges and section numbers."
+  :type 'boolean
+  :group 'markdown-ts)
+
+(defcustom init-markdown-heading-number-delay 0.1
+  "Idle seconds before rendered Markdown heading numbers are recomputed."
+  :type 'number
+  :group 'markdown-ts)
+
+(defface init-markdown-heading-level-badge
+  '((t (:inherit shadow
+        :height 0.8
+        :weight normal
+        :slant normal
+        :box (:line-width -1))))
+  "Face for the boxed heading-level digit in rendered Markdown."
+  :group 'markdown-ts-faces)
+
 (defvar-local init-markdown-render-mode nil
   "Current Markdown rendering mode: `live', `source', or `preview'.")
 
@@ -41,6 +62,167 @@
 
 (defvar-local init-markdown--tables-pending-realign nil
   "Markers identifying tables waiting for one display-only realignment.")
+
+(defvar-local init-markdown--heading-number-overlays nil
+  "Display-only overlays supplying heading badges and section numbers.")
+
+(defvar-local init-markdown--heading-number-timer nil
+  "Idle timer for recomputing rendered heading numbers.")
+
+(defun init-markdown--configure-heading-faces (&optional _theme)
+  "Give Markdown heading levels a visible, theme-independent hierarchy.
+
+_THEME is accepted so this function can also run from
+`enable-theme-functions'.  Colors continue to come from the active theme;
+relative height, weight, and the final level's slant distinguish the levels."
+  (when (facep 'init-markdown-heading-level-badge)
+    (let* ((body-height (face-attribute 'default :height nil 'default))
+           ;; An integer face height is absolute.  A float would be multiplied
+           ;; by the surrounding H1--H6 face and produce different box sizes.
+           (badge-height (if (integerp body-height)
+                             (round (* body-height 0.8))
+                           80)))
+      (set-face-attribute 'init-markdown-heading-level-badge nil
+                          :inherit 'shadow
+                          :family (face-attribute 'default :family nil 'default)
+                          :height badge-height
+                          :width 'normal
+                          :weight 'normal
+                          :slant 'normal
+                          :box '(:line-width -1))))
+  (dolist (spec '((markdown-ts-heading-1 1.55 ultra-bold normal)
+                  (markdown-ts-heading-2 1.35 bold normal)
+                  (markdown-ts-heading-3 1.20 bold normal)
+                  (markdown-ts-heading-4 1.10 semi-bold normal)
+                  (markdown-ts-heading-5 1.00 semi-bold normal)
+                  (markdown-ts-heading-6 0.95 normal italic)))
+    (pcase-let ((`(,face ,height ,weight ,slant) spec))
+      (when (facep face)
+        (set-face-attribute face nil
+                            :inherit 'font-lock-function-name-face
+                            :height height
+                            :weight weight
+                            :slant slant)))))
+
+(defun init-markdown--heading-info (node)
+  "Return (LEVEL START END FACE) for Markdown heading NODE."
+  (let ((node-type (treesit-node-type node)))
+    (cond
+     ((equal node-type "atx_heading")
+      (let* ((marker (treesit-node-child node 0))
+             (marker-type (and marker (treesit-node-type marker)))
+             (level (and marker-type
+                         (string-match "\\`atx_h\\([1-6]\\)_marker\\'"
+                                       marker-type)
+                         (string-to-number (match-string 1 marker-type))))
+             (content (and (> (treesit-node-child-count node) 1)
+                           (treesit-node-child node 1))))
+        (when level
+          (list level
+                (if content
+                    (treesit-node-start content)
+                  (treesit-node-end marker))
+                (if content
+                    (treesit-node-end content)
+                  (treesit-node-end marker))
+                (intern (format "markdown-ts-heading-%d" level))))))
+     ((equal node-type "setext_heading")
+      (let* ((content (treesit-node-child node 0))
+             (underline
+              (treesit-node-child node
+                                  (1- (treesit-node-child-count node))))
+             (level (pcase (and underline (treesit-node-type underline))
+                      ("setext_h1_underline" 1)
+                      ("setext_h2_underline" 2))))
+        (when level
+          (let ((end (treesit-node-end content)))
+            (while (and (> end (treesit-node-start content))
+                        (memq (char-before end) '(?\n ?\r)))
+              (setq end (1- end)))
+            (list level (treesit-node-start content) end
+                  (intern (format "markdown-ts-heading-%d" level))))))))))
+
+(defun init-markdown--clear-heading-numbers ()
+  "Delete every rendered heading-number overlay in the current buffer."
+  (mapc #'delete-overlay init-markdown--heading-number-overlays)
+  (setq init-markdown--heading-number-overlays nil))
+
+(defun init-markdown--refresh-heading-numbers (buffer)
+  "Recompute display-only heading numbering in Markdown BUFFER."
+  (when (buffer-live-p buffer)
+    (with-current-buffer buffer
+      (setq init-markdown--heading-number-timer nil)
+      (init-markdown--clear-heading-numbers)
+      (when (and init-markdown-render-section-numbers
+                 (memq init-markdown-render-mode '(live preview))
+                 (derived-mode-p 'markdown-ts-mode)
+                 (treesit-parser-list))
+        (let* ((root (treesit-buffer-root-node 'markdown))
+               (nodes
+                (sort
+                 (mapcar #'cdr
+                         (treesit-query-capture
+                          root
+                          '(((atx_heading) @heading)
+                            ((setext_heading) @heading))))
+                 (lambda (left right)
+                   (< (treesit-node-start left) (treesit-node-start right)))))
+               (counters (make-vector 6 0)))
+          (dolist (node nodes)
+            (when-let* ((info (init-markdown--heading-info node))
+                        (level (nth 0 info))
+                        (start (nth 1 info))
+                        (end (nth 2 info))
+                        (heading-face (nth 3 info)))
+              ;; Fill skipped parent levels with one, increment this level,
+              ;; and reset all deeper levels.
+              (dotimes (index (1- level))
+                (when (zerop (aref counters index))
+                  (aset counters index 1)))
+              (aset counters (1- level)
+                    (1+ (aref counters (1- level))))
+              (cl-loop for index from level below 6
+                       do (aset counters index 0))
+              (let* ((section-number
+                      (mapconcat #'number-to-string
+                                 (seq-take (append counters nil) level) "."))
+                     (badge
+                      (propertize (format " %d " level)
+                                  'face 'init-markdown-heading-level-badge))
+                     (number
+                      (propertize section-number 'face heading-face))
+                     (overlay (make-overlay start end nil nil nil)))
+                (overlay-put overlay 'init-markdown-heading-number t)
+                (overlay-put overlay 'priority 20)
+                (overlay-put overlay 'before-string
+                             (concat number "  "))
+                (overlay-put overlay 'after-string
+                             (concat " " badge))
+                (push overlay init-markdown--heading-number-overlays)))))))))
+
+(defun init-markdown--schedule-heading-numbers (&rest _)
+  "Schedule one display-only heading-number refresh after an edit."
+  (when (timerp init-markdown--heading-number-timer)
+    (cancel-timer init-markdown--heading-number-timer))
+  (setq init-markdown--heading-number-timer
+        (run-with-idle-timer init-markdown-heading-number-delay nil
+                             #'init-markdown--refresh-heading-numbers
+                             (current-buffer))))
+
+(defun init-markdown--enable-heading-numbers ()
+  "Enable automatically refreshed rendered heading numbers."
+  (add-hook 'after-change-functions
+            #'init-markdown--schedule-heading-numbers nil t)
+  (init-markdown--schedule-heading-numbers))
+
+(defun init-markdown--disable-heading-numbers ()
+  "Disable and remove rendered heading numbers in this buffer."
+  (remove-hook 'after-change-functions
+               #'init-markdown--schedule-heading-numbers t)
+  (when (timerp init-markdown--heading-number-timer)
+    (cancel-timer init-markdown--heading-number-timer))
+  (setq init-markdown--heading-number-timer nil)
+  (init-markdown--clear-heading-numbers))
 
 (defun init-markdown-math-preview-available-p ()
   "Return non-nil when all Markdown MathJax preview dependencies exist."
@@ -171,6 +353,7 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
 (defun init-markdown--enable-renderers ()
   "Enable markup, math, image, and table rendering in this buffer."
   (init-markdown--setup-table-inline-ranges)
+  (init-markdown--enable-heading-numbers)
   (setq-local markdown-ts-inline-images t)
   (when (require 'markdown-ts-appear nil t)
     (unless markdown-ts-appear-mode
@@ -182,6 +365,7 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
 (defun init-markdown--disable-renderers ()
   "Disable all display-only Markdown rendering in this buffer."
   (init-markdown--cancel-table-realign)
+  (init-markdown--disable-heading-numbers)
   (when (bound-and-true-p markdown-ts-appear-mode)
     (markdown-ts-appear-mode -1))
   (when (bound-and-true-p valign-mode)
@@ -246,6 +430,7 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
 (defun init-markdown--initialize-render-mode ()
   "Apply `init-markdown-default-render-mode' to a new buffer."
   (add-hook 'kill-buffer-hook #'init-markdown--cancel-table-realign nil t)
+  (add-hook 'kill-buffer-hook #'init-markdown--disable-heading-numbers nil t)
   (pcase init-markdown-default-render-mode
     ('source (my-markdown-render-source))
     ('preview (my-markdown-render-preview))
@@ -290,6 +475,11 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
                       :extend nil)
   (set-face-attribute 'markdown-ts-table-header nil
                       :inherit '(bold markdown-ts-table))
+  ;; Emacs defines all six Markdown heading faces identically.  Preserve the
+  ;; theme's heading color while using typography to expose document structure.
+  (init-markdown--configure-heading-faces)
+  (add-hook 'enable-theme-functions
+            #'init-markdown--configure-heading-faces)
   ;; `markdown-ts--latex-block-valid-p' currently rejects math in GFM table
   ;; cells because those cells are not wrapped in Markdown `inline' nodes.
   (unless (advice-member-p #'init-markdown--latex-block-valid-p
