@@ -24,8 +24,54 @@
 (add-hook 'after-make-frame-functions
           #'init-ui-hide-macos-daemon-dock-icon)
 
-;; Do not enumerate system fonts during startup; Emacs falls back gracefully.
-(set-face-attribute 'default nil :family "MesloLGS NF" :height 160)
+;; Keep Latin/code glyphs monospaced and choose one deterministic Chinese font
+;; instead of letting the platform select a different fallback for each glyph
+;; or weight.  Mapping only CJK scripts preserves Meslo for ASCII, Nerd Font
+;; icons, and source code.
+(defconst init-ui-default-font-family "MesloLGS NF")
+(defconst init-ui-default-font-height 160)
+(defconst init-ui-cjk-font-families
+  '("Sarasa Mono SC"
+    "Noto Sans Mono CJK SC"
+    "PingFang SC"
+    "Noto Sans CJK SC")
+  "Preferred CJK font families, in cross-platform fallback order.")
+
+(defvar init-ui-cjk-font-family nil
+  "CJK font family selected for the current graphical environment.")
+
+(defun init-ui-select-cjk-font (&optional frame)
+  "Return the first installed preferred CJK font for FRAME."
+  (catch 'family
+    (dolist (family init-ui-cjk-font-families)
+      (when (find-font (font-spec :family family) frame)
+        (throw 'family family)))
+    nil))
+
+(defun init-ui-configure-fonts (&optional frame)
+  "Apply the Latin and unified CJK fonts to FRAME."
+  (let ((frame (or frame (selected-frame))))
+    (when (frame-live-p frame)
+      (set-face-attribute 'default frame
+                          :family init-ui-default-font-family
+                          :height init-ui-default-font-height)
+      (when (display-graphic-p frame)
+        (when-let* ((family (init-ui-select-cjk-font frame))
+                    (cjk-font (font-spec :family family)))
+          (setq init-ui-cjk-font-family family)
+          (dolist (target '(han cjk-misc
+                            (#x2014 . #x2014) ; em dash
+                            (#x2018 . #x201f) ; curly quotation marks
+                            (#x2026 . #x2026))) ; ellipsis
+            (set-fontset-font nil target cjk-font frame)))))))
+
+;; Set the default face for this and future frames, then install the CJK
+;; mappings in every graphical frame created by the daemon or emacsclient.
+(set-face-attribute 'default nil
+                    :family init-ui-default-font-family
+                    :height init-ui-default-font-height)
+(init-ui-configure-fonts)
+(add-hook 'after-make-frame-functions #'init-ui-configure-fonts)
 
 
 ;;; Tab bar.

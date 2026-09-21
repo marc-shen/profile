@@ -14,9 +14,14 @@
 (declare-function markdown-ts-at-table-p "markdown-ts-mode" (&optional pos quiet))
 (declare-function markdown-ts--remove-image-overlays "markdown-ts-mode")
 (declare-function markdown-ts--set-hide-markup "markdown-ts-mode" (value))
-(declare-function markdown-ts-appear--start "markdown-ts-appear")
-(declare-function markdown-ts-appear--stop "markdown-ts-appear")
+(declare-function markdown-ts-appear-start "markdown-ts-appear")
+(declare-function markdown-ts-appear-stop "markdown-ts-appear")
+(declare-function markdown-ts-appear--active-p "markdown-ts-appear")
+(declare-function markdown-ts-appear--literal-block-at "markdown-ts-appear" (position))
+(declare-function markdown-ts-appear-math--delete "markdown-ts-appear" (preview))
+(declare-function markdown-ts-appear-math--display "markdown-ts-appear" (preview))
 (declare-function mathjax-available-p "mathjax")
+(declare-function mathjax-display "mathjax" (beg end math &rest options))
 (declare-function valign-table "valign")
 (declare-function visual-fill-column-adjust "visual-fill-column")
 
@@ -42,6 +47,11 @@
   :type 'number
   :group 'markdown-ts)
 
+(defface init-markdown-math-preview
+  '((t (:inherit default)))
+  "Face shared by native and compatibility Markdown math previews."
+  :group 'markdown-ts-faces)
+
 (defvar-local init-markdown-render-mode nil
   "Current Markdown rendering mode: `live', `source', or `preview'.")
 
@@ -60,17 +70,21 @@
 (defvar-local init-markdown--heading-number-timer nil
   "Idle timer for recomputing rendered heading numbers.")
 
+(defvar markdown-ts-appear-enable-math-preview)
+(defvar markdown-ts-appear-math--objects)
+(defvar markdown-ts-appear-math--view)
+
 (defun init-markdown--configure-heading-faces (&optional _theme)
   "Give Markdown heading levels a visible, theme-independent hierarchy.
 
 _THEME is accepted so this function can also run from
 `enable-theme-functions'.  Colors continue to come from the active theme;
 relative height, weight, and the final level's slant distinguish the levels."
-  (dolist (spec '((markdown-ts-heading-1 1.80 ultra-bold normal)
+  (dolist (spec '((markdown-ts-heading-1 1.80 bold normal)
                   (markdown-ts-heading-2 1.62 bold normal)
                   (markdown-ts-heading-3 1.46 bold normal)
-                  (markdown-ts-heading-4 1.31 semi-bold normal)
-                  (markdown-ts-heading-5 1.18 semi-bold normal)
+                  (markdown-ts-heading-4 1.31 bold normal)
+                  (markdown-ts-heading-5 1.18 bold normal)
                   (markdown-ts-heading-6 1.06 normal italic)))
     (pcase-let ((`(,face ,height ,weight ,slant) spec))
       (when (facep face)
@@ -207,6 +221,170 @@ relative height, weight, and the final level's slant distinguish the levels."
        (require 'mathjax nil t)
        (fboundp 'mathjax-available-p)
        (mathjax-available-p)))
+
+(defun init-markdown--escaped-position-p (position)
+  "Return non-nil when the character at POSITION is backslash-escaped."
+  (let ((cursor (1- position))
+        (count 0))
+    (while (and (>= cursor (point-min))
+                (eq (char-after cursor) ?\\))
+      (setq count (1+ count)
+            cursor (1- cursor)))
+    (cl-oddp count)))
+
+(defun init-markdown--code-at-p (position)
+  "Return non-nil when POSITION belongs to literal Markdown code."
+  (or (markdown-ts-appear--literal-block-at position)
+      (when-let* ((node (treesit-node-at position 'markdown-inline)))
+        (treesit-parent-until
+         node (lambda (candidate)
+                (equal (treesit-node-type candidate) "code_span"))
+         t))))
+
+(defun init-markdown--search-latex-closing-delimiter (delimiter)
+  "Find the next unescaped, non-code DELIMITER and return its end."
+  (catch 'found
+    (while (search-forward delimiter nil t)
+      (let ((start (- (point) (length delimiter))))
+        (unless (or (init-markdown--escaped-position-p start)
+                    (init-markdown--code-at-p start))
+          (throw 'found (point)))))))
+
+(defun init-markdown--math-preview-at (beg end source)
+  "Return an existing Markdown math preview for SOURCE from BEG through END."
+  (seq-find
+   (lambda (preview)
+     (and (overlay-buffer preview)
+          (= (overlay-start preview) beg)
+          (= (overlay-end preview) end)
+          (equal source
+                 (overlay-get preview 'markdown-ts-appear-math--source))))
+   markdown-ts-appear-math--objects))
+
+(defun init-markdown--scan-latex-delimiter-math (original)
+  "Run ORIGINAL, then supplement its delimiter-based math previews."
+  ;; The native scanner knows nothing about compatibility previews and would
+  ;; delete all of them on every buffer edit.  Detach them while it reconciles
+  ;; native latex_block objects, then restore the still-live overlays so the
+  ;; source scan below can reuse their rendered SVGs.
+  (let ((compatibility-previews
+         (seq-filter
+          (lambda (preview)
+            (overlay-get preview 'init-markdown-latex-delimiter-math))
+          markdown-ts-appear-math--objects)))
+    (setq markdown-ts-appear-math--objects
+          (seq-remove
+           (lambda (preview)
+             (overlay-get preview 'init-markdown-latex-delimiter-math))
+           markdown-ts-appear-math--objects))
+    (unwind-protect
+        (funcall original)
+      (setq markdown-ts-appear-math--objects
+            (append markdown-ts-appear-math--objects
+                    (seq-filter #'overlay-buffer compatibility-previews)))))
+  ;; The current markdown-inline grammar treats these delimiters as ordinary
+  ;; backslash escapes.  Its block ranges can also split multiline $$ math at
+  ;; a Setext-like `=' line.  Supplement the query with a source scan.
+  (let ((current (make-hash-table :test #'eq)))
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward (rx (or "\\(" "\\[" "$$")) nil t)
+        (let* ((beg (match-beginning 0))
+               (opening (match-string-no-properties 0))
+               (closing (pcase opening
+                          ("\\(" "\\)")
+                          ("\\[" "\\]")
+                          (_ "$$"))))
+          (if (or (init-markdown--escaped-position-p beg)
+                  (init-markdown--code-at-p beg))
+              (goto-char (match-end 0))
+            (let ((content-beg (match-end 0))
+                  (end (init-markdown--search-latex-closing-delimiter closing)))
+              (if (not end)
+                  (goto-char content-beg)
+                (let* ((source (buffer-substring-no-properties beg end))
+                       (preview
+                        (init-markdown--math-preview-at beg end source)))
+                  (unless preview
+                    (setq preview (make-overlay beg end nil t nil))
+                    (overlay-put preview 'category 'mathjax)
+                    (overlay-put preview 'evaporate t)
+                    (overlay-put preview
+                                 'init-markdown-latex-delimiter-math t)
+                    (overlay-put preview 'markdown-ts-appear-math--source
+                                 source)
+                    (overlay-put preview 'markdown-ts-appear-math--input
+                                 (list (buffer-substring-no-properties
+                                        content-beg (- end (length closing)))
+                                       (not (null (member opening
+                                                          '("\\[" "$$"))))))
+                    (push preview markdown-ts-appear-math--objects))
+                  (when (overlay-get
+                         preview 'init-markdown-latex-delimiter-math)
+                    (puthash preview t current)))))))))
+    (dolist (preview (copy-sequence markdown-ts-appear-math--objects))
+      (when (and (overlay-get preview
+                              'init-markdown-latex-delimiter-math)
+                 (not (gethash preview current)))
+        (markdown-ts-appear-math--delete preview)))))
+
+(defun init-markdown--normalize-math-preview-face (original preview)
+  "Run ORIGINAL and give PREVIEW the shared Markdown math face."
+  (funcall original preview)
+  (unless (overlay-get preview 'mathjax-error)
+    ;; Besides keeping SVG `currentColor' stable, this masks false Setext
+    ;; heading fontification while a multiline formula is being edited.
+    (overlay-put preview 'face 'init-markdown-math-preview)))
+
+(defun init-markdown--request-latex-delimiter-math
+    (original preview math display-p)
+  "Render compatibility PREVIEW, otherwise call ORIGINAL.
+MATH is delimiter-free; DISPLAY-P selects `\\[...]' and `$$...$$' display math."
+  (if (not (overlay-get preview 'init-markdown-latex-delimiter-math))
+      (funcall original preview math display-p)
+    (let ((target (current-buffer))
+          (source (overlay-get preview 'markdown-ts-appear-math--source))
+          (staging (generate-new-buffer " *init-markdown-latex-math*")))
+      (overlay-put preview 'markdown-ts-appear-math--buffer staging)
+      (with-current-buffer staging
+        (insert source)
+        (condition-case err
+            (mathjax-display
+             (point-min) (point-max) math :options (list :display display-p)
+             :after
+             (lambda (rendered)
+               (unwind-protect
+                   (if (not (eq (overlay-buffer preview) target))
+                       nil
+                     (with-current-buffer target
+                       (let ((beg (overlay-start preview))
+                             (end (overlay-end preview)))
+                         (if (and markdown-ts-appear-enable-math-preview
+                                  (markdown-ts-appear--active-p)
+                                  (overlay-get
+                                   preview 'init-markdown-latex-delimiter-math)
+                                  (equal source
+                                         (buffer-substring-no-properties beg end)))
+                             (progn
+                               (overlay-put preview
+                                            'markdown-ts-appear-math--image
+                                            (overlay-get rendered 'display))
+                               (overlay-put preview 'mathjax-error
+                                            (overlay-get rendered 'mathjax-error))
+                               (setq markdown-ts-appear-math--view nil)
+                               (markdown-ts-appear-math--display preview)
+                               (init-markdown--schedule-table-realign
+                                target beg))
+                           (markdown-ts-appear-math--delete preview)))))
+                 (overlay-put preview 'markdown-ts-appear-math--buffer nil)
+                 (delete-overlay rendered)
+                 (when (buffer-live-p staging)
+                   (kill-buffer staging)))))
+          (error
+           (overlay-put preview 'markdown-ts-appear-math--buffer nil)
+           (kill-buffer staging)
+           (message "Markdown MathJax preview failed: %s"
+                    (error-message-string err))))))))
 
 (defun init-markdown--setup-table-inline-ranges ()
   "Parse inline Markdown, including math, inside GFM table cells.
@@ -361,8 +539,8 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
   (read-only-mode -1)
   (init-markdown--enable-renderers)
   ;; Preview mode leaves appear enabled but stops point tracking.
-  (when (fboundp 'markdown-ts-appear--start)
-    (markdown-ts-appear--start))
+  (when (fboundp 'markdown-ts-appear-start)
+    (markdown-ts-appear-start))
   (setq init-markdown-render-mode 'live)
   (font-lock-flush)
   (font-lock-ensure)
@@ -388,8 +566,8 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
   (read-only-mode -1)
   (init-markdown--enable-renderers)
   ;; Keep all markup rendered instead of revealing the element at point.
-  (when (fboundp 'markdown-ts-appear--stop)
-    (markdown-ts-appear--stop))
+  (when (fboundp 'markdown-ts-appear-stop)
+    (markdown-ts-appear-stop))
   (setq init-markdown-render-mode 'preview)
   (font-lock-flush)
   (font-lock-ensure)
@@ -484,15 +662,30 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
   (markdown-ts-appear-enable-math-preview
    (init-markdown-math-preview-available-p))
   (markdown-ts-appear-math-scale 1.1)
-  (markdown-ts-appear-link-icon '("" . "↗"))
-  (markdown-ts-appear-image-icon '("" . "▧"))
+  (markdown-ts-appear-link-icon "")
+  (markdown-ts-appear-image-icon "")
   (markdown-ts-appear-code-fence-style 'connected)
   (markdown-ts-appear-label-caps '("" . ""))
   (markdown-ts-appear-render-callouts t)
   (markdown-ts-appear-block-quote-marker "▎")
   ;; Replace Markdown's ASCII pipes and delimiter row with box-drawing
   ;; characters while keeping the underlying source directly editable.
-  (markdown-ts-appear-table-style 'unicode))
+  (markdown-ts-appear-table-style 'unicode)
+  :config
+  ;; The Markdown inline grammar currently recognizes dollar-delimited math
+  ;; but treats LaTeX's \(...\) and \[...\] forms as backslash escapes.
+  (unless (advice-member-p #'init-markdown--scan-latex-delimiter-math
+                           'markdown-ts-appear-math--scan)
+    (advice-add 'markdown-ts-appear-math--scan :around
+                #'init-markdown--scan-latex-delimiter-math))
+  (unless (advice-member-p #'init-markdown--request-latex-delimiter-math
+                           'markdown-ts-appear-math--request)
+    (advice-add 'markdown-ts-appear-math--request :around
+                #'init-markdown--request-latex-delimiter-math))
+  (unless (advice-member-p #'init-markdown--normalize-math-preview-face
+                           'markdown-ts-appear-math--display)
+    (advice-add 'markdown-ts-appear-math--display :around
+                #'init-markdown--normalize-math-preview-face)))
 
 (use-package valign
   :if (package-installed-p 'valign)
