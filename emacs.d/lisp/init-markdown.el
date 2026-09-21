@@ -33,7 +33,7 @@
   :group 'markdown-ts)
 
 (defcustom init-markdown-render-section-numbers t
-  "Whether rendered Markdown headings show level badges and section numbers."
+  "Whether rendered Markdown headings show section numbers."
   :type 'boolean
   :group 'markdown-ts)
 
@@ -41,15 +41,6 @@
   "Idle seconds before rendered Markdown heading numbers are recomputed."
   :type 'number
   :group 'markdown-ts)
-
-(defface init-markdown-heading-level-badge
-  '((t (:inherit shadow
-        :height 0.8
-        :weight normal
-        :slant normal
-        :box (:line-width -1))))
-  "Face for the boxed heading-level digit in rendered Markdown."
-  :group 'markdown-ts-faces)
 
 (defvar-local init-markdown-render-mode nil
   "Current Markdown rendering mode: `live', `source', or `preview'.")
@@ -64,7 +55,7 @@
   "Markers identifying tables waiting for one display-only realignment.")
 
 (defvar-local init-markdown--heading-number-overlays nil
-  "Display-only overlays supplying heading badges and section numbers.")
+  "Display-only overlays supplying heading section numbers.")
 
 (defvar-local init-markdown--heading-number-timer nil
   "Idle timer for recomputing rendered heading numbers.")
@@ -75,27 +66,12 @@
 _THEME is accepted so this function can also run from
 `enable-theme-functions'.  Colors continue to come from the active theme;
 relative height, weight, and the final level's slant distinguish the levels."
-  (when (facep 'init-markdown-heading-level-badge)
-    (let* ((body-height (face-attribute 'default :height nil 'default))
-           ;; An integer face height is absolute.  A float would be multiplied
-           ;; by the surrounding H1--H6 face and produce different box sizes.
-           (badge-height (if (integerp body-height)
-                             (round (* body-height 0.8))
-                           80)))
-      (set-face-attribute 'init-markdown-heading-level-badge nil
-                          :inherit 'shadow
-                          :family (face-attribute 'default :family nil 'default)
-                          :height badge-height
-                          :width 'normal
-                          :weight 'normal
-                          :slant 'normal
-                          :box '(:line-width -1))))
-  (dolist (spec '((markdown-ts-heading-1 1.55 ultra-bold normal)
-                  (markdown-ts-heading-2 1.35 bold normal)
-                  (markdown-ts-heading-3 1.20 bold normal)
-                  (markdown-ts-heading-4 1.10 semi-bold normal)
-                  (markdown-ts-heading-5 1.00 semi-bold normal)
-                  (markdown-ts-heading-6 0.95 normal italic)))
+  (dolist (spec '((markdown-ts-heading-1 1.80 ultra-bold normal)
+                  (markdown-ts-heading-2 1.62 bold normal)
+                  (markdown-ts-heading-3 1.46 bold normal)
+                  (markdown-ts-heading-4 1.31 semi-bold normal)
+                  (markdown-ts-heading-5 1.18 semi-bold normal)
+                  (markdown-ts-heading-6 1.06 normal italic)))
     (pcase-let ((`(,face ,height ,weight ,slant) spec))
       (when (facep face)
         (set-face-attribute face nil
@@ -105,7 +81,7 @@ relative height, weight, and the final level's slant distinguish the levels."
                             :slant slant)))))
 
 (defun init-markdown--heading-info (node)
-  "Return (LEVEL START END FACE) for Markdown heading NODE."
+  "Return (LEVEL START END) for Markdown heading NODE."
   (let ((node-type (treesit-node-type node)))
     (cond
      ((equal node-type "atx_heading")
@@ -124,8 +100,7 @@ relative height, weight, and the final level's slant distinguish the levels."
                   (treesit-node-end marker))
                 (if content
                     (treesit-node-end content)
-                  (treesit-node-end marker))
-                (intern (format "markdown-ts-heading-%d" level))))))
+                  (treesit-node-end marker))))))
      ((equal node-type "setext_heading")
       (let* ((content (treesit-node-child node 0))
              (underline
@@ -139,8 +114,7 @@ relative height, weight, and the final level's slant distinguish the levels."
             (while (and (> end (treesit-node-start content))
                         (memq (char-before end) '(?\n ?\r)))
               (setq end (1- end)))
-            (list level (treesit-node-start content) end
-                  (intern (format "markdown-ts-heading-%d" level))))))))))
+            (list level (treesit-node-start content) end))))))))
 
 (defun init-markdown--clear-heading-numbers ()
   "Delete every rendered heading-number overlay in the current buffer."
@@ -172,8 +146,7 @@ relative height, weight, and the final level's slant distinguish the levels."
             (when-let* ((info (init-markdown--heading-info node))
                         (level (nth 0 info))
                         (start (nth 1 info))
-                        (end (nth 2 info))
-                        (heading-face (nth 3 info)))
+                        (end (nth 2 info)))
               ;; Fill skipped parent levels with one, increment this level,
               ;; and reset all deeper levels.
               (dotimes (index (1- level))
@@ -184,21 +157,25 @@ relative height, weight, and the final level's slant distinguish the levels."
               (cl-loop for index from level below 6
                        do (aset counters index 0))
               (let* ((section-number
-                      (mapconcat #'number-to-string
-                                 (seq-take (append counters nil) level) "."))
-                     (badge
-                      (propertize (format " %d " level)
-                                  'face 'init-markdown-heading-level-badge))
-                     (number
-                      (propertize section-number 'face heading-face))
-                     (overlay (make-overlay start end nil nil nil)))
-                (overlay-put overlay 'init-markdown-heading-number t)
-                (overlay-put overlay 'priority 20)
-                (overlay-put overlay 'before-string
-                             (concat number "  "))
-                (overlay-put overlay 'after-string
-                             (concat " " badge))
-                (push overlay init-markdown--heading-number-overlays)))))))))
+                      ;; H1 is an unnumbered document title.  Numbering starts
+                      ;; at H2, so H2 is 1, 2, ... and H3 is 1.1, 1.2, ... .
+                      (when (> level 1)
+                        (mapconcat
+                         #'number-to-string
+                         (seq-take (cdr (append counters nil)) (1- level))
+                         ".")))
+                     ;; The overlay string inherits the heading face from the
+                     ;; covered text.  Applying the same relative-height face
+                     ;; here as well would scale the number a second time.
+                     (number section-number)
+                     (overlay (and number
+                                   (make-overlay start end nil nil nil))))
+                (when overlay
+                  (overlay-put overlay 'init-markdown-heading-number t)
+                  (overlay-put overlay 'priority 20)
+                  (overlay-put overlay 'before-string (concat number "  "))
+                  (push overlay
+                        init-markdown--heading-number-overlays))))))))))
 
 (defun init-markdown--schedule-heading-numbers (&rest _)
   "Schedule one display-only heading-number refresh after an edit."
