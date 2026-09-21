@@ -109,6 +109,11 @@ turn it back on there, so the result sticks."
 (blink-cursor-mode -1)
 
 (column-number-mode 1)
+(setq mode-line-compact 'long
+      ;; Keep the modal state visible; collapse secondary mode lighters such as
+      ;; Flyspell, Yasnippet, Which-Key, Outline, and Visual Line into `…'.
+      mode-line-collapse-minor-modes
+      '(not helix-normal-mode helix-insert-mode))
 (global-hl-line-mode 1)
 (add-hook 'prog-mode-hook
           (lambda () (setq-local show-trailing-whitespace t)))
@@ -263,15 +268,28 @@ turn it back on there, so the result sticks."
     (add-hook 'kill-buffer-hook
               #'init-ui--cancel-file-word-count nil t)))
 
+(defun init-ui--compact-count (count)
+  "Return COUNT compactly, retaining exact values below ten thousand."
+  (let ((text
+         (cond
+          ((< count 10000) (number-to-string count))
+          ((< count 1000000) (format "%.1fk" (/ count 1000.0)))
+          (t (format "%.1fM" (/ count 1000000.0))))))
+    (replace-regexp-in-string "\\.0\\([kM]\\)\\'" "\\1" text)))
+
 (defun init-ui-file-character-count-mode-line ()
   "Return the current file's word and character counts for the mode line."
   (when (and (init-ui--file-character-count-eligible-p)
              (numberp init-ui--file-word-count)
              (numberp init-ui--file-character-count))
     (propertize
-     (format "  词:%d  字符:%d"
-             init-ui--file-word-count init-ui--file-character-count)
-     'help-echo "词数：英文按词、汉字按字；字符数：所有非空白字符")))
+     (format "  %s词·%s字符"
+             (init-ui--compact-count init-ui--file-word-count)
+             (init-ui--compact-count init-ui--file-character-count))
+     'help-echo
+     (format (concat "精确统计：%d 词，%d 个非空白字符\n"
+                     "词数：英文按词、汉字按字")
+             init-ui--file-word-count init-ui--file-character-count))))
 
 (defvar init-ui-file-character-count-mode-line
   '(:eval (init-ui-file-character-count-mode-line))
