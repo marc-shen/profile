@@ -143,8 +143,8 @@ Helix。
 | `C-a` / `C-e` | 移动到行首/行尾 | Emacs |
 | `M-<` / `M->` | 移动到缓冲区开头/末尾 | Emacs |
 
-默认 `fill-column` 是 88。它只影响 `M-q`、自动换行提示等排版功能，
-不会强制截断代码行。
+默认 `fill-column` 是 88。它只影响 `M-q` 等显式排版命令；配置没有启用
+`auto-fill-mode`，因此输入时不会自动插入换行，也不会强制截断代码行。
 
 ## 搜索和跳转
 
@@ -586,12 +586,12 @@ Emacs 31 用内置 `markdown-ts-mode` 打开 `.md`、`.markdown`、`.mdx` 等文
 `gfm-mode`。首次安装时，`M-x my-install-packages` 会同时安装 `markdown`、
 `markdown-inline` 两套 Tree-sitter grammar，以及 `markdown-ts-appear`。
 
-打开文件时自动生效：按语法树着色、软换行（第 88 列）、拼写与行文检查、
+打开文件时自动生效：按语法树着色、随窗口边缘软换行、拼写与行文检查、
 本地图片显示，以及 `markdown-ts-appear` 的“阅读时渲染、光标处显示源码”。
 
-折行只改变显示，不会往文件里插入换行符，所以 diff 不受影响。宽度取自
-`fill-column`（默认 88），用 `C-x f` 可为当前缓冲区改成别的值，立即生效。
-窗口比该宽度还窄时，按窗口边缘折行。
+折行只改变显示，不会往文件里插入换行符，所以 diff 不受影响。Markdown
+默认随窗口边缘软换行，不设置固定视觉宽度；如需固定宽度，可自定义
+`init-markdown-visual-width` 为正整数。
 
 ### 折叠与浏览
 

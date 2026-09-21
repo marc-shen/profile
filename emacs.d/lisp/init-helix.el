@@ -20,6 +20,12 @@
 (declare-function helix-insert-mode "helix-core" (&optional arg))
 (declare-function helix-insert-exit "helix-core")
 (declare-function helix-normal-mode "helix-core" (&optional arg))
+(declare-function mc/execute-command-for-all-cursors "multiple-cursors-core"
+                  (command))
+(declare-function mc/load-lists "multiple-cursors-core")
+
+(defvar mc/cmds-to-run-for-all)
+(defvar mc/cmds-to-run-once)
 
 (defvar my-helix-exempt-modes
   '(special-mode                        ; magit, compilation, org-agenda, ...
@@ -86,6 +92,14 @@ which activation path the installed helix-mode version uses."
 (defvar-local my-helix-jk--timer nil
   "Timer withholding the `j' of a possible `j k' sequence, or nil.")
 
+(defun my-helix-jk--insert-for-all-cursors (character)
+  "Insert CHARACTER at every active cursor, or just the ordinary point."
+  (let ((last-command-event character))
+    (if (and (bound-and-true-p multiple-cursors-mode)
+             (fboundp 'mc/execute-command-for-all-cursors))
+        (mc/execute-command-for-all-cursors #'self-insert-command)
+      (self-insert-command 1))))
+
 (defun my-helix-jk--cancel ()
   "Cancel a pending `j k' sequence without inserting its withheld `j'."
   (when my-helix-jk--timer
@@ -96,9 +110,9 @@ which activation path the installed helix-mode version uses."
   "Insert the withheld `j' and cancel the pending sequence."
   (when my-helix-jk--timer
     (my-helix-jk--cancel)
-    ;; Not `self-insert-command': this also runs from the timer, where
+    ;; Supply `j' explicitly: this also runs from a timer, where
     ;; `last-command-event' is whatever the last real command left behind.
-    (insert "j")))
+    (my-helix-jk--insert-for-all-cursors ?j)))
 
 (defun my-helix-jk--flush-from-timer (buffer)
   "Flush a pending `j k' sequence in BUFFER after the timeout expired."
@@ -132,7 +146,7 @@ In a minibuffer always insert `k' literally; use ESC to enter normal state."
         (progn
           (my-helix-jk--cancel)
           (helix-insert-exit))
-      (self-insert-command 1))))
+      (my-helix-jk--insert-for-all-cursors ?k))))
 
 (defun my-helix-jk--maybe-flush ()
   "Flush a pending `j' before any command other than the sequence keys.
@@ -148,7 +162,17 @@ point or saves the file."
   "Bind `j k' as an alternative way to exit `helix-insert-mode'."
   (add-hook 'pre-command-hook #'my-helix-jk--maybe-flush)
   (helix-define-key 'insert "j" #'my-helix-jk-j)
-  (helix-define-key 'insert "k" #'my-helix-jk-k))
+  (helix-define-key 'insert "k" #'my-helix-jk-k)
+  (when (featurep 'multiple-cursors)
+    ;; These commands coordinate one buffer-wide timer and one modal state.
+    ;; Replaying them for fake cursors makes each cursor alternately flush and
+    ;; restart that shared timer.  Load saved choices first, then override an
+    ;; old interactive choice that may have classified `j' as run-for-all.
+    (mc/load-lists)
+    (dolist (command '(my-helix-jk-j my-helix-jk-k))
+      (setq mc/cmds-to-run-for-all
+            (delq command mc/cmds-to-run-for-all))
+      (add-to-list 'mc/cmds-to-run-once command))))
 
 ;;; Helix in completion minibuffers.
 

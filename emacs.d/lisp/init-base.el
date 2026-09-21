@@ -95,6 +95,9 @@
       enable-recursive-minibuffers t)
 (setq-default indent-tabs-mode nil
               tab-width 4
+              ;; Emacs' formatter and macro helpers require a positive value;
+              ;; zero can recurse forever while a package defines a mode.
+              ;; This does not enable hard wrapping or `auto-fill-mode'.
               fill-column 88)
 (global-so-long-mode 1)
 (minibuffer-depth-indicate-mode 1)

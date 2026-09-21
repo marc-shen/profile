@@ -177,6 +177,18 @@ configuration on a second machine such as Fedora."
   :if (package-installed-p 'hl-todo)
   :hook (prog-mode . hl-todo-mode))
 
+(defun init-development--mc-edit-lines-by-source-column
+    (original &rest arguments)
+  "Run `mc/edit-lines' with ORIGINAL using source rather than visual columns.
+
+Rendered Markdown can hide a leading backslash, pipe, or other markup.  The
+upstream command moves vertically by display columns, which would then place a
+cursor after that hidden character.  Temporarily making invisible text count
+for cursor motion keeps every cursor at the same position in the source; it
+does not change what the buffer displays before or after the command."
+  (let ((buffer-invisibility-spec nil))
+    (apply original arguments)))
+
 (use-package multiple-cursors
   :if (package-installed-p 'multiple-cursors)
   :custom
@@ -192,6 +204,10 @@ configuration on a second machine such as Fedora."
          ("C-c e u" . mc/unmark-next-like-this)
          ("C-c e SPC" . mc/vertical-align-with-space))
   :config
+  (unless (advice-member-p
+           #'init-development--mc-edit-lines-by-source-column 'mc/edit-lines)
+    (advice-add 'mc/edit-lines :around
+                #'init-development--mc-edit-lines-by-source-column))
   ;; Corfu's popup only tracks the real cursor, and auto-completion fires on
   ;; every fake one.  Suspend it while several cursors are live.
   (add-hook 'multiple-cursors-mode-enabled-hook

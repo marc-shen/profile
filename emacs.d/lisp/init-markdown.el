@@ -32,6 +32,14 @@
                  (const :tag "Read-only preview" preview))
   :group 'markdown-ts)
 
+(defcustom init-markdown-visual-width nil
+  "Fixed visual writing width for Markdown, or nil to use the window edge.
+This is deliberately separate from `fill-column': Emacs requires that
+variable to remain positive even when no fixed visual width is wanted."
+  :type '(choice (const :tag "Wrap at window edge" nil)
+                 (integer :tag "Fixed column"))
+  :group 'markdown-ts)
+
 (defcustom init-markdown-table-realign-delay 0.15
   "Idle seconds used to coalesce table layouts after math rendering."
   :type 'number
@@ -261,6 +269,23 @@ relative height, weight, and the final level's slant distinguish the levels."
                  (overlay-get preview 'markdown-ts-appear-math--source))))
    markdown-ts-appear-math--objects))
 
+(defun init-markdown--latex-math-containing-range-p (beg end)
+  "Return non-nil when BEG through END lies inside delimiter-based math."
+  (seq-some
+   (lambda (preview)
+     (and (overlay-buffer preview)
+          (overlay-get preview 'init-markdown-latex-delimiter-math)
+          (<= (overlay-start preview) beg)
+          (<= end (overlay-end preview))))
+   markdown-ts-appear-math--objects))
+
+(defun init-markdown--skip-link-fontification-in-latex-math
+    (original node &rest arguments)
+  "Call ORIGINAL unless NODE is a false Markdown link inside LaTeX math."
+  (unless (init-markdown--latex-math-containing-range-p
+           (treesit-node-start node) (treesit-node-end node))
+    (apply original node arguments)))
+
 (defun init-markdown--scan-latex-delimiter-math (original)
   "Run ORIGINAL, then supplement its delimiter-based math previews."
   ;; The native scanner knows nothing about compatibility previews and would
@@ -285,7 +310,8 @@ relative height, weight, and the final level's slant distinguish the levels."
   ;; The current markdown-inline grammar treats these delimiters as ordinary
   ;; backslash escapes.  Its block ranges can also split multiline $$ math at
   ;; a Setext-like `=' line.  Supplement the query with a source scan.
-  (let ((current (make-hash-table :test #'eq)))
+  (let ((current (make-hash-table :test #'eq))
+        newly-created-ranges)
     (save-excursion
       (goto-char (point-min))
       (while (re-search-forward (rx (or "\\(" "\\[" "$$")) nil t)
@@ -318,7 +344,8 @@ relative height, weight, and the final level's slant distinguish the levels."
                                         content-beg (- end (length closing)))
                                        (not (null (member opening
                                                           '("\\[" "$$"))))))
-                    (push preview markdown-ts-appear-math--objects))
+                    (push preview markdown-ts-appear-math--objects)
+                    (push (cons beg end) newly-created-ranges))
                   (when (overlay-get
                          preview 'init-markdown-latex-delimiter-math)
                     (puthash preview t current)))))))))
@@ -326,15 +353,49 @@ relative height, weight, and the final level's slant distinguish the levels."
       (when (and (overlay-get preview
                               'init-markdown-latex-delimiter-math)
                  (not (gethash preview current)))
-        (markdown-ts-appear-math--delete preview)))))
+        (markdown-ts-appear-math--delete preview)))
+    ;; The inline parser may already have fontified `[... ]' inside the formula
+    ;; as a shortcut link before this compatibility overlay existed.  Re-run
+    ;; fontification now that the link fontifiers can recognize the math range.
+    (dolist (range newly-created-ranges)
+      (font-lock-flush (car range) (cdr range))
+      (font-lock-ensure (car range) (cdr range)))))
+
+(defun init-markdown--sync-latex-delimiter-visibility (preview)
+  "Reveal both delimiter backslashes while compatibility PREVIEW is edited."
+  (when-let* (((overlay-get preview 'init-markdown-latex-delimiter-math))
+              (source (overlay-get preview 'markdown-ts-appear-math--source))
+              ((or (string-prefix-p "\\(" source)
+                   (string-prefix-p "\\[" source))))
+    (let* ((beg (overlay-start preview))
+           (end (overlay-end preview))
+           (visible
+            (and (memq #'markdown-ts-appear--update post-command-hook)
+                 (<= beg (point))
+                 (< (point) end))))
+      ;; Font-lock can hide the backslashes again as point moves between
+      ;; semantic children of the same formula.  Do not skip this correction
+      ;; merely because the formula's visible/editing state is unchanged.
+      (with-silent-modifications
+        (dolist (position (list beg (- end 2)))
+          (if visible
+              (when (get-text-property position 'invisible)
+                (remove-text-properties position (1+ position)
+                                        '(invisible nil)))
+            (unless (eq (get-text-property position 'invisible)
+                        'markdown-ts--markup)
+              (put-text-property position (1+ position)
+                                 'invisible 'markdown-ts--markup)))))
+      (overlay-put preview 'init-markdown-delimiters-visible visible))))
 
 (defun init-markdown--normalize-math-preview-face (original preview)
-  "Run ORIGINAL and give PREVIEW the shared Markdown math face."
+  "Run ORIGINAL and normalize PREVIEW's face and editable delimiters."
   (funcall original preview)
   (unless (overlay-get preview 'mathjax-error)
     ;; Besides keeping SVG `currentColor' stable, this masks false Setext
     ;; heading fontification while a multiline formula is being edited.
-    (overlay-put preview 'face 'init-markdown-math-preview)))
+    (overlay-put preview 'face 'init-markdown-math-preview))
+  (init-markdown--sync-latex-delimiter-visibility preview))
 
 (defun init-markdown--request-latex-delimiter-math
     (original preview math display-p)
@@ -685,7 +746,20 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
   (unless (advice-member-p #'init-markdown--normalize-math-preview-face
                            'markdown-ts-appear-math--display)
     (advice-add 'markdown-ts-appear-math--display :around
-                #'init-markdown--normalize-math-preview-face)))
+                #'init-markdown--normalize-math-preview-face))
+  ;; The markdown-inline grammar does not understand `\[...\]' or `\(...\)'
+  ;; and can misclassify TeX brackets inside them as Markdown links.  Suppress
+  ;; every link-specific fontifier for nodes covered by a compatibility math
+  ;; overlay; genuine links outside formulas continue through unchanged.
+  (dolist (fontifier '(markdown-ts--fontify-delimiter
+                       markdown-ts--fontify-link-node
+                       markdown-ts--fontify-link-destination
+                       markdown-ts--fontify-image
+                       markdown-ts--fontify-autolink))
+    (unless (advice-member-p
+             #'init-markdown--skip-link-fontification-in-latex-math fontifier)
+      (advice-add fontifier :around
+                  #'init-markdown--skip-link-fontification-in-latex-math))))
 
 (use-package valign
   :if (package-installed-p 'valign)
@@ -704,12 +778,28 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
       (advice-add 'markdown-ts-appear--math-display-result :around
                   #'init-markdown--realign-table-after-math))))
 
+(defun init-markdown--sync-visual-fill-column (&rest _)
+  "Apply `init-markdown-visual-width' to the current Markdown buffer."
+  (when (and (derived-mode-p 'markdown-ts-mode)
+             (require 'visual-fill-column nil t))
+    (if (and (integerp init-markdown-visual-width)
+             (> init-markdown-visual-width 0))
+        (progn
+          (setq-local visual-fill-column-width init-markdown-visual-width)
+          (if visual-fill-column-mode
+              (visual-fill-column-adjust)
+            (visual-fill-column-mode 1)))
+      (when visual-fill-column-mode
+        (visual-fill-column-mode -1)))))
+
 (use-package visual-fill-column
   :if (package-installed-p 'visual-fill-column)
-  :hook (markdown-ts-mode . visual-fill-column-mode)
+  :hook (markdown-ts-mode . init-markdown--sync-visual-fill-column)
   :config
-  ;; Recenter immediately after `C-x f' changes this buffer's writing width.
-  (advice-add 'set-fill-column :after #'visual-fill-column-adjust))
+  ;; Remove the pre-zero-default hook left by older revisions of this config.
+  (remove-hook 'markdown-ts-mode-hook #'visual-fill-column-mode)
+  (when (advice-member-p #'visual-fill-column-adjust 'set-fill-column)
+    (advice-remove 'set-fill-column #'visual-fill-column-adjust)))
 
 (provide 'init-markdown)
 

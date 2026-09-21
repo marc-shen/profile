@@ -113,6 +113,180 @@ turn it back on there, so the result sticks."
 (add-hook 'prog-mode-hook
           (lambda () (setq-local show-trailing-whitespace t)))
 
+;;; File character count in the mode line.
+
+(defvar-local init-ui--file-character-count nil
+  "Cached number of non-whitespace characters in the visited file.")
+
+(defvar-local init-ui--file-word-count nil
+  "Cached mixed Chinese and English word count in the visited file.")
+
+(defvar-local init-ui--file-character-count-removed 0
+  "Non-whitespace characters about to be removed by the current edit.")
+
+(defvar-local init-ui--file-word-count-timer nil
+  "Idle timer waiting to refresh the current file's word count.")
+
+(defun init-ui--count-non-whitespace (beg end)
+  "Count non-whitespace characters between BEG and END."
+  (save-excursion
+    (save-match-data
+      (goto-char beg)
+      (let ((count 0))
+        (while (re-search-forward "\\S-" end t)
+          (setq count (1+ count)))
+        count))))
+
+(defun init-ui--han-character-p (character)
+  "Return non-nil when CHARACTER is a Han ideograph."
+  (or (= character #x3007)
+      (<= #x3400 character #x4dbf)
+      (<= #x4e00 character #x9fff)
+      (<= #xf900 character #xfaff)
+      (<= #x20000 character #x2fa1f)
+      (<= #x30000 character #x323af)))
+
+(defun init-ui--latin-word-character-p (character)
+  "Return non-nil when CHARACTER can form an English/Latin word."
+  (or (and (<= ?A character) (<= character ?Z))
+      (and (<= ?a character) (<= character ?z))
+      (and (<= ?0 character) (<= character ?9))
+      (and (> character 127)
+           (when-let* ((name (get-char-code-property character 'name)))
+             (string-prefix-p "LATIN " name)))))
+
+(defun init-ui--count-mixed-words (beg end)
+  "Count English words and individual Han characters from BEG through END."
+  (save-excursion
+    (goto-char beg)
+    (let ((count 0)
+          in-latin-word)
+      (while (< (point) end)
+        (let ((character (char-after)))
+          (cond
+           ((init-ui--han-character-p character)
+            (setq count (1+ count)
+                  in-latin-word nil))
+           ((init-ui--latin-word-character-p character)
+            (unless in-latin-word
+              (setq count (1+ count)))
+            (setq in-latin-word t))
+           ;; Keep decomposed accents and internal apostrophes/hyphens inside
+           ;; the surrounding Latin word without counting them as characters
+           ;; that can start a word on their own.
+           ((and in-latin-word
+                 (or (eq (get-char-code-property character 'general-category)
+                         'Mn)
+                     (and (memq character '(?' ?’ ?-))
+                          (< (1+ (point)) end)
+                          (init-ui--latin-word-character-p
+                           (char-after (1+ (point))))))))
+           (t
+            (setq in-latin-word nil))))
+        (forward-char 1))
+      count)))
+
+(defun init-ui--file-character-count-eligible-p ()
+  "Return non-nil when the current buffer should show a file character count."
+  (and buffer-file-name
+       (not (derived-mode-p 'special-mode))
+       (not (bound-and-true-p so-long-mode))))
+
+(defun init-ui--refresh-file-character-count ()
+  "Recompute the current file's cached word and character counts."
+  (when (init-ui--file-character-count-eligible-p)
+    (save-restriction
+      (widen)
+      (setq init-ui--file-word-count
+            (init-ui--count-mixed-words (point-min) (point-max))
+            init-ui--file-character-count
+            (init-ui--count-non-whitespace (point-min) (point-max))))
+    (force-mode-line-update)))
+
+(defun init-ui--refresh-file-word-count (buffer)
+  "Refresh the cached word count for BUFFER after an idle delay."
+  (when (buffer-live-p buffer)
+    (with-current-buffer buffer
+      (setq init-ui--file-word-count-timer nil)
+      (when (init-ui--file-character-count-eligible-p)
+        (save-restriction
+          (widen)
+          (setq init-ui--file-word-count
+                (init-ui--count-mixed-words (point-min) (point-max))))
+        (force-mode-line-update)))))
+
+(defun init-ui--schedule-file-word-count ()
+  "Schedule one coalesced word-count refresh for the current file."
+  (when (timerp init-ui--file-word-count-timer)
+    (cancel-timer init-ui--file-word-count-timer))
+  (setq init-ui--file-word-count-timer
+        (run-with-idle-timer 0.3 nil #'init-ui--refresh-file-word-count
+                             (current-buffer))))
+
+(defun init-ui--cancel-file-word-count ()
+  "Cancel the current buffer's pending word-count refresh."
+  (when (timerp init-ui--file-word-count-timer)
+    (cancel-timer init-ui--file-word-count-timer))
+  (setq init-ui--file-word-count-timer nil))
+
+(defun init-ui--file-character-count-before-change (beg end)
+  "Remember the character count removed between BEG and END."
+  (setq init-ui--file-character-count-removed
+        (if (numberp init-ui--file-character-count)
+            (init-ui--count-non-whitespace beg end)
+          0)))
+
+(defun init-ui--file-character-count-after-change (beg end _old-length)
+  "Update the cached count after text changed between BEG and END."
+  (if (numberp init-ui--file-character-count)
+      (setq init-ui--file-character-count
+            (+ init-ui--file-character-count
+               (- (init-ui--count-non-whitespace beg end)
+                  init-ui--file-character-count-removed)))
+    (init-ui--refresh-file-character-count))
+  (setq init-ui--file-character-count-removed 0)
+  (init-ui--schedule-file-word-count)
+  (force-mode-line-update))
+
+(defun init-ui-setup-file-character-count ()
+  "Enable efficient mode-line character counting for the current file."
+  (when (init-ui--file-character-count-eligible-p)
+    (unless (and (numberp init-ui--file-word-count)
+                 (numberp init-ui--file-character-count))
+      (init-ui--refresh-file-character-count))
+    (add-hook 'before-change-functions
+              #'init-ui--file-character-count-before-change nil t)
+    (add-hook 'after-change-functions
+              #'init-ui--file-character-count-after-change nil t)
+    (add-hook 'after-revert-hook
+              #'init-ui--refresh-file-character-count nil t)
+    (add-hook 'kill-buffer-hook
+              #'init-ui--cancel-file-word-count nil t)))
+
+(defun init-ui-file-character-count-mode-line ()
+  "Return the current file's word and character counts for the mode line."
+  (when (and (init-ui--file-character-count-eligible-p)
+             (numberp init-ui--file-word-count)
+             (numberp init-ui--file-character-count))
+    (propertize
+     (format "  词:%d  字符:%d"
+             init-ui--file-word-count init-ui--file-character-count)
+     'help-echo "词数：英文按词、汉字按字；字符数：所有非空白字符")))
+
+(defvar init-ui-file-character-count-mode-line
+  '(:eval (init-ui-file-character-count-mode-line))
+  "Mode-line construct displaying the current file's character count.")
+(put 'init-ui-file-character-count-mode-line 'risky-local-variable t)
+
+(unless (memq 'init-ui-file-character-count-mode-line
+              (default-value 'mode-line-position))
+  (setq-default mode-line-position
+                (append (default-value 'mode-line-position)
+                        '(init-ui-file-character-count-mode-line))))
+
+(add-hook 'find-file-hook #'init-ui-setup-file-character-count)
+(add-hook 'after-change-major-mode-hook #'init-ui-setup-file-character-count)
+
 (setq scroll-conservatively 101
       scroll-margin 3
       mouse-wheel-scroll-amount '(3 ((shift) . 1))
