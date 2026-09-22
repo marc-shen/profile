@@ -132,6 +132,9 @@ turn it back on there, so the result sticks."
 (defvar-local init-ui--file-word-count-timer nil
   "Idle timer waiting to refresh the current file's word count.")
 
+(defvar-local init-ui--region-count-cache nil
+  "Cached (BEG END TICK WORDS CHARACTERS) for the active selection.")
+
 (defun init-ui--count-non-whitespace (beg end)
   "Count non-whitespace characters between BEG and END."
   (save-excursion
@@ -277,19 +280,44 @@ turn it back on there, so the result sticks."
           (t (format "%.1fM" (/ count 1000000.0))))))
     (replace-regexp-in-string "\\.0\\([kM]\\)\\'" "\\1" text)))
 
+(defun init-ui--selected-region-counts ()
+  "Return (WORDS CHARACTERS) for the active region, with a small cache."
+  (when (use-region-p)
+    (let* ((beg (region-beginning))
+           (end (region-end))
+           (tick (buffer-chars-modified-tick))
+           (cached init-ui--region-count-cache))
+      (unless (and cached
+                   (= beg (nth 0 cached))
+                   (= end (nth 1 cached))
+                   (= tick (nth 2 cached)))
+        (setq cached
+              (list beg end tick
+                    (init-ui--count-mixed-words beg end)
+                    (init-ui--count-non-whitespace beg end))
+              init-ui--region-count-cache cached))
+      (list (nth 3 cached) (nth 4 cached)))))
+
 (defun init-ui-file-character-count-mode-line ()
-  "Return the current file's word and character counts for the mode line."
+  "Show selected-region counts, or the whole file when nothing is selected."
   (when (and (init-ui--file-character-count-eligible-p)
              (numberp init-ui--file-word-count)
              (numberp init-ui--file-character-count))
-    (propertize
-     (format "  %s词·%s字符"
-             (init-ui--compact-count init-ui--file-word-count)
-             (init-ui--compact-count init-ui--file-character-count))
-     'help-echo
-     (format (concat "精确统计：%d 词，%d 个非空白字符\n"
-                     "词数：英文按词、汉字按字")
-             init-ui--file-word-count init-ui--file-character-count))))
+    (let* ((region-counts (init-ui--selected-region-counts))
+           (words (if region-counts (car region-counts)
+                    init-ui--file-word-count))
+           (characters (if region-counts (cadr region-counts)
+                         init-ui--file-character-count)))
+      (propertize
+       (format "  %s%s词·%s字符"
+               (if region-counts "选区 " "")
+               (init-ui--compact-count words)
+               (init-ui--compact-count characters))
+       'help-echo
+       (format (concat "%s：%d 词，%d 个非空白字符\n"
+                       "词数：英文按词、汉字按字")
+               (if region-counts "选区精确统计" "全文精确统计")
+               words characters)))))
 
 (defvar init-ui-file-character-count-mode-line
   '(:eval (init-ui-file-character-count-mode-line))
