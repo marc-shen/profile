@@ -72,6 +72,9 @@ a shell keeps whichever Node version that shell had selected."
   ;; Keep the picker, with Codex selected by default, so other agents remain
   ;; available without changing the configuration.
   (agent-shell-preferred-agent-config '(preselect . codex))
+  ;; New conversations start with an empty prompt.  Add context explicitly
+  ;; with copy/paste instead of importing the current buffer or line.
+  (agent-shell-context-sources nil)
   :config
   ;; The global ESC runs `keyboard-escape-quit', which also closes other
   ;; windows.  Helix's insert ESC changes state; in normal state cancel only

@@ -143,6 +143,56 @@ relative height, weight, and the final level's slant distinguish the levels."
   (mapc #'delete-overlay init-markdown--heading-number-overlays)
   (setq init-markdown--heading-number-overlays nil))
 
+(defun init-markdown--math-source-ranges ()
+  "Return source ranges delimited by LaTeX math markers in this buffer.
+The Markdown grammar can parse a standalone `=' inside a formula as a
+Setext heading, so heading numbering must exclude those source ranges."
+  (let (ranges)
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward (rx (or "\\(" "\\[" "$$")) nil t)
+        (let* ((beg (match-beginning 0))
+               (opening (match-string-no-properties 0))
+               (closing (pcase opening
+                          ("\\(" "\\)")
+                          ("\\[" "\\]")
+                          (_ "$$"))))
+          (unless (or (init-markdown--escaped-position-p beg)
+                      (init-markdown--code-at-p beg))
+            (when-let* ((end (init-markdown--search-latex-closing-delimiter
+                              closing)))
+              (push (cons beg end) ranges)))))
+      (nreverse ranges))))
+
+(defun init-markdown--sync-math-parser-ranges (&rest _)
+  "Keep Markdown's structural parser out of delimited LaTeX math.
+Without this, Markdown syntax inside a formula (especially a code fence)
+can change how the rest of the document is parsed."
+  (when-let* ((parser (treesit-parser-list nil 'markdown)))
+    (let (seen done)
+      ;; A false code fence in one formula can initially hide a later formula
+      ;; from the Markdown parser.  Re-scan after each parser-range update.
+      (while (not done)
+        (let ((math-ranges (init-markdown--math-source-ranges))
+              (cursor (point-min))
+              ranges)
+          (dolist (math math-ranges)
+            (when (< cursor (car math))
+              (push (cons cursor (car math)) ranges))
+            (setq cursor (cdr math)))
+          (when (and math-ranges (< cursor (point-max)))
+            (push (cons cursor (point-max)) ranges))
+          ;; An empty list means "parse everything" to Tree-sitter.  Preserve
+          ;; one harmless delimiter character if math covers the whole buffer.
+          (when (and math-ranges (null ranges))
+            (push (cons (point-min) (1+ (point-min))) ranges))
+          (setq ranges (nreverse ranges))
+          (if (or (equal ranges (treesit-parser-included-ranges (car parser)))
+                  (member ranges seen))
+              (setq done t)
+            (push ranges seen)
+            (treesit-parser-set-included-ranges (car parser) ranges)))))))
+
 (defun init-markdown--refresh-heading-numbers (buffer)
   "Recompute display-only heading numbering in Markdown BUFFER."
   (when (buffer-live-p buffer)
@@ -163,12 +213,19 @@ relative height, weight, and the final level's slant distinguish the levels."
                             ((setext_heading) @heading))))
                  (lambda (left right)
                    (< (treesit-node-start left) (treesit-node-start right)))))
-               (counters (make-vector 6 0)))
+               (counters (make-vector 6 0))
+               (math-ranges (init-markdown--math-source-ranges)))
           (dolist (node nodes)
+            (while (and math-ranges
+                        (<= (cdar math-ranges) (treesit-node-start node)))
+              (pop math-ranges))
             (when-let* ((info (init-markdown--heading-info node))
                         (level (nth 0 info))
                         (start (nth 1 info))
-                        (end (nth 2 info)))
+                        (end (nth 2 info))
+                        ((not (and math-ranges
+                                   (< (caar math-ranges)
+                                      (treesit-node-end node))))))
               ;; Fill skipped parent levels with one, increment this level,
               ;; and reset all deeper levels.
               (dotimes (index (1- level))
@@ -242,7 +299,8 @@ relative height, weight, and the final level's slant distinguish the levels."
 
 (defun init-markdown--code-at-p (position)
   "Return non-nil when POSITION belongs to literal Markdown code."
-  (or (markdown-ts-appear--literal-block-at position)
+  (or (and (fboundp 'markdown-ts-appear--literal-block-at)
+           (markdown-ts-appear--literal-block-at position))
       (when-let* ((node (treesit-node-at position 'markdown-inline)))
         (treesit-parent-until
          node (lambda (candidate)
@@ -250,12 +308,13 @@ relative height, weight, and the final level's slant distinguish the levels."
          t))))
 
 (defun init-markdown--search-latex-closing-delimiter (delimiter)
-  "Find the next unescaped, non-code DELIMITER and return its end."
+  "Find the next unescaped DELIMITER and return its end.
+Markdown may misparse code syntax inside math, so its code nodes cannot
+decide whether a math closing delimiter is valid."
   (catch 'found
     (while (search-forward delimiter nil t)
       (let ((start (- (point) (length delimiter))))
-        (unless (or (init-markdown--escaped-position-p start)
-                    (init-markdown--code-at-p start))
+        (unless (init-markdown--escaped-position-p start)
           (throw 'found (point)))))))
 
 (defun init-markdown--math-preview-at (beg end source)
@@ -647,6 +706,9 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
   "Apply `init-markdown-default-render-mode' to a new buffer."
   (add-hook 'kill-buffer-hook #'init-markdown--cancel-table-realign nil t)
   (add-hook 'kill-buffer-hook #'init-markdown--disable-heading-numbers nil t)
+  (add-hook 'after-change-functions
+            #'init-markdown--sync-math-parser-ranges nil t)
+  (init-markdown--sync-math-parser-ranges)
   (pcase init-markdown-default-render-mode
     ('source (my-markdown-render-source))
     ('preview (my-markdown-render-preview))
