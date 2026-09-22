@@ -174,7 +174,7 @@ agent-shell 是 comint 的例外：新会话从 insert 开始，可直接输入�
 | `C-x o` | 轮换到下一个窗口 | Emacs |
 | `S-方向键` | 按方向切换窗口 | Windmove |
 | `C-S-h/j/k/l` | 切到左／下／上／右窗口 | 自定义配置/Windmove |
-| `M-S-h/j/k/l` | 与左／下／上／右窗口交换显示内容 | 自定义配置/Windmove |
+| `C-x w h/j/k/l` | 与左／下／上／右窗口交换显示内容 | 自定义配置/Windmove |
 | `C-x 2` | 上下分割窗口 | Emacs |
 | `C-x 3` | 左右分割窗口 | Emacs |
 | `C-x 0` | 关闭当前窗口 | Emacs |
@@ -184,8 +184,8 @@ agent-shell 是 comint 的例外：新会话从 insert 开始，可直接输入�
 
 两个窗口时 `C-x o` 最省事；窗口多了用 `S-方向键` 或
 `C-S-h/j/k/l` 直接指方向。
-`M-S-h/j/k/l` 交换相邻窗口的显示内容，焦点跟随原来的 buffer 移动。
-在 macOS Emacs 中，这四个实际键位记作 `M-H/J/K/L`。
+`C-x w h/j/k/l` 交换相邻窗口的显示内容，焦点跟随原来的 buffer 移动。
+它沿用 Emacs 原有的 `C-x w` 窗口命令前缀。
 
 早先这里还有 `C-c h/j/k/l` 和 `C-c w v/s/d/o`，与上面的键位完全重复，
 已经删掉——`C-c` 加单个字母是留给用户的稀缺位置，不该花在这里。

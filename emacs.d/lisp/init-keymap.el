@@ -26,11 +26,14 @@
 (keymap-set windmove-mode-map "C-S-j" #'windmove-down)
 (keymap-set windmove-mode-map "C-S-k" #'windmove-up)
 (keymap-set windmove-mode-map "C-S-l" #'windmove-right)
-;; On macOS, Option-Shift plus a letter arrives as `M-H', not `M-S-h'.
-(keymap-set windmove-mode-map "M-H" #'windmove-swap-states-left)
-(keymap-set windmove-mode-map "M-J" #'windmove-swap-states-down)
-(keymap-set windmove-mode-map "M-K" #'windmove-swap-states-up)
-(keymap-set windmove-mode-map "M-L" #'windmove-swap-states-right)
+
+;; Keep Emacs's existing `C-x w' window prefix and add four directional swaps.
+;; This also avoids the Meta-Shift letter events lost by GTK native input on
+;; Fedora, without changing the input method needed for Rime.
+(keymap-set window-prefix-map "h" #'windmove-swap-states-left)
+(keymap-set window-prefix-map "j" #'windmove-swap-states-down)
+(keymap-set window-prefix-map "k" #'windmove-swap-states-up)
+(keymap-set window-prefix-map "l" #'windmove-swap-states-right)
 
 (keymap-global-set "<escape>" #'keyboard-escape-quit)
 (keymap-global-set "C-c r" #'revert-buffer)

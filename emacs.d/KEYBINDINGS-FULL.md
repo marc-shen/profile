@@ -968,7 +968,7 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 | `C-x v M D` | `vc-diff-mergebase` | 查看两个版本合并基点之间的差异 |
 | `C-x v M L` | `vc-log-mergebase` | 查看合并基点之间的日志 |
 
-### C-x w —— 高亮
+### C-x w —— 窗口操作
 
 | 快捷键 | 命令 | 说明 |
 | --- | --- | --- |
@@ -977,6 +977,10 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 | `C-x w 2` | `split-root-window-below` | 把整个窗体上下分割 |
 | `C-x w 3` | `split-root-window-right` | 把整个窗体左右分割 |
 | `C-x w d` | `toggle-window-dedicated` | 切换窗口是否专用于当前缓冲区 |
+| `C-x w h` | `windmove-swap-states-left` | 与左边窗口交换显示内容 |
+| `C-x w j` | `windmove-swap-states-down` | 与下方窗口交换显示内容 |
+| `C-x w k` | `windmove-swap-states-up` | 与上方窗口交换显示内容 |
+| `C-x w l` | `windmove-swap-states-right` | 与右边窗口交换显示内容 |
 | `C-x w q` | `quit-window` | 关闭窗口并把缓冲区沉底 |
 | `C-x w s` | `window-toggle-side-windows` | 开关侧边窗口的显示 |
 | `C-x w ^ f` | `tear-off-window` | 把当前窗口拆分成独立窗体 |
@@ -1018,7 +1022,7 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 
 ## 窗口移动（Windmove）
 
-`windmove-mode` 是全局次模式，这些键在任何缓冲区里都优先生效。与 `C-x o` 的分工：两个窗口用 `C-x o` 轮换，窗口多了用方向键直接指。macOS 的 Option-Shift-字母记作 `M-H/J/K/L`；交换窗口内容后，焦点跟随原来的 buffer 移动。
+`windmove-mode` 是全局次模式，方向切换键在各缓冲区里优先生效。与 `C-x o` 的分工：两个窗口用 `C-x o` 轮换，窗口多了用方向键直接指。`C-x w h/j/k/l` 沿用 Emacs 的窗口命令前缀；交换窗口内容后，焦点跟随原来的 buffer 移动。
 
 | 快捷键 | 命令 | 说明 |
 | --- | --- | --- |
@@ -1026,10 +1030,10 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 | `C-S-j` | `windmove-down` | 切到下方窗口 |
 | `C-S-k` | `windmove-up` | 切到上方窗口 |
 | `C-S-l` | `windmove-right` | 切到右边窗口 |
-| `M-H` | `windmove-swap-states-left` | 与左边窗口交换显示内容 |
-| `M-J` | `windmove-swap-states-down` | 与下方窗口交换显示内容 |
-| `M-K` | `windmove-swap-states-up` | 与上方窗口交换显示内容 |
-| `M-L` | `windmove-swap-states-right` | 与右边窗口交换显示内容 |
+| `C-x w h` | `windmove-swap-states-left` | 与左边窗口交换显示内容 |
+| `C-x w j` | `windmove-swap-states-down` | 与下方窗口交换显示内容 |
+| `C-x w k` | `windmove-swap-states-up` | 与上方窗口交换显示内容 |
+| `C-x w l` | `windmove-swap-states-right` | 与右边窗口交换显示内容 |
 | `S-<down>` | `windmove-down` | 切到下方窗口 |
 | `S-<left>` | `windmove-left` | 切到左边窗口 |
 | `S-<right>` | `windmove-right` | 切到右边窗口 |
