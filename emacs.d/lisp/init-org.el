@@ -5,7 +5,7 @@
 (use-package org
   :ensure nil
   :hook ((org-mode . visual-line-mode) (org-mode . variable-pitch-mode))
-  :bind (("C-c a" . org-agenda) ("C-c n" . org-capture))
+  :bind (("C-c A" . org-agenda) ("C-c n" . org-capture))
   :custom
   (org-directory "~/Documents/org")
   (org-default-notes-file (expand-file-name "notes.org" org-directory))

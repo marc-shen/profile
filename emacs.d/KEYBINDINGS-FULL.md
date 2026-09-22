@@ -502,8 +502,8 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 
 | 快捷键 | 命令 | 说明 |
 | --- | --- | --- |
-| `C-c A` | `agent-shell` | 打开或复用当前项目的智能体会话 |
-| `C-c a` | `org-agenda` | 打开 Org 议程视图 |
+| `C-c A` | `org-agenda` | 打开 Org 议程视图 |
+| `C-c a` | `agent-shell` | 打开或复用当前项目的智能体会话 |
 | `C-c c` | `compile` | 编译当前项目，默认运行 make |
 | `C-c d` | `my-scratch-buffer` | 跳到 `*scratch*`（已关闭则重建），再按一次返回原缓冲区；覆盖键表，任何模式下都生效 |
 | `C-c C-c` | `recompile` | 用上次的命令重新编译 |
@@ -1018,10 +1018,18 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 
 ## 窗口移动（Windmove）
 
-`windmove-mode` 是全局次模式，这四个键在任何缓冲区里都优先生效。与 `C-x o` 的分工：两个窗口用 `C-x o` 轮换，窗口多了用方向键直接指。
+`windmove-mode` 是全局次模式，这些键在任何缓冲区里都优先生效。与 `C-x o` 的分工：两个窗口用 `C-x o` 轮换，窗口多了用方向键直接指。macOS 的 Option-Shift-字母记作 `M-H/J/K/L`；交换窗口内容后，焦点跟随原来的 buffer 移动。
 
 | 快捷键 | 命令 | 说明 |
 | --- | --- | --- |
+| `C-S-h` | `windmove-left` | 切到左边窗口 |
+| `C-S-j` | `windmove-down` | 切到下方窗口 |
+| `C-S-k` | `windmove-up` | 切到上方窗口 |
+| `C-S-l` | `windmove-right` | 切到右边窗口 |
+| `M-H` | `windmove-swap-states-left` | 与左边窗口交换显示内容 |
+| `M-J` | `windmove-swap-states-down` | 与下方窗口交换显示内容 |
+| `M-K` | `windmove-swap-states-up` | 与上方窗口交换显示内容 |
+| `M-L` | `windmove-swap-states-right` | 与右边窗口交换显示内容 |
 | `S-<down>` | `windmove-down` | 切到下方窗口 |
 | `S-<left>` | `windmove-left` | 切到左边窗口 |
 | `S-<right>` | `windmove-right` | 切到右边窗口 |
@@ -2608,6 +2616,10 @@ LaTeX 模式继承这一层，上一节列出的是 LaTeX 特有的部分。
 ## 智能体会话（agent-shell）
 
 大部分键位来自 comint，与其他交互式缓冲区一致。
+`C-u C-c a` 可新开 buffer，再选择新会话或历史会话；
+`C-u C-u C-c a` 可选择仍在运行的会话 buffer。
+此缓冲区的 `ESC` 从 Helix insert 进入 normal；在 normal 中只取消当前操作，
+不会关闭其他窗口。
 
 | 快捷键 | 命令 | 说明 |
 | --- | --- | --- |

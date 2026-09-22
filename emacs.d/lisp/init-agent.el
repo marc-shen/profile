@@ -12,18 +12,15 @@
 ;; through the same shell, so adding a second agent later is a line of
 ;; configuration rather than a second package with a second set of keys.
 ;;
-;; The agent itself is not an Emacs package.  Claude's adapter is installed
-;; separately, and reaching it is what `init-agent-ensure-executable-path'
-;; below is for:
+;; The agents themselves are not Emacs packages.  Their ACP adapters are
+;; installed separately, and reaching them is what
+;; `init-agent-ensure-executable-path' below is for:
 ;;
+;;   npm install -g @agentclientprotocol/codex-acp
 ;;   npm install -g @agentclientprotocol/claude-agent-acp
 
-(defconst init-agent-acp-executable "claude-agent-acp"
-  "The Claude ACP adapter, as named on PATH.
-
-This is the default first element of `agent-shell-anthropic-claude-acp-command';
-it is repeated here because the path fix below has to look for it before
-agent-shell is loaded.")
+(defconst init-agent-acp-executables '("codex-acp" "claude-agent-acp")
+  "ACP adapters to look for in nvm's bin directory when missing from PATH.")
 
 (defun init-agent-nvm-bin-directory (executable)
   "Return the newest nvm-installed directory holding EXECUTABLE, or nil.
@@ -46,8 +43,8 @@ installed versions differ in digit count: v9 sorts above v10 alphabetically."
                                  :reverse t))))
     (file-name-directory newest)))
 
-(defun init-agent-ensure-executable-path ()
-  "Make `init-agent-acp-executable' reachable when npm's bin directory is not.
+(defun init-agent-ensure-executable-path (executable)
+  "Make EXECUTABLE reachable when npm's bin directory is not.
 
 The same gap `init-base.el' patches for `~/.local/bin': a GUI Emacs started
 from the Finder inherits launchd's environment, never runs a shell, and so
@@ -59,36 +56,30 @@ Emacs find the script, but PATH is what lets `env' inside it find Node.
 
 Does nothing when the adapter is already reachable, so an Emacs started from
 a shell keeps whichever Node version that shell had selected."
-  (unless (executable-find init-agent-acp-executable)
-    (when-let* ((directory (init-agent-nvm-bin-directory init-agent-acp-executable)))
+  (unless (executable-find executable)
+    (when-let* ((directory (init-agent-nvm-bin-directory executable)))
       (add-to-list 'exec-path directory)
       (setenv "PATH" (concat directory path-separator (getenv "PATH"))))))
 
 (use-package agent-shell
   :if (package-installed-p 'agent-shell)
-  ;; `C-c a' is `org-agenda' and `C-c A' is free, so the agent takes the
-  ;; shifted key.  `agent-shell' reuses this project's running shell when
+  ;; `agent-shell' reuses this project's running shell when
   ;; there is one and starts a new shell otherwise, which is the entry point
   ;; worth a binding; `agent-shell-new-shell', `agent-shell-resume-session'
   ;; and the rest stay on `M-x'.
-  :bind ("C-c A" . agent-shell)
+  :bind ("C-c a" . agent-shell)
   :custom
-  ;; Only Claude's adapter is installed, but the picker is kept rather than
-  ;; bypassed with a bare `claude-code': it is the one place that lists the
-  ;; other agents, so trying Gemini or Codex later needs no change here.
-  (agent-shell-preferred-agent-config '(preselect . claude-code))
+  ;; Keep the picker, with Codex selected by default, so other agents remain
+  ;; available without changing the configuration.
+  (agent-shell-preferred-agent-config '(preselect . codex))
   :config
-  ;; Deliberately not set: `agent-shell-anthropic-authentication' already
-  ;; defaults to `:login t', which reuses the Claude subscription that the
-  ;; `claude' CLI logged in with.  Setting an API key instead would bill the
-  ;; same requests a second time.  To use one anyway:
-  ;;
-  ;;   (setq agent-shell-anthropic-authentication
-  ;;         (agent-shell-anthropic-make-authentication
-  ;;          :api-key (lambda ()
-  ;;                     (auth-source-pick-first-password
-  ;;                      :host "api.anthropic.com"))))
-  (init-agent-ensure-executable-path))
+  ;; The global ESC runs `keyboard-escape-quit', which also closes other
+  ;; windows.  Helix's insert ESC changes state; in normal state cancel only
+  ;; the current operation.
+  (keymap-set agent-shell-mode-map "<escape>" #'keyboard-quit)
+  ;; Both adapters default to CLI login; no API key is configured here.
+  (dolist (executable init-agent-acp-executables)
+    (init-agent-ensure-executable-path executable)))
 
 (provide 'init-agent)
 

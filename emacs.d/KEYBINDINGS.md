@@ -67,10 +67,11 @@ Helix 是"先选择后操作"：`w` 不只是移动，还会把整个词选中�
 | `:` | 命令行，如 `:write`、`:quit` |
 | `C-f` `C-b` | 翻页 |
 
-Magit、普通 Dired、vterm、PDF、compilation 等自带单键操作的缓冲区不启用
-Helix（见 `my-helix-exempt-modes`），在那里一切照旧。WDired 是例外：进入文件名
-编辑后启用 Helix normal，退出并返回 Dired 时关闭。`M-x helix-mode` 可全局开关
-Helix。
+Magit、普通 Dired、vterm、PDF、compilation、普通 comint 等自带单键操作的
+缓冲区不启用 Helix（见 `my-helix-exempt-modes`），在那里一切照旧。
+agent-shell 是 comint 的例外：新会话从 insert 开始，可直接输入；按 `ESC` 或
+`jk` 进入 normal 浏览对话。WDired 也是例外：进入文件名编辑后启用 Helix normal，
+退出并返回 Dired 时关闭。`M-x helix-mode` 可全局开关 Helix。
 
 ## 随时可用的帮助
 
@@ -172,6 +173,8 @@ Helix。
 | --- | --- | --- |
 | `C-x o` | 轮换到下一个窗口 | Emacs |
 | `S-方向键` | 按方向切换窗口 | Windmove |
+| `C-S-h/j/k/l` | 切到左／下／上／右窗口 | 自定义配置/Windmove |
+| `M-S-h/j/k/l` | 与左／下／上／右窗口交换显示内容 | 自定义配置/Windmove |
 | `C-x 2` | 上下分割窗口 | Emacs |
 | `C-x 3` | 左右分割窗口 | Emacs |
 | `C-x 0` | 关闭当前窗口 | Emacs |
@@ -179,7 +182,10 @@ Helix。
 | `C-x \|` | 两窗口布局顺时针旋转 | 自定义配置 |
 | `C-x \` | 两窗口布局逆时针旋转 | 自定义配置 |
 
-两个窗口时 `C-x o` 最省事；窗口多了用 `S-方向键` 直接指方向。
+两个窗口时 `C-x o` 最省事；窗口多了用 `S-方向键` 或
+`C-S-h/j/k/l` 直接指方向。
+`M-S-h/j/k/l` 交换相邻窗口的显示内容，焦点跟随原来的 buffer 移动。
+在 macOS Emacs 中，这四个实际键位记作 `M-H/J/K/L`。
 
 早先这里还有 `C-c h/j/k/l` 和 `C-c w v/s/d/o`，与上面的键位完全重复，
 已经删掉——`C-c` 加单个字母是留给用户的稀缺位置，不该花在这里。
@@ -565,7 +571,7 @@ LaTeX 环境。
 
 | 快捷键 | 功能 | 来源 |
 | --- | --- | --- |
-| `C-c a` | 打开 Org Agenda | 自定义配置/Org |
+| `C-c A` | 打开 Org Agenda | 自定义配置/Org |
 | `C-c n` | 打开 Org Capture | 自定义配置/Org |
 | `TAB` | 展开或折叠当前标题 | Org |
 | `S-TAB` | 循环整个文档的折叠状态 | Org |
@@ -706,29 +712,35 @@ vterm 只有在插件及本机动态模块依赖安装成功后才可用。
 
 ## 编程智能体（agent-shell）
 
-agent-shell 通过 ACP 协议驱动 Claude 等编程智能体，对话直接呈现在普通
-缓冲区里，可以照常搜索和复制。
+agent-shell 通过 ACP 协议驱动 Codex、Claude 等编程智能体，默认预选 Codex。
+对话直接呈现在普通缓冲区里，可以照常搜索和复制。
 
 | 快捷键 | 功能 | 来源 |
 | --- | --- | --- |
-| `C-c A` | 打开当前项目的智能体会话，没有则新建 | 自定义配置 |
+| `C-c a` | 打开或复用当前项目的智能体会话 | 自定义配置 |
+| `C-u C-c a` | 新开 agent-shell，并选择新会话或恢复历史会话 | agent-shell |
+| `C-u C-u C-c a` | 从已有会话中选择一个 | agent-shell |
+| `ESC` | 进入 Helix normal，不改变其他窗口 | Helix/自定义配置 |
 | `RET` | 发送当前输入 | agent-shell |
-| `M-J` | 换行但不发送 | agent-shell |
+| `S-RET` | 换行但不发送 | agent-shell/shell-maker |
 | `C-c C-c` | 打断正在进行的回答 | agent-shell |
 | `C-c C-v` | 选择模型 | agent-shell |
 | `C-c C-m` | 选择会话模式 | agent-shell |
 | `C-<tab>` | 在会话模式之间循环 | agent-shell |
 
-`C-c A` 之外的入口留在 `M-x`：`agent-shell-new-shell` 强制新建会话，
-`agent-shell-resume-session` 恢复此前的会话。
+同一项目可以同时运行多个 agent-shell：用 `C-u C-c a` 或
+`M-x agent-shell-new-shell` 新开一个 buffer，然后在列表中选择 `New shell`
+或一条历史会话；用 `C-u C-u C-c a` 切换到仍在运行的 buffer。
+`M-x agent-shell-resume-session` 需要手动输入 session ID。
 
-使用前需要单独安装 Claude 的 ACP 适配器，它不是 Emacs 插件：
+使用前需要单独安装 Codex 的 ACP 适配器，它不是 Emacs 插件：
 
 ```sh
-npm install -g @agentclientprotocol/claude-agent-acp
+npm install -g @agentclientprotocol/codex-acp
 ```
 
-认证沿用 `claude` 命令行已登录的订阅，无需另配 API key。
+认证沿用 Codex CLI 的登录状态，无需另配 API key。如需选择 Claude，
+另装 `@agentclientprotocol/claude-agent-acp`。
 
 ## 浏览器（embr）
 

@@ -55,7 +55,10 @@ the duration of filename editing; see `my-helix-wdired-enter'.")
 
 (defun my-helix-exempt-p ()
   "Return non-nil if the current buffer should not use Helix keys."
-  (seq-some #'derived-mode-p my-helix-exempt-modes))
+  ;; Agent conversations need modal navigation, while ordinary comint shells
+  ;; still need their own single-key input behavior.
+  (and (not (derived-mode-p 'agent-shell-mode))
+       (seq-some #'derived-mode-p my-helix-exempt-modes)))
 
 (defun my-helix-disable-in-exempt-buffers ()
   "Turn every Helix state off in `my-helix-exempt-modes' buffers."
@@ -64,6 +67,13 @@ the duration of filename editing; see `my-helix-wdired-enter'.")
       (helix-insert-mode -1))
     (when (bound-and-true-p helix-normal-mode)
       (helix-normal-mode -1))))
+
+(defun my-helix-agent-shell-start-in-insert ()
+  "Start a new agent conversation ready for typing a prompt."
+  (when (bound-and-true-p helix-global-mode)
+    (when (bound-and-true-p helix-normal-mode)
+      (helix-normal-mode -1))
+    (helix-insert-mode 1)))
 
 (defun my-helix-activate-unless-exempt (function &rest arguments)
   "Call FUNCTION with ARGUMENTS unless this buffer must remain non-modal.
@@ -279,6 +289,11 @@ Helix insert map, while ESC switches to the full Helix normal state."
   ;; depth, so the mode is switched off again in the same command.
   (add-hook 'after-change-major-mode-hook
             #'my-helix-disable-in-exempt-buffers 90)
+
+  ;; `agent-shell-mode-hook' runs again after the ACP state is ready.  Keep the
+  ;; transcript navigable with Helix without making users press `i' before
+  ;; every newly opened conversation.
+  (add-hook 'agent-shell-mode-hook #'my-helix-agent-shell-start-in-insert)
 
   ;; A terminal cannot distinguish ESC from the meta prefix (helix-mode issue
   ;; #24), and even in a graphical frame ESC is a reach, so `j k' stands in for

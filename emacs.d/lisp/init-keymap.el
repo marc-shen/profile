@@ -22,6 +22,15 @@
 ;; and it is made knowingly -- Org binds `C-c <left>' and `C-c <right>' to the
 ;; same commands for exactly this case, so nothing becomes unreachable.
 (windmove-default-keybindings)
+(keymap-set windmove-mode-map "C-S-h" #'windmove-left)
+(keymap-set windmove-mode-map "C-S-j" #'windmove-down)
+(keymap-set windmove-mode-map "C-S-k" #'windmove-up)
+(keymap-set windmove-mode-map "C-S-l" #'windmove-right)
+;; On macOS, Option-Shift plus a letter arrives as `M-H', not `M-S-h'.
+(keymap-set windmove-mode-map "M-H" #'windmove-swap-states-left)
+(keymap-set windmove-mode-map "M-J" #'windmove-swap-states-down)
+(keymap-set windmove-mode-map "M-K" #'windmove-swap-states-up)
+(keymap-set windmove-mode-map "M-L" #'windmove-swap-states-right)
 
 (keymap-global-set "<escape>" #'keyboard-escape-quit)
 (keymap-global-set "C-c r" #'revert-buffer)
