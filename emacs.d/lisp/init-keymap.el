@@ -65,9 +65,9 @@
 ;; second, equal-but-not-`eq' entry.
 (add-to-list 'emulation-mode-map-alists 'my-override-map-alist)
 
-;; `C-c s' is an Eglot prefix in programming buffers, so the scratch buffer takes
-;; `C-c d' -- d as in draft.
-(keymap-set my-override-map "C-c d" #'my-scratch-buffer)
+;; Keep the scratch-buffer toggle with other buffer operations.  This binding
+;; must also work in modes whose local maps claim most keys (including vterm).
+(keymap-set my-override-map "C-x S" #'my-scratch-buffer)
 
 ;; `C-x K' -- the shifted sibling of `C-x k' -- clears out the file buffers in
 ;; one go and leaves the `*'-named system buffers alone.

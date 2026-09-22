@@ -104,7 +104,7 @@
 (use-package treemacs
   :if (package-installed-p 'treemacs)
   :defer t
-  :bind (("C-c t" . treemacs)))
+  :bind (("C-x p t" . treemacs)))
 
 ;; Zoxide ranks directories by how often and how recently they are entered.
 ;; Reusing that database means a directory visited from the shell is already
@@ -171,8 +171,8 @@ point of zoxide, and Vertico would otherwise re-sort the candidates."
   (interactive)
   (dired (init-project-zoxide-read-directory "Zoxide dired: ")))
 
-(keymap-global-set "C-c z" #'my-zoxide-find-file)
-(keymap-global-set "C-c Z" #'my-zoxide-dired)
+(keymap-global-set "C-x p z" #'my-zoxide-find-file)
+(keymap-global-set "C-x p Z" #'my-zoxide-dired)
 
 ;; Hand the current file to the desktop's own file manager.  Both back ends
 ;; take the *file* and select it in its parent directory rather than opening

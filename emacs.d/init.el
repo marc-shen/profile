@@ -18,6 +18,11 @@
 (setq custom-file (expand-file-name "custom.el" user-emacs-directory))
 (load custom-file 'noerror 'nomessage)
 
+;; Package autoloads can run during `package-initialize', before `init-git'.
+;; Prevent Magit from claiming C-x g/C-x M-g/C-c M-g at that early stage;
+;; our Git commands live together under C-c g instead.
+(setq magit-define-global-key-bindings nil)
+
 (require 'init-treesit)
 (require 'init-proxy)
 (require 'init-package)

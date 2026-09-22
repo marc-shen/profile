@@ -23,6 +23,11 @@ minor mode 以及已安装插件为准。
 Python 缓冲区中会发送整个 Python 缓冲区，在 LaTeX 中则会执行 AUCTeX
 命令。
 
+自定义全局键位按用途分组：`C-x` 管窗口、缓冲区、项目和文件导航；`C-c`
+管编译、Git、程序工具、语法及文件处理；`M-g` 管定位，`M-s` 管搜索，
+`C-h` 管帮助。Emacs 或插件已有的惯用键（如 `C-x C-s` 保存、
+`C-x p c` 编译项目、模式内 `C-c C-c`）不为追求分类而强行改写。
+
 ## Helix 模态编辑
 
 本配置启用了 [helix-mode](https://github.com/mgmarlow/helix-mode)，普通
@@ -112,15 +117,15 @@ agent-shell 是 comint 的例外：新会话从 insert 开始，可直接输入�
 | `C-x 4 b` | 在另一个窗口中切换缓冲区 | Consult |
 | `C-x C-r` | 从最近访问的文件中选择并打开 | Consult |
 | `C-c r` | 从磁盘重新载入当前文件 | 自定义配置 |
-| `C-c d` | 跳到 `*scratch*` 草稿缓冲区，再按一次返回 | 自定义配置 |
+| `C-x S` | 跳到 `*scratch*` 草稿缓冲区，再按一次返回 | 自定义配置 |
 | `C-x f` | 修改当前缓冲区的 `fill-column`；不是打开文件 | Emacs |
 
 配置会自动恢复上次光标位置，并把最近文件、历史记录、自动保存和备份
 保存在 `~/.emacs.d/var/` 下。
 
-`C-c d` 在任何缓冲区都能直接跳到 `*scratch*`：它被关掉过也会按
+`C-x S` 在任何缓冲区都能直接跳到 `*scratch*`：它被关掉过也会按
 `initial-major-mode` 重新建出来。人已经在 `*scratch*` 里时再按一次就回到跳进来
-之前的那个缓冲区。加前缀 `C-u C-c d` 则在另一个窗口显示草稿缓冲区，当前窗口不动。
+之前的那个缓冲区。加前缀 `C-u C-x S` 则在另一个窗口显示草稿缓冲区，当前窗口不动。
 
 `C-x K` 一次关掉所有用户缓冲区：名字以 `*` 或空格开头的算系统缓冲区（`*scratch*`、
 `*Messages*`、各种日志和 REPL），会被留下，其余的文件缓冲区全部关闭；有未保存
@@ -207,6 +212,7 @@ Corfu 显示语言服务器、major mode 和 Cape 提供的候选。
 | 快捷键 | 功能 |
 | --- | --- |
 | `M-/` | 强制打开光标处的补全 |
+| `C-c i` | 请求模型补全，并在小缓冲区选择建议（Minuet） |
 | `C-n` / `M-n` / `TAB` / `↓` | 选择下一个候选 |
 | `C-p` / `M-p` / `S-TAB` / `↑` | 选择上一个候选 |
 | `RET` | 接受当前候选 |
@@ -252,7 +258,9 @@ Emacs 内置 Project 使用 `C-x p` 作为前缀。
 | `C-x p k` | 关闭项目的所有缓冲区 | Emacs Project |
 | `C-x p !` | 在项目根目录运行同步 shell 命令 | Emacs Project |
 | `C-x p &` | 在项目根目录运行异步 shell 命令 | Emacs Project |
-| `C-c t` | 打开或关闭 Treemacs 项目树 | Treemacs（安装后） |
+| `C-x p t` | 打开或关闭 Treemacs 项目树 | Treemacs（安装后） |
+| `C-x p z` | 用 zoxide 跳到常用目录并打开其中文件 | 自定义配置 |
+| `C-x p Z` | 用 zoxide 跳到常用目录并打开 Dired | 自定义配置 |
 
 运行 `M-x project-switch-project` 后，还可以按提示选择查找文件、ripgrep、
 目录、Eshell、Magit 或编译。
@@ -680,7 +688,9 @@ GFM 表格单元格会单独启用 `markdown-inline` Tree-sitter 解析，因此
 
 | 快捷键 | 功能 | 来源 |
 | --- | --- | --- |
-| `C-x g` | 打开当前项目的 Magit 状态页 | 自定义配置/Magit |
+| `C-c g s` | 打开当前项目的 Magit 状态页 | 自定义配置/Magit |
+| `C-c g g` | 打开 Magit 主命令菜单 | 自定义配置/Magit |
+| `C-c g f` | 打开针对当前文件的 Magit 菜单 | 自定义配置/Magit |
 | `C-c g b` | 显示当前行最后由谁修改 | 自定义配置/Magit |
 
 进入 Magit 状态页后：

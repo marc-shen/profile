@@ -161,7 +161,7 @@
 ;; multi-line suggestion also appears cut down to its first line.
 ;;
 ;; Nothing here touches `completion-at-point-functions', so the Cape backends
-;; and the popup keymap are untouched: `M-i' cannot open a Corfu popup, and the
+;; and the popup keymap are untouched: `C-c i' cannot open a Corfu popup, and the
 ;; keys above cannot reach a model.
 
 (defconst init-completion-minuet-services
@@ -207,20 +207,14 @@ against a named provider instead of leaving `minuet-provider' meaningless."
       (caar init-completion-minuet-services)))
 
 (use-package minuet
-  ;; Guarded on the package alone, deliberately.  Testing for a key here would
-  ;; leave `M-i' bound to its default `tab-to-tab-stop' whenever the key was
-  ;; missing -- a command that silently inserts whitespace, which is worse than
-  ;; no binding and looks nothing like a failed completion.  With the binding
-  ;; unconditional, a missing key surfaces as Minuet's own "provider is not
-  ;; available" error.
+  ;; Guard only on the package, not an API key: keep the command discoverable
+  ;; and let Minuet report a missing provider when it is actually invoked.
   :if (package-installed-p 'minuet)
-  ;; `M-i' is `tab-to-tab-stop', which the indentation commands of every mode
-  ;; here have made vestigial.  The README suggests `M-y', but that is
-  ;; `consult-yank-pop' above.
-  :bind ("M-i" . minuet-complete-with-minibuffer)
+  ;; Model-assisted code completion belongs with the other tooling commands.
+  :bind ("C-c i" . minuet-complete-with-minibuffer)
   :custom
   (minuet-provider (init-completion-minuet-provider))
-  ;; A request that produced nothing otherwise fails silently, leaving `M-i'
+  ;; A request that produced nothing otherwise fails silently, leaving `C-c i'
   ;; looking like it did nothing at all.  This reports the cause; the full log
   ;; is in `minuet-buffer-name' either way.
   (minuet-show-error-message-on-minibuffer t)

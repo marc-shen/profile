@@ -10,7 +10,10 @@
 
 (use-package magit
   :commands (magit-status magit-project-status)
-  :bind (("C-x g" . magit-status) ("C-c g b" . magit-blame-addition))
+  :bind (("C-c g s" . magit-status)
+         ("C-c g g" . magit-dispatch)
+         ("C-c g f" . magit-file-dispatch)
+         ("C-c g b" . magit-blame-addition))
   :config
   ;; Magit's own UI is English; make Git subprocess messages match it without
   ;; changing Emacs's or the operating system's display language.

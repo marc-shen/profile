@@ -22,7 +22,7 @@
 
 ;; 二、某个插件自己的键位：写在该插件的 use-package 里
 (use-package treemacs
-  :bind (("C-c t" . treemacs)))
+  :bind (("C-x p t" . treemacs)))
 
 ;; 三、只在某个模式里生效：绑到该模式的 keymap
 (with-eval-after-load 'markdown-ts-mode
@@ -43,7 +43,6 @@
 | 快捷键 | 现在是 | 原生是 | 说明 |
 | --- | --- | --- | --- |
 | `C-s` | `consult-line` | `isearch-forward` | 在当前缓冲区按行搜索 |
-| `M-i` | `minuet-complete-with-minibuffer` | `tab-to-tab-stop` | 用大模型补全，在小缓冲中选择结果 |
 | `M-y` | `consult-yank-pop` | `yank-pop` | 带预览地从剪切环中粘贴 |
 | `C-x \` | `my-rotate-windows-counterclockwise` | `activate-transient-input-method` | 两窗口布局逆时针旋转 |
 | `C-x b` | `consult-buffer` | `switch-to-buffer` | 切换缓冲区（带预览和虚拟缓冲区） |
@@ -79,9 +78,10 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 
 ### 没有被占用的 C-c 单键
 
-`C-c` 加单个字母是留给用户的保留区。以下字母目前全局和各模式都没用到，可以放心拿来绑新命令：
+`C-c` 加单个字母是留给用户的保留区。以下字母目前未被本配置用作全局键；
+具体模式可能另有局部绑定，使用前以 `C-h k` 核对：
 
-- 小写：`C-c f`、`C-c h`、`C-c i`、`C-c k`、`C-c l`、`C-c q`、`C-c u`、`C-c w`、`C-c x`、`C-c y`
+- 小写：`C-c d`、`C-c f`、`C-c h`、`C-c k`、`C-c l`、`C-c q`、`C-c t`、`C-c u`、`C-c w`、`C-c x`、`C-c y`、`C-c z`
 - 大写：`C-c B`、`C-c C`、`C-c D`、`C-c E`、`C-c F`、`C-c G`、`C-c H`、`C-c I`、`C-c J`、`C-c K`、`C-c L`、`C-c M`、`C-c N`、`C-c O`、`C-c P`、`C-c Q`、`C-c R`、`C-c S`、`C-c T`、`C-c U`、`C-c W`、`C-c X`、`C-c Y`
 
 ## 目录
@@ -252,7 +252,7 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 | `M-e` | `forward-sentence` | 移动到句子末尾 |
 | `M-f` | `forward-word` | 向后移动一个词 |
 | `M-h` | `mark-paragraph` | 选中当前段落 |
-| `M-i` | `minuet-complete-with-minibuffer` | 用大模型补全，在小缓冲中选择结果 |
+| `M-i` | `tab-to-tab-stop` | 缩进到下一个制表位（Emacs 原生） |
 | `M-j` | `default-indent-new-line` | 断行并缩进 |
 | `M-k` | `kill-sentence` | 剪切到句尾 |
 | `M-l` | `downcase-word` | 把词转为小写 |
@@ -505,19 +505,14 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 | `C-c A` | `org-agenda` | 打开 Org 议程视图 |
 | `C-c a` | `agent-shell` | 打开或复用当前项目的智能体会话 |
 | `C-c c` | `compile` | 编译当前项目，默认运行 make |
-| `C-c d` | `my-scratch-buffer` | 跳到 `*scratch*`（已关闭则重建），再按一次返回原缓冲区；覆盖键表，任何模式下都生效 |
 | `C-c C-c` | `recompile` | 用上次的命令重新编译 |
 | `C-c m` | `consult-mode-command` | 列出当前模式提供的命令 |
-| `C-c M-g` | `magit-file-dispatch` | 打开针对当前文件的 Magit 菜单 |
 | `C-c n` | `org-capture` | 快速记录（捕获） |
 | `C-c o` | `my-reveal-in-file-manager` | 在 Finder/Dolphin 中显示当前文件（前缀参数打开所在目录）；覆盖键表，任何模式下都生效 |
 | `C-c p` | `my-python-select-environment` | 从本地和全局候选中选择 Python 环境；加前缀参数可手选目录 |
 | `C-c r` | `revert-buffer` | 丢弃修改，从磁盘重新加载文件 |
-| `C-c t` | `treemacs` | 打开或关闭项目树 |
 | `C-c V` | `vterm-other-window` | 在另一窗口打开 vterm 终端 |
 | `C-c v` | `vterm` | 在当前窗口打开 vterm 终端 |
-| `C-c Z` | `my-zoxide-dired` | 用 zoxide 跳到常用目录并打开 Dired |
-| `C-c z` | `my-zoxide-find-file` | 用 zoxide 跳到常用目录并打开其中文件 |
 | `C-c b ?` | `embr-info` | 查看 embr 的安装诊断信息 |
 | `C-c b b` | `my-browser-open` | 打开 embr 浏览器并提示输入网址 |
 | `C-c b i` | `embr-browse-incognito` | 用隐身会话打开网址 |
@@ -529,6 +524,10 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 | `C-c e SPC` | `mc/vertical-align-with-space` | 用空格把所有光标对齐 |
 | `C-c e u` | `mc/unmark-next-like-this` | 取消下一处的标记 |
 | `C-c g b` | `magit-blame-addition` | 逐行显示是哪次提交加进来的 |
+| `C-c g f` | `magit-file-dispatch` | 打开针对当前文件的 Magit 菜单 |
+| `C-c g g` | `magit-dispatch` | 打开 Magit 主命令菜单 |
+| `C-c g s` | `magit-status` | 打开当前仓库的 Magit 状态页 |
+| `C-c i` | `minuet-complete-with-minibuffer` | 用大模型补全，在小缓冲中选择结果 |
 | `C-c j c` | `my-marimo-check` | 检查当前 marimo notebook；加前缀参数时应用安全修复 |
 | `C-c j e` | `my-marimo-edit` | 启动当前 notebook 的监听服务器并打开编辑页面 |
 | `C-c j k` | `my-marimo-stop` | 停止 marimo 服务器 |
@@ -660,7 +659,6 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 | `C-x DEL` | `backward-kill-sentence` | 向前删到句首 |
 | `C-x e` | `kmacro-end-and-call-macro` | 结束录制并执行宏 |
 | `C-x f` | `set-fill-column` | 设置自动折行的列宽 |
-| `C-x g` | `magit-status` | 打开当前仓库的 Magit 状态页 |
 | `C-x h` | `mark-whole-buffer` | 全选 |
 | `C-x i` | `insert-file` | 把文件内容插入到此处 |
 | `C-x k` | `kill-buffer` | 关闭指定缓冲区 |
@@ -668,10 +666,10 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 | `C-x l` | `count-lines-page` | 统计当前页的行数 |
 | `C-x m` | `compose-mail` | 撰写邮件 |
 | `C-x M-:` | `repeat-complex-command` | 编辑并重新执行上一条复杂命令 |
-| `C-x M-g` | `magit-dispatch` | 打开 Magit 主命令菜单 |
 | `C-x o` | `other-window` | 切到另一个窗口 |
 | `C-x q` | `kbd-macro-query` | 执行宏时暂停询问 |
 | `C-x s` | `save-some-buffers` | 逐个询问并保存已修改的文件 |
+| `C-x S` | `my-scratch-buffer` | 跳到 `*scratch*`（已关闭则重建），再按一次返回原缓冲区；覆盖键表，任何模式下都生效 |
 | `C-x SPC` | `rectangle-mark-mode` | 切换成矩形选区 |
 | `C-x TAB` | `indent-rigidly` | 把区域内所有行整体左右移动 |
 | `C-x u` | `undo` | 撤销 |
@@ -874,8 +872,11 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 | `C-x p p` | `project-switch-project` | 切换到另一个项目 |
 | `C-x p r` | `project-query-replace-regexp` | 在项目所有文件中按正则逐处替换 |
 | `C-x p s` | `project-shell` | 在项目根目录打开 shell |
+| `C-x p t` | `treemacs` | 打开或关闭项目树 |
 | `C-x p v` | `project-vc-dir` | 打开项目的版本控制目录视图 |
 | `C-x p x` | `project-execute-extended-command` | 在项目根目录下执行 M-x 命令 |
+| `C-x p z` | `my-zoxide-find-file` | 用 zoxide 跳到常用目录并打开其中文件 |
+| `C-x p Z` | `my-zoxide-dired` | 用 zoxide 跳到常用目录并打开 Dired |
 
 ### C-x r —— 寄存器与矩形
 
@@ -2844,5 +2845,5 @@ LaTeX 模式继承这一层，上一节列出的是 LaTeX 特有的部分。
 ## 没有收录的部分
 
 - **vterm**：它的键位表要等本机动态模块编译完成才存在，导出时跳过了。vterm 缓冲区里绝大多数按键会直接转发给终端里的程序。
-- **Magit 的 transient 菜单**：`C-c C-c`、`C-x g` 之后弹出的那些菜单，键位是运行时生成的，不在 keymap 里。菜单自己会把可用按键都显示出来。
+- **Magit 的 transient 菜单**：`C-c C-c`、`C-c g s` 之后弹出的那些菜单，键位是运行时生成的，不在 keymap 里。菜单自己会把可用按键都显示出来。
 - **which-key 提示**：按下前缀键停顿一下会列出后续按键，这是查阅本表之外最快的办法。
