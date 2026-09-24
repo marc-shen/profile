@@ -17,9 +17,10 @@
 (declare-function markdown-ts-appear-start "markdown-ts-appear")
 (declare-function markdown-ts-appear-stop "markdown-ts-appear")
 (declare-function markdown-ts-appear--active-p "markdown-ts-appear")
-(declare-function markdown-ts-appear--literal-block-at "markdown-ts-appear" (position))
+(declare-function markdown-ts-appear--update "markdown-ts-appear")
 (declare-function markdown-ts-appear-math--delete "markdown-ts-appear" (preview))
 (declare-function markdown-ts-appear-math--display "markdown-ts-appear" (preview))
+(declare-function markdown-ts-appear-math--refresh "markdown-ts-appear" (&optional force))
 (declare-function mathjax-available-p "mathjax")
 (declare-function mathjax-display "mathjax" (beg end math &rest options))
 (declare-function valign-table "valign")
@@ -55,6 +56,16 @@ variable to remain positive even when no fixed visual width is wanted."
   :type 'number
   :group 'markdown-ts)
 
+(defcustom init-markdown-render-debounce 0.12
+  "Idle seconds before expensive Markdown previews are reconciled."
+  :type 'number
+  :group 'markdown-ts)
+
+(defcustom init-markdown-render-margin-screens 1
+  "Extra window heights rendered above and below the visible Markdown area."
+  :type 'natnum
+  :group 'markdown-ts)
+
 (defface init-markdown-math-preview
   '((t (:inherit default)))
   "Face shared by native and compatibility Markdown math previews."
@@ -78,9 +89,132 @@ variable to remain positive even when no fixed visual width is wanted."
 (defvar-local init-markdown--heading-number-timer nil
   "Idle timer for recomputing rendered heading numbers.")
 
+(defvar-local init-markdown--heading-numbers-dirty nil
+  "Non-nil when heading numbers need the next debounced source pass.")
+
+(defvar-local init-markdown--source-index-tick nil
+  "Modification tick represented by `init-markdown--source-index-cache'.")
+
+(defvar-local init-markdown--source-index-cache nil
+  "Shared source-only Markdown structures for the current modification tick.")
+
+(defvar-local init-markdown--render-dirty nil
+  "Non-nil when formula previews need a debounced reconciliation.")
+
+(defvar-local init-markdown--render-timer nil
+  "Idle timer for a pending viewport preview reconciliation.")
+
 (defvar markdown-ts-appear-enable-math-preview)
+(defvar markdown-ts-appear-mode)
 (defvar markdown-ts-appear-math--objects)
 (defvar markdown-ts-appear-math--view)
+(defvar valign-mode)
+(defvar visual-fill-column-mode)
+
+(defun init-markdown--local-change-bounds (beg end)
+  "Return conservative line-local rendering bounds around BEG and END."
+  (save-restriction
+    (widen)
+    (cons (save-excursion
+            (goto-char (max (point-min) (1- beg)))
+            (line-beginning-position))
+          (save-excursion
+            (goto-char (min (point-max) (max beg end)))
+            (min (point-max) (line-beginning-position 2))))))
+
+(defun init-markdown--delete-icon-overlays (beg end)
+  "Delete markdown-ts-appear icon overlays intersecting BEG through END."
+  (dolist (overlay (overlays-in beg end))
+    (when (or (overlay-get overlay 'markdown-ts-appear--image-label)
+              (overlay-get overlay 'markdown-ts-appear--link-icon))
+      (delete-overlay overlay))))
+
+(defun init-markdown--after-change-locally (_original beg end _old-length)
+  "Invalidate only edited lines and defer expensive preview reconciliation."
+  (pcase-let ((`(,refresh-beg . ,refresh-end)
+               (init-markdown--local-change-bounds beg end)))
+    (init-markdown--delete-icon-overlays refresh-beg refresh-end)
+    (font-lock-flush refresh-beg refresh-end))
+  (setq init-markdown--render-dirty t))
+
+(defun init-markdown--viewport-ranges ()
+  "Return visible ranges plus a configurable screen margin for this buffer."
+  (let (ranges)
+    (dolist (window (get-buffer-window-list (current-buffer) nil t))
+      (let ((margin (* init-markdown-render-margin-screens
+                       (window-body-height window))))
+        (push
+         (cons (save-excursion
+                 (goto-char (window-start window))
+                 (forward-line (- margin))
+                 (point))
+               (save-excursion
+                 (goto-char (or (window-end window t) (point-max)))
+                 (forward-line margin)
+                 (point)))
+         ranges)))
+    ranges))
+
+(defun init-markdown--math-in-viewport-p (beg end)
+  "Return non-nil when BEG through END intersects a rendered viewport."
+  (seq-some (lambda (range)
+              (and (< beg (cdr range)) (< (car range) end)))
+            (init-markdown--viewport-ranges)))
+
+(defun init-markdown--limit-math-to-viewport (original beg end)
+  "Allow ORIGINAL math eligibility only inside the rendered viewport."
+  (and (init-markdown--math-in-viewport-p beg end)
+       (funcall original beg end)))
+
+(defun init-markdown--defer-dirty-math-refresh (original &optional force)
+  "Defer changed-buffer scans by ORIGINAL until the render debounce expires."
+  (unless (and init-markdown--render-dirty (not force))
+    (funcall original force)))
+
+(defun init-markdown--run-deferred-render (buffer)
+  "Reconcile visible formula previews in live Markdown BUFFER."
+  (when (buffer-live-p buffer)
+    (with-current-buffer buffer
+      (let ((refresh-math init-markdown--render-dirty)
+            (refresh-headings init-markdown--heading-numbers-dirty))
+        (setq init-markdown--render-timer nil
+              init-markdown--render-dirty nil
+              init-markdown--heading-numbers-dirty nil)
+        (when (derived-mode-p 'markdown-ts-mode)
+          ;; Both consumers share the same source index for this edit.
+          (when (and refresh-math
+                     (bound-and-true-p markdown-ts-appear-mode))
+            (markdown-ts-appear-math--refresh t))
+          (when refresh-headings
+            (init-markdown--refresh-heading-numbers buffer)))))))
+
+(defun init-markdown--schedule-deferred-render (&rest _)
+  "Debounce a dirty preview update after command processing or scrolling."
+  (when (or init-markdown--render-dirty
+            init-markdown--heading-numbers-dirty)
+    (when (timerp init-markdown--render-timer)
+      (cancel-timer init-markdown--render-timer))
+    (setq init-markdown--render-timer
+          (run-with-idle-timer init-markdown-render-debounce nil
+                               #'init-markdown--run-deferred-render
+                               (current-buffer)))))
+
+(defun init-markdown--viewport-changed (window _start)
+  "Schedule formula reconciliation when WINDOW scrolls this buffer."
+  (when-let* ((buffer (window-buffer window))
+              ((buffer-live-p buffer)))
+    (with-current-buffer buffer
+      (when (derived-mode-p 'markdown-ts-mode)
+        (setq init-markdown--render-dirty t)
+        (init-markdown--schedule-deferred-render)))))
+
+(defun init-markdown--cancel-deferred-render ()
+  "Cancel a pending viewport render in the current buffer."
+  (when (timerp init-markdown--render-timer)
+    (cancel-timer init-markdown--render-timer))
+  (setq init-markdown--render-timer nil
+        init-markdown--render-dirty nil
+        init-markdown--heading-numbers-dirty nil))
 
 (defun init-markdown--configure-heading-faces (&optional _theme)
   "Give Markdown heading levels a visible, theme-independent hierarchy.
@@ -102,130 +236,158 @@ relative height, weight, and the final level's slant distinguish the levels."
                             :weight weight
                             :slant slant)))))
 
-(defun init-markdown--heading-info (node)
-  "Return (LEVEL START END) for Markdown heading NODE."
-  (let ((node-type (treesit-node-type node)))
-    (cond
-     ((equal node-type "atx_heading")
-      (let* ((marker (treesit-node-child node 0))
-             (marker-type (and marker (treesit-node-type marker)))
-             (level (and marker-type
-                         (string-match "\\`atx_h\\([1-6]\\)_marker\\'"
-                                       marker-type)
-                         (string-to-number (match-string 1 marker-type))))
-             (content (and (> (treesit-node-child-count node) 1)
-                           (treesit-node-child node 1))))
-        (when level
-          (list level
-                (if content
-                    (treesit-node-start content)
-                  (treesit-node-end marker))
-                (if content
-                    (treesit-node-end content)
-                  (treesit-node-end marker))))))
-     ((equal node-type "setext_heading")
-      (let* ((content (treesit-node-child node 0))
-             (underline
-              (treesit-node-child node
-                                  (1- (treesit-node-child-count node))))
-             (level (pcase (and underline (treesit-node-type underline))
-                      ("setext_h1_underline" 1)
-                      ("setext_h2_underline" 2))))
-        (when level
-          (let ((end (treesit-node-end content)))
-            (while (and (> end (treesit-node-start content))
-                        (memq (char-before end) '(?\n ?\r)))
-              (setq end (1- end)))
-            (list level (treesit-node-start content) end))))))))
-
 (defun init-markdown--clear-heading-numbers ()
   "Delete every rendered heading-number overlay in the current buffer."
   (mapc #'delete-overlay init-markdown--heading-number-overlays)
   (setq init-markdown--heading-number-overlays nil))
 
-(defun init-markdown--math-source-ranges ()
+(defun init-markdown--source-index-value (key producer)
+  "Return cached KEY, computing it with PRODUCER once per buffer edit."
+  (let ((tick (buffer-chars-modified-tick)))
+    (unless (equal tick init-markdown--source-index-tick)
+      (setq init-markdown--source-index-tick tick
+            init-markdown--source-index-cache nil))
+    (if-let* ((entry (plist-member init-markdown--source-index-cache key)))
+        (cadr entry)
+      (let ((value (funcall producer)))
+        (setq init-markdown--source-index-cache
+              (plist-put init-markdown--source-index-cache key value))
+        value))))
+
+(defun init-markdown--compute-math-source-ranges ()
   "Return source ranges delimited by LaTeX math markers in this buffer.
-The Markdown grammar can parse a standalone `=' inside a formula as a
-Setext heading, so heading numbering must exclude those source ranges."
-  (let (ranges)
+This scanner uses source text only; it never queries Tree-sitter from a timer
+or edit hook."
+  (let (fence-char fence-length ranges)
     (save-excursion
       (goto-char (point-min))
-      (while (re-search-forward (rx (or "\\(" "\\[" "$$")) nil t)
-        (let* ((beg (match-beginning 0))
-               (opening (match-string-no-properties 0))
-               (closing (pcase opening
-                          ("\\(" "\\)")
-                          ("\\[" "\\]")
-                          (_ "$$"))))
-          (unless (or (init-markdown--escaped-position-p beg)
-                      (init-markdown--code-at-p beg))
-            (when-let* ((end (init-markdown--search-latex-closing-delimiter
-                              closing)))
-              (push (cons beg end) ranges)))))
+      (while (< (point) (point-max))
+        (cond
+         (fence-char
+          (beginning-of-line)
+          (when (looking-at "^ \\{0,3\\}\\(`+\\|~+\\)")
+            (let ((token (match-string-no-properties 1)))
+              (when (and (eq (aref token 0) fence-char)
+                         (>= (length token) fence-length))
+                (setq fence-char nil fence-length nil))))
+          (forward-line 1))
+         ((and (bolp) (looking-at "^ \\{0,3\\}\\(`+\\|~+\\)"))
+          (let ((token (match-string-no-properties 1)))
+            (when (>= (length token) 3)
+              (setq fence-char (aref token 0)
+                    fence-length (length token))))
+          (forward-line 1))
+         ((and (bolp) (looking-at "\\(?:    \\|\t\\)"))
+          (forward-line 1))
+         (t
+          (let ((line-end (line-end-position)))
+            (if (not (re-search-forward
+                      (rx (or (+ "`") "\\(" "\\[" "$$")) line-end t))
+                (forward-line 1)
+              (let ((token (match-string-no-properties 0)))
+                (if (string-prefix-p "`" token)
+                    (let ((quoted (regexp-quote token)))
+                      (unless (re-search-forward quoted line-end t)
+                        (goto-char line-end)))
+                  (let* ((beg (match-beginning 0))
+                         (closing (pcase token
+                                    ("\\(" "\\)")
+                                    ("\\[" "\\]")
+                                    (_ "$$"))))
+                    (unless (init-markdown--escaped-position-p beg)
+                      (when-let* ((end
+                                   (init-markdown--search-latex-closing-delimiter
+                                    closing)))
+                        (push (cons beg end) ranges)))))))))))
       (nreverse ranges))))
 
-(defun init-markdown--sync-math-parser-ranges (&rest _)
-  "Keep Markdown's structural parser out of delimited LaTeX math.
-Without this, Markdown syntax inside a formula (especially a code fence)
-can change how the rest of the document is parsed."
-  (when-let* ((parser (treesit-parser-list nil 'markdown)))
-    (let (seen done)
-      ;; A false code fence in one formula can initially hide a later formula
-      ;; from the Markdown parser.  Re-scan after each parser-range update.
-      (while (not done)
-        (let ((math-ranges (init-markdown--math-source-ranges))
-              (cursor (point-min))
-              ranges)
-          (dolist (math math-ranges)
-            (when (< cursor (car math))
-              (push (cons cursor (car math)) ranges))
-            (setq cursor (cdr math)))
-          (when (and math-ranges (< cursor (point-max)))
-            (push (cons cursor (point-max)) ranges))
-          ;; An empty list means "parse everything" to Tree-sitter.  Preserve
-          ;; one harmless delimiter character if math covers the whole buffer.
-          (when (and math-ranges (null ranges))
-            (push (cons (point-min) (1+ (point-min))) ranges))
-          (setq ranges (nreverse ranges))
-          (if (or (equal ranges (treesit-parser-included-ranges (car parser)))
-                  (member ranges seen))
-              (setq done t)
-            (push ranges seen)
-            (treesit-parser-set-included-ranges (car parser) ranges)))))))
+(defun init-markdown--math-source-ranges ()
+  "Return cached source-only LaTeX math ranges for the current buffer text."
+  (init-markdown--source-index-value
+   :math #'init-markdown--compute-math-source-ranges))
+
+(defun init-markdown--range-overlaps-p (beg end ranges)
+  "Return non-nil when BEG through END overlaps one of RANGES."
+  (seq-some (lambda (range)
+              (and (< beg (cdr range)) (< (car range) end)))
+            ranges))
+
+(defun init-markdown--position-in-ranges-p (position ranges)
+  "Return non-nil when POSITION lies in one of RANGES."
+  (seq-some (lambda (range)
+              (and (<= (car range) position) (< position (cdr range))))
+            ranges))
+
+(defun init-markdown--compute-source-headings ()
+  "Return Markdown headings as (LEVEL START END), using source text only.
+Math and literal code are excluded without consulting the live Tree-sitter
+parser, so malformed Markdown-looking content inside formulas cannot affect
+section numbering or crash the external scanner."
+  (let* ((math-ranges (init-markdown--math-source-ranges))
+         (code-ranges (init-markdown--code-source-ranges math-ranges))
+        headings)
+    (save-excursion
+      (goto-char (point-min))
+      (while (< (point) (point-max))
+        (let ((line-beg (line-beginning-position))
+              (line-end (line-end-position)))
+          (unless (or (init-markdown--position-in-ranges-p
+                       line-beg code-ranges)
+                      (init-markdown--range-overlaps-p
+                       line-beg (max (1+ line-beg) line-end) math-ranges))
+            (if (looking-at
+                 "^[ \t]\\{0,3\\}\\(#\\{1,6\\}\\)[ \t]+\\(.+?\\)[ \t]*$")
+                (push (list (length (match-string-no-properties 1))
+                            (match-beginning 2) (match-end 2))
+                      headings)
+              (when (looking-at
+                     "^[ \t]\\{0,3\\}\\([^ \t\n].*?\\)[ \t]*$")
+                (let ((content-start (match-beginning 1))
+                      (content-end (match-end 1)))
+                  (save-excursion
+                    (forward-line 1)
+                    (when (and (< (point) (point-max))
+                               (not (init-markdown--position-in-ranges-p
+                                     (point) code-ranges))
+                               (not (init-markdown--range-overlaps-p
+                                     (point) (line-end-position) math-ranges))
+                               (looking-at
+                                "^[ \t]\\{0,3\\}\\(=+\\|-+\\)[ \t]*$"))
+                      (push (list (if (eq (char-after (match-beginning 1)) ?=)
+                                      1 2)
+                                  content-start content-end)
+                            headings))))))))
+        (forward-line 1)))
+    (nreverse headings)))
+
+(defun init-markdown--source-headings ()
+  "Return cached source-only headings for the current buffer text."
+  (init-markdown--source-index-value
+   :headings #'init-markdown--compute-source-headings))
+
+(defun init-markdown--reset-parser-ranges ()
+  "Keep the live Markdown parsers on their stable full-buffer range.
+Incrementally changing included ranges corrupts the Markdown external scanner
+in Emacs 31 after edits near EOF or inside block quotes."
+  (dolist (parser (treesit-parser-list nil 'markdown))
+    (when (treesit-parser-included-ranges parser)
+      (treesit-parser-set-included-ranges parser nil))))
 
 (defun init-markdown--refresh-heading-numbers (buffer)
   "Recompute display-only heading numbering in Markdown BUFFER."
   (when (buffer-live-p buffer)
     (with-current-buffer buffer
       (setq init-markdown--heading-number-timer nil)
+      (setq init-markdown--heading-numbers-dirty nil)
       (init-markdown--clear-heading-numbers)
       (when (and init-markdown-render-section-numbers
                  (memq init-markdown-render-mode '(live preview))
-                 (derived-mode-p 'markdown-ts-mode)
-                 (treesit-parser-list))
-        (let* ((root (treesit-buffer-root-node 'markdown))
-               (nodes
-                (sort
-                 (mapcar #'cdr
-                         (treesit-query-capture
-                          root
-                          '(((atx_heading) @heading)
-                            ((setext_heading) @heading))))
-                 (lambda (left right)
-                   (< (treesit-node-start left) (treesit-node-start right)))))
-               (counters (make-vector 6 0))
-               (math-ranges (init-markdown--math-source-ranges)))
-          (dolist (node nodes)
-            (while (and math-ranges
-                        (<= (cdar math-ranges) (treesit-node-start node)))
-              (pop math-ranges))
-            (when-let* ((info (init-markdown--heading-info node))
-                        (level (nth 0 info))
-                        (start (nth 1 info))
-                        (end (nth 2 info))
-                        ((not (and math-ranges
-                                   (< (caar math-ranges)
-                                      (treesit-node-end node))))))
+                 (derived-mode-p 'markdown-ts-mode))
+        (let ((counters (make-vector 6 0)))
+          (dolist (info (init-markdown--source-headings))
+            (let ((level (nth 0 info))
+                  (start (nth 1 info))
+                  (end (nth 2 info)))
               ;; Fill skipped parent levels with one, increment this level,
               ;; and reset all deeper levels.
               (dotimes (index (1- level))
@@ -257,13 +419,8 @@ can change how the rest of the document is parsed."
                         init-markdown--heading-number-overlays))))))))))
 
 (defun init-markdown--schedule-heading-numbers (&rest _)
-  "Schedule one display-only heading-number refresh after an edit."
-  (when (timerp init-markdown--heading-number-timer)
-    (cancel-timer init-markdown--heading-number-timer))
-  (setq init-markdown--heading-number-timer
-        (run-with-idle-timer init-markdown-heading-number-delay nil
-                             #'init-markdown--refresh-heading-numbers
-                             (current-buffer))))
+  "Mark source-only heading numbers for the next debounced refresh."
+  (setq init-markdown--heading-numbers-dirty t))
 
 (defun init-markdown--enable-heading-numbers ()
   "Enable automatically refreshed rendered heading numbers."
@@ -277,7 +434,8 @@ can change how the rest of the document is parsed."
                #'init-markdown--schedule-heading-numbers t)
   (when (timerp init-markdown--heading-number-timer)
     (cancel-timer init-markdown--heading-number-timer))
-  (setq init-markdown--heading-number-timer nil)
+  (setq init-markdown--heading-number-timer nil
+        init-markdown--heading-numbers-dirty nil)
   (init-markdown--clear-heading-numbers))
 
 (defun init-markdown-math-preview-available-p ()
@@ -297,15 +455,80 @@ can change how the rest of the document is parsed."
             cursor (1- cursor)))
     (cl-oddp count)))
 
+(defun init-markdown--compute-code-source-ranges (&optional math-ranges)
+  "Return fenced, indented, and inline code ranges using source text only."
+  (unless math-ranges
+    (setq math-ranges (init-markdown--math-source-ranges)))
+  (let (fence-beg fence-char fence-length fence-ranges code-ranges)
+    (save-excursion
+      ;; Find fenced blocks first.  A closing fence must use the same character
+      ;; and be at least as long as its opener.
+      (goto-char (point-min))
+      (while (< (point) (point-max))
+        (let ((line-beg (line-beginning-position))
+              (line-end (line-end-position)))
+          (when (and (not (init-markdown--range-overlaps-p
+                           line-beg (max (1+ line-beg) line-end) math-ranges))
+                     (looking-at "^ \\{0,3\\}\\(`+\\|~+\\)"))
+            (let* ((token (match-string-no-properties 1))
+                   (character (aref token 0))
+                   (length (length token)))
+              (cond
+               ((and fence-beg (eq character fence-char)
+                     (>= length fence-length))
+                (push (cons fence-beg (min (point-max) (1+ line-end)))
+                      fence-ranges)
+                (setq fence-beg nil fence-char nil fence-length nil))
+               ((and (null fence-beg) (>= length 3))
+                (setq fence-beg line-beg
+                      fence-char character
+                      fence-length length)))))
+          (forward-line 1)))
+      (when fence-beg
+        (push (cons fence-beg (point-max)) fence-ranges))
+      (setq fence-ranges (nreverse fence-ranges)
+            code-ranges (copy-sequence fence-ranges))
+      ;; Find line-local inline code and indented code outside fenced blocks.
+      (goto-char (point-min))
+      (while (< (point) (point-max))
+        (let ((line-beg (line-beginning-position))
+              (line-end (line-end-position)))
+          (unless (or (init-markdown--position-in-ranges-p
+                       line-beg fence-ranges)
+                      (init-markdown--range-overlaps-p
+                       line-beg (max (1+ line-beg) line-end) math-ranges))
+            (if (looking-at "\\(?:    \\|\t\\)")
+                (push (cons line-beg (min (point-max) (1+ line-end)))
+                      code-ranges)
+              (let (opener-beg opener-length)
+                (while (re-search-forward "`+" line-end t)
+                  (let ((run-beg (match-beginning 0))
+                        (run-length (- (match-end 0) (match-beginning 0))))
+                    (cond
+                     ((null opener-beg)
+                      (setq opener-beg run-beg opener-length run-length))
+                     ((= run-length opener-length)
+                      (push (cons opener-beg (match-end 0)) code-ranges)
+                      (setq opener-beg nil opener-length nil))))))))
+          (forward-line 1)))
+    (sort code-ranges (lambda (left right) (< (car left) (car right)))))))
+
+(defun init-markdown--code-source-ranges (&optional math-ranges)
+  "Return cached source-only literal-code ranges for the current buffer text."
+  (if math-ranges
+      ;; Callers building the shared index already have the matching math pass.
+      (init-markdown--source-index-value
+       :code (lambda ()
+               (init-markdown--compute-code-source-ranges math-ranges)))
+    (init-markdown--source-index-value
+     :code #'init-markdown--compute-code-source-ranges)))
+
 (defun init-markdown--code-at-p (position)
-  "Return non-nil when POSITION belongs to literal Markdown code."
-  (or (and (fboundp 'markdown-ts-appear--literal-block-at)
-           (markdown-ts-appear--literal-block-at position))
-      (when-let* ((node (treesit-node-at position 'markdown-inline)))
-        (treesit-parent-until
-         node (lambda (candidate)
-                (equal (treesit-node-type candidate) "code_span"))
-         t))))
+  "Return non-nil when POSITION belongs to literal Markdown code.
+This check is intentionally independent of Tree-sitter."
+  (let ((math-ranges (init-markdown--math-source-ranges)))
+    (init-markdown--position-in-ranges-p
+     position (init-markdown--code-source-ranges math-ranges))))
 
 (defun init-markdown--search-latex-closing-delimiter (delimiter)
   "Find the next unescaped DELIMITER and return its end.
@@ -327,6 +550,30 @@ decide whether a math closing delimiter is valid."
           (equal source
                  (overlay-get preview 'markdown-ts-appear-math--source))))
    markdown-ts-appear-math--objects))
+
+(defun init-markdown--block-quote-depth-before (position)
+  "Return the Markdown block-quote depth immediately before POSITION."
+  (save-excursion
+    (goto-char position)
+    (let ((prefix (buffer-substring-no-properties
+                   (line-beginning-position) position)))
+      (when (string-match-p
+             "\\`[ \t]*\\(?:>[ \t]?\\)+\\'" prefix)
+        (cl-count ?> prefix)))))
+
+(defun init-markdown--normalize-quoted-math (math opening-position)
+  "Remove quote prefixes from MATH copied at OPENING-POSITION.
+Only the string sent to MathJax is changed; source text and overlay bounds keep
+their original Markdown block-quote markers."
+  (if-let* ((depth (init-markdown--block-quote-depth-before
+                    opening-position))
+            ((> depth 0)))
+      (let ((prefix-pattern
+             (concat "^"
+                     (mapconcat (lambda (_level) "[ \t]*>[ \t]?")
+                                (number-sequence 1 depth) ""))))
+        (replace-regexp-in-string prefix-pattern "" math))
+    math))
 
 (defun init-markdown--latex-math-containing-range-p (beg end)
   "Return non-nil when BEG through END lies inside delimiter-based math."
@@ -370,6 +617,7 @@ decide whether a math closing delimiter is valid."
   ;; backslash escapes.  Its block ranges can also split multiline $$ math at
   ;; a Setext-like `=' line.  Supplement the query with a source scan.
   (let ((current (make-hash-table :test #'eq))
+        (code-ranges (init-markdown--code-source-ranges))
         newly-created-ranges)
     (save-excursion
       (goto-char (point-min))
@@ -381,7 +629,7 @@ decide whether a math closing delimiter is valid."
                           ("\\[" "\\]")
                           (_ "$$"))))
           (if (or (init-markdown--escaped-position-p beg)
-                  (init-markdown--code-at-p beg))
+                  (init-markdown--position-in-ranges-p beg code-ranges))
               (goto-char (match-end 0))
             (let ((content-beg (match-end 0))
                   (end (init-markdown--search-latex-closing-delimiter closing)))
@@ -399,8 +647,11 @@ decide whether a math closing delimiter is valid."
                     (overlay-put preview 'markdown-ts-appear-math--source
                                  source)
                     (overlay-put preview 'markdown-ts-appear-math--input
-                                 (list (buffer-substring-no-properties
-                                        content-beg (- end (length closing)))
+                                 (list (init-markdown--normalize-quoted-math
+                                        (buffer-substring-no-properties
+                                         content-beg
+                                         (- end (length closing)))
+                                        beg)
                                        (not (null (member opening
                                                           '("\\[" "$$"))))))
                     (push preview markdown-ts-appear-math--objects)
@@ -706,9 +957,11 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
   "Apply `init-markdown-default-render-mode' to a new buffer."
   (add-hook 'kill-buffer-hook #'init-markdown--cancel-table-realign nil t)
   (add-hook 'kill-buffer-hook #'init-markdown--disable-heading-numbers nil t)
-  (add-hook 'after-change-functions
-            #'init-markdown--sync-math-parser-ranges nil t)
-  (init-markdown--sync-math-parser-ranges)
+  (add-hook 'kill-buffer-hook #'init-markdown--cancel-deferred-render nil t)
+  (add-hook 'post-command-hook #'init-markdown--schedule-deferred-render 100 t)
+  (add-hook 'window-scroll-functions #'init-markdown--viewport-changed nil t)
+  (init-markdown--reset-parser-ranges)
+  (setq init-markdown--render-dirty t)
   (pcase init-markdown-default-render-mode
     ('source (my-markdown-render-source))
     ('preview (my-markdown-render-preview))
@@ -795,6 +1048,20 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
   ;; characters while keeping the underlying source directly editable.
   (markdown-ts-appear-table-style 'unicode)
   :config
+  ;; Follow mature viewport renderers: edits invalidate nearby lines, formula
+  ;; scans are debounced, and image previews are limited to visible windows.
+  (unless (advice-member-p #'init-markdown--after-change-locally
+                           'markdown-ts-appear--after-change)
+    (advice-add 'markdown-ts-appear--after-change :around
+                #'init-markdown--after-change-locally))
+  (unless (advice-member-p #'init-markdown--defer-dirty-math-refresh
+                           'markdown-ts-appear-math--refresh)
+    (advice-add 'markdown-ts-appear-math--refresh :around
+                #'init-markdown--defer-dirty-math-refresh))
+  (unless (advice-member-p #'init-markdown--limit-math-to-viewport
+                           'markdown-ts-appear-math--eligible-p)
+    (advice-add 'markdown-ts-appear-math--eligible-p :around
+                #'init-markdown--limit-math-to-viewport))
   ;; The Markdown inline grammar currently recognizes dollar-delimited math
   ;; but treats LaTeX's \(...\) and \[...\] forms as backslash escapes.
   (unless (advice-member-p #'init-markdown--scan-latex-delimiter-math
