@@ -56,13 +56,28 @@ variable to remain positive even when no fixed visual width is wanted."
   :type 'number
   :group 'markdown-ts)
 
-(defcustom init-markdown-render-debounce 0.12
+(defcustom init-markdown-render-debounce 0.35
   "Idle seconds before expensive Markdown previews are reconciled."
   :type 'number
   :group 'markdown-ts)
 
-(defcustom init-markdown-render-margin-screens 1
-  "Extra window heights rendered above and below the visible Markdown area."
+(defcustom init-markdown-math-prewarm-batch-size 8
+  "Maximum MathJax requests started in one Markdown render pass."
+  :type '(integer 1 *)
+  :group 'markdown-ts)
+
+(defcustom init-markdown-math-prewarm-delay 0.08
+  "Idle seconds between batches of background MathJax requests."
+  :type 'number
+  :group 'markdown-ts)
+
+(defcustom init-markdown-math-fast-delay 0.03
+  "Idle seconds before a newly closed formula gets priority rendering."
+  :type 'number
+  :group 'markdown-ts)
+
+(defcustom init-markdown-math-fast-max-chars 8192
+  "Maximum source length checked for a just-closed formula."
   :type 'natnum
   :group 'markdown-ts)
 
@@ -73,6 +88,91 @@ variable to remain positive even when no fixed visual width is wanted."
 
 (defvar-local init-markdown-render-mode nil
   "Current Markdown rendering mode: `live', `source', or `preview'.")
+
+(defvar-local init-markdown--selective-rendering nil
+  "Non-nil when only headings, tables and formulas are rendered.")
+(defvar-local init-markdown--last-heading-line nil)
+
+(defun init-markdown--selective-active-p (&rest _)
+  "Allow the retained math/table helpers without enabling Appear mode."
+  init-markdown--selective-rendering)
+
+(defun init-markdown--selective-math-eligible (original beg end)
+  "Keep the formula at point editable even before its first preview exists."
+  (and (not (and init-markdown--selective-rendering
+                 (eq init-markdown-render-mode 'live)
+                 (<= beg (point)) (< (point) end)))
+       (funcall original beg end)))
+
+(defun init-markdown--dispose-selective-math ()
+  "Release pending formula processes when the buffer or mode is closed."
+  (when init-markdown--selective-rendering
+    (markdown-ts-appear-math--teardown)))
+
+(defun init-markdown--selective-after-change (beg end old-length)
+  "Schedule local formula and heading updates after an edit."
+  (init-markdown--after-change-locally nil beg end old-length))
+
+(defun init-markdown--clear-edited-math (beg end)
+  "Invalidate only formula overlays intersecting the actual edit."
+  (dolist (preview (overlays-in beg end))
+    (when (and (overlay-get preview 'markdown-ts-appear-math--source)
+               (< (overlay-start preview) end)
+               (> (overlay-end preview) beg))
+      (markdown-ts-appear-math--delete preview))))
+
+(defun init-markdown--selective-point-update ()
+  "Reveal only the formula or heading being edited, without querying prose."
+  (let* ((preview (and (eq init-markdown-render-mode 'live)
+                       (seq-find
+                        (lambda (ov)
+                          (overlay-get ov 'markdown-ts-appear-math--source))
+                        (overlays-at (point)))))
+         (beg (and preview (overlay-start preview)))
+         (end (and preview (overlay-end preview)))
+         (old markdown-ts-appear--region))
+    (unless (and (equal beg (and old (marker-position (car old))))
+                 (equal end (and old (marker-position (cdr old)))))
+      (when old
+        (set-marker (car old) nil)
+        (set-marker (cdr old) nil))
+      (setq markdown-ts-appear--region
+            (and beg (cons (copy-marker beg) (copy-marker end t))))))
+  (let ((heading (save-excursion
+                   (beginning-of-line)
+                   (cond
+                    ((looking-at "[ \t]*\\(?:>[ \t]?\\)*#\\{1,6\\}[ \t]")
+                     (point))
+                    ((looking-at "[ \t]*\\(?:=+\\|-+\\)[ \t]*$")
+                     (line-beginning-position 0))
+                    ((save-excursion
+                       (forward-line 1)
+                       (looking-at "[ \t]*\\(?:=+\\|-+\\)[ \t]*$"))
+                     (point))))))
+    (unless (equal heading init-markdown--last-heading-line)
+      (dolist (pos (list heading init-markdown--last-heading-line))
+        (when (and pos (<= pos (point-max)))
+          (save-excursion
+            (goto-char pos)
+            (font-lock-flush (line-beginning-position) (line-beginning-position 3)))))
+      (setq init-markdown--last-heading-line heading))))
+
+(defun init-markdown--fontify-selected-heading (original node &rest args)
+  "Hide heading markup outside the heading currently being edited."
+  (let* ((heading (or (treesit-parent-until
+                      node "\\`\\(?:atx_heading\\|setext_heading\\)\\'" t)
+                     node))
+         (markdown-ts-hide-markup
+         (and init-markdown--selective-rendering
+              (not (and (eq init-markdown-render-mode 'live)
+                        init-markdown--last-heading-line
+                        (<= (save-excursion
+                              (goto-char (treesit-node-start heading))
+                              (line-beginning-position))
+                            init-markdown--last-heading-line)
+                        (< init-markdown--last-heading-line
+                           (treesit-node-end heading)))))))
+    (apply original node args)))
 
 (defvar-local init-markdown--table-inline-range-settings nil
   "Range settings added for parsing inline markup in table cells.")
@@ -102,14 +202,53 @@ variable to remain positive even when no fixed visual width is wanted."
   "Non-nil when formula previews need a debounced reconciliation.")
 
 (defvar-local init-markdown--render-timer nil
-  "Idle timer for a pending viewport preview reconciliation.")
+  "Idle timer for a pending preview reconciliation.")
+
+(defvar-local init-markdown--math-prewarm-timer nil
+  "Idle timer for rendering the next batch of Markdown formulas.")
+
+(defvar-local init-markdown--math-fast-timer nil
+  "Idle timer for a newly closed formula near point.")
+
+(defvar-local init-markdown--math-fast-marker nil
+  "Marker immediately after the most recently typed math closer.")
+
+(defvar-local init-markdown--math-edit-before nil
+  "Non-nil when the pre-edit text or overlays require a formula rescan.")
+
+(defvar-local init-markdown--heading-edit-before nil
+  "Non-nil when the pre-edit text may change section numbering.")
+
+(defvar-local init-markdown--fence-edit-before nil)
+
+(defvar-local init-markdown--plain-edit-tick nil
+  "Buffer tick of a word insertion needing no Markdown point re-query.")
+
+(defvar-local init-markdown--plain-edit-end nil
+  "End position of the last plain word insertion.")
+
+(defvar init-markdown--math-request-budget nil
+  "Remaining MathJax requests in the current formula refresh pass.")
 
 (defvar markdown-ts-appear-enable-math-preview)
 (defvar markdown-ts-appear-mode)
 (defvar markdown-ts-appear-math--objects)
+(defvar markdown-ts-appear-math--scan-tick)
+(defvar markdown-ts-appear--region)
 (defvar markdown-ts-appear-math--view)
 (defvar valign-mode)
 (defvar visual-fill-column-mode)
+(defvar flyspell-delay-use-timer)
+(defvar flyspell-check-changes)
+(defvar flyspell-mode)
+
+(defun init-markdown--configure-nonblocking-flyspell ()
+  "Check edited words after leaving them, without waiting in a key hook."
+  (setq-local flyspell-delay-use-timer t)
+  (setq-local flyspell-check-changes t)
+  (when (bound-and-true-p flyspell-mode)
+    (remove-hook 'post-command-hook #'flyspell-post-command-hook t)
+    (add-hook 'post-command-hook #'flyspell-check-changes t t)))
 
 (defun init-markdown--local-change-bounds (beg end)
   "Return conservative line-local rendering bounds around BEG and END."
@@ -129,50 +268,282 @@ variable to remain positive even when no fixed visual width is wanted."
               (overlay-get overlay 'markdown-ts-appear--link-icon))
       (delete-overlay overlay))))
 
-(defun init-markdown--after-change-locally (_original beg end _old-length)
-  "Invalidate only edited lines and defer expensive preview reconciliation."
-  (pcase-let ((`(,refresh-beg . ,refresh-end)
-               (init-markdown--local-change-bounds beg end)))
-    (init-markdown--delete-icon-overlays refresh-beg refresh-end)
-    (font-lock-flush refresh-beg refresh-end))
-  (setq init-markdown--render-dirty t))
+(defun init-markdown--math-syntax-p (text)
+  "Return non-nil when TEXT can change math or literal-block boundaries."
+  (string-match-p (rx (any "$" "\\" "`" "~")) text))
 
-(defun init-markdown--viewport-ranges ()
-  "Return visible ranges plus a configurable screen margin for this buffer."
-  (let (ranges)
-    (dolist (window (get-buffer-window-list (current-buffer) nil t))
-      (let ((margin (* init-markdown-render-margin-screens
-                       (window-body-height window))))
-        (push
-         (cons (save-excursion
-                 (goto-char (window-start window))
-                 (forward-line (- margin))
-                 (point))
-               (save-excursion
-                 (goto-char (or (window-end window t) (point-max)))
-                 (forward-line margin)
-                 (point)))
-         ranges)))
-    ranges))
+(defun init-markdown--math-overlay-near-p (beg end)
+  "Return non-nil when a formula preview is near BEG through END."
+  (let ((from (save-excursion
+                (goto-char (max (point-min) (1- beg)))
+                (line-beginning-position 0)))
+        (to (save-excursion
+              (goto-char (min (point-max) (1+ end)))
+              (line-beginning-position 3))))
+    (seq-some (lambda (overlay)
+                (eq (overlay-get overlay 'category) 'mathjax))
+              (overlays-in from to))))
 
-(defun init-markdown--math-in-viewport-p (beg end)
-  "Return non-nil when BEG through END intersects a rendered viewport."
-  (seq-some (lambda (range)
-              (and (< beg (cdr range)) (< (car range) end)))
-            (init-markdown--viewport-ranges)))
+(defun init-markdown--math-overlay-at-change-p (beg end)
+  "Return non-nil when BEG through END directly touches a formula preview."
+  (seq-some (lambda (overlay)
+              (eq (overlay-get overlay 'category) 'mathjax))
+            (overlays-in (max (point-min) (1- beg))
+                         (min (point-max) (max (1+ beg) end)))))
 
-(defun init-markdown--limit-math-to-viewport (original beg end)
-  "Allow ORIGINAL math eligibility only inside the rendered viewport."
-  (and (init-markdown--math-in-viewport-p beg end)
-       (funcall original beg end)))
+(defun init-markdown--math-neighbor-change-p (text beg end &optional before)
+  "Return non-nil when TEXT changes a boundary near math at BEG through END."
+  (and (or (string-match-p ">" text)
+           (and before (string-match-p "\n" text)))
+       (init-markdown--math-overlay-near-p beg end)))
+
+(defun init-markdown--math-closer-at (end)
+  "Return a closing math delimiter immediately before END, if any."
+  (cond
+   ((and (>= end (+ (point-min) 2))
+         (member (buffer-substring-no-properties (- end 2) end)
+                 '("\\]" "\\)" "$$")))
+    (buffer-substring-no-properties (- end 2) end))
+   ((and (> end (point-min))
+         (eq (char-before end) ?$)
+         (not (eq (char-before (1- end)) ?$)))
+    "$")))
+
+(defun init-markdown--remember-new-math-closer (end)
+  "Remember a just-typed formula closer ending at END."
+  (when (init-markdown--math-closer-at end)
+    (when (markerp init-markdown--math-fast-marker)
+      (set-marker init-markdown--math-fast-marker nil))
+    (setq init-markdown--math-fast-marker (copy-marker end))))
+
+(defun init-markdown--heading-syntax-near-p (beg end)
+  "Check changed ATX lines and neighboring Setext boundaries at BEG to END."
+  (save-excursion
+    (goto-char beg)
+    (let ((from (line-beginning-position))
+          (neighbor-from (line-beginning-position 0)))
+      (goto-char end)
+      (let ((to (line-beginning-position 2))
+            (neighbor-to (line-beginning-position 3)))
+        (goto-char from)
+        (or (re-search-forward
+             "^[ \t]*#\\{1,6\\}\\(?:[ \t]\\|$\\)" to t)
+            (progn
+              (goto-char neighbor-from)
+              (re-search-forward "^[ \t]*\\(?:=+\\|-+\\)[ \t]*$"
+                                 neighbor-to t)))))))
+
+(defun init-markdown--note-math-before-change (beg end)
+  "Record whether the old source near BEG through END affects rendering."
+  (setq init-markdown--fence-edit-before
+        (string-match-p (rx (any "`" "~"))
+                        (buffer-substring-no-properties beg end)))
+  ;; Prepare edited formulas while their source is revealed, including edits
+  ;; to the body that do not retype the closing delimiter.
+  (when-let* ((preview
+               (seq-find (lambda (ov)
+                           (overlay-get ov 'markdown-ts-appear-math--source))
+                         (overlays-in beg (min (point-max) (max end (1+ beg)))))))
+    (when (markerp init-markdown--math-fast-marker)
+      (set-marker init-markdown--math-fast-marker nil))
+    (setq init-markdown--math-fast-marker (copy-marker (overlay-end preview))))
+  (setq init-markdown--math-edit-before
+        (or (init-markdown--math-syntax-p
+             (buffer-substring-no-properties beg end))
+            (init-markdown--math-overlay-at-change-p beg end)
+            (init-markdown--math-neighbor-change-p
+             (buffer-substring-no-properties beg end) beg end t))
+        init-markdown--heading-edit-before
+        (init-markdown--heading-syntax-near-p beg end)))
+
+(defun init-markdown--after-change-locally (_original beg end old-length)
+  "Invalidate edited lines; rescan math only for math-relevant changes."
+  (let* ((inserted (buffer-substring-no-properties beg end))
+         (just-closed (and (< beg end)
+                           (init-markdown--math-closer-at end)))
+         (math-relevant
+          (or init-markdown--math-edit-before
+              just-closed
+              (init-markdown--math-syntax-p inserted)
+              (init-markdown--math-neighbor-change-p inserted beg end))))
+    (pcase-let ((`(,refresh-beg . ,refresh-end)
+                 (init-markdown--local-change-bounds beg end)))
+      (init-markdown--delete-icon-overlays refresh-beg refresh-end)
+      (if (or init-markdown--fence-edit-before
+              (string-match-p (rx (any "`" "~")) inserted))
+          (progn
+            (setq init-markdown--heading-numbers-dirty t)
+            (font-lock-flush refresh-beg (point-max)))
+        (font-lock-flush refresh-beg refresh-end)))
+    (if math-relevant
+        (setq init-markdown--render-dirty t)
+      ;; The package's before-change hook invalidates this tick even when no
+      ;; formula was touched.  Overlay anchors already track ordinary edits.
+      (setq markdown-ts-appear-math--scan-tick
+            (buffer-chars-modified-tick)))
+    (setq init-markdown--plain-edit-tick
+          (and (zerop old-length)
+               (< beg end)
+               (not math-relevant)
+               (not init-markdown--heading-edit-before)
+               (string-match-p (rx bos (+ alnum) eos) inserted)
+               (buffer-chars-modified-tick))
+          init-markdown--plain-edit-end
+          (and init-markdown--plain-edit-tick end)
+          init-markdown--math-edit-before nil
+          init-markdown--fence-edit-before nil
+          init-markdown--heading-edit-before nil)
+    (when just-closed
+      (init-markdown--remember-new-math-closer end))))
+
+(defun init-markdown--plain-edit-at-point-p ()
+  "Return non-nil while processing a plain insertion at point."
+  (and (equal init-markdown--plain-edit-tick
+              (buffer-chars-modified-tick))
+       (equal init-markdown--plain-edit-end (point))))
+
+(defun init-markdown--skip-plain-edit-point-update (original)
+  "Skip ORIGINAL when typing a word cannot change rendered element bounds."
+  (unless (and (init-markdown--plain-edit-at-point-p)
+               (null markdown-ts-appear--region))
+    (funcall original)))
+
+(defun init-markdown--skip-plain-edit-table-check (original)
+  "Skip ORIGINAL when a plain edit cannot enter a Markdown table."
+  (unless (and (init-markdown--plain-edit-at-point-p)
+               (or (bound-and-true-p markdown-ts-in-table-mode)
+                   (save-excursion
+                     (let ((from (line-beginning-position 0))
+                           (to (line-beginning-position 3)))
+                       (goto-char from)
+                       (not (search-forward "|" to t))))))
+    (funcall original)))
+
+(defun init-markdown--pending-math-p ()
+  "Return non-nil when an eligible formula awaits a MathJax request."
+  (seq-some (lambda (preview)
+              (and (overlay-buffer preview)
+                   (overlay-get preview 'markdown-ts-appear-math--input)
+                   (markdown-ts-appear-math--eligible-p
+                    (overlay-start preview) (overlay-end preview))))
+            markdown-ts-appear-math--objects))
+
+(defun init-markdown--request-math-in-batches
+    (original preview math display-p)
+  "Call ORIGINAL while the current request budget has room.
+Keep PREVIEW's input for the next idle batch when the budget is exhausted."
+  (if (or (null init-markdown--math-request-budget)
+          (> init-markdown--math-request-budget 0))
+      (progn
+        (when init-markdown--math-request-budget
+          (setq init-markdown--math-request-budget
+                (1- init-markdown--math-request-budget)))
+        (funcall original preview math display-p))
+    (overlay-put preview 'markdown-ts-appear-math--input
+                 (list math display-p))))
+
+(defun init-markdown--schedule-math-prewarm ()
+  "Arrange another idle batch when formulas still need MathJax."
+  (when (and init-markdown--selective-rendering
+             (init-markdown--pending-math-p)
+             (not (timerp init-markdown--math-prewarm-timer)))
+    (setq init-markdown--math-prewarm-timer
+          (run-with-idle-timer init-markdown-math-prewarm-delay nil
+                               #'init-markdown--run-math-prewarm
+                               (current-buffer)))))
+
+(defun init-markdown--schedule-fast-math ()
+  "Prioritize a newly closed formula without waiting for the full rescan."
+  (when (and (markerp init-markdown--math-fast-marker)
+             (marker-buffer init-markdown--math-fast-marker)
+             init-markdown--selective-rendering
+             (not (timerp init-markdown--math-fast-timer)))
+    (setq init-markdown--math-fast-timer
+          (run-with-idle-timer init-markdown-math-fast-delay nil
+                               #'init-markdown--run-fast-math
+                               (current-buffer)))))
+
+(defun init-markdown--run-fast-math (buffer)
+  "Render the just-closed formula in BUFFER before background prewarming."
+  (when (buffer-live-p buffer)
+    (with-current-buffer buffer
+      (setq init-markdown--math-fast-timer nil)
+      (when (and (derived-mode-p 'markdown-ts-mode)
+                 init-markdown--selective-rendering
+                 (markerp init-markdown--math-fast-marker)
+                 (marker-buffer init-markdown--math-fast-marker))
+        (let* ((end (marker-position init-markdown--math-fast-marker))
+               (candidate (init-markdown--fast-math-candidate-at end)))
+          (if (not candidate)
+              (progn
+                (set-marker init-markdown--math-fast-marker nil)
+                (setq init-markdown--math-fast-marker nil))
+            (pcase-let ((`(,beg ,finish ,math ,display-p ,compatibility-p)
+                         candidate))
+              (let* ((source (buffer-substring-no-properties beg finish))
+                     (preview (or (init-markdown--math-preview-at
+                                   beg finish source)
+                                  (let ((overlay
+                                         (make-overlay beg finish nil t nil)))
+                                    (overlay-put overlay 'category 'mathjax)
+                                    (overlay-put overlay 'evaporate t)
+                                    (overlay-put overlay
+                                                 'init-markdown-latex-delimiter-math
+                                                 compatibility-p)
+                                    (overlay-put overlay
+                                                 'markdown-ts-appear-math--source
+                                                 source)
+                                    (overlay-put overlay
+                                                 'markdown-ts-appear-math--input
+                                                 (list math display-p))
+                                    (push overlay markdown-ts-appear-math--objects)
+                                    overlay))))
+                (when (and markdown-ts-appear-enable-math-preview
+                           (markdown-ts-appear--active-p))
+                  (markdown-ts-appear-math--display preview)
+                  (when-let* ((input (overlay-get
+                                      preview 'markdown-ts-appear-math--input)))
+                    (overlay-put preview 'markdown-ts-appear-math--input nil)
+                    (let ((init-markdown--math-request-budget nil))
+                      (apply #'markdown-ts-appear-math--request
+                             preview input)))
+                  (set-marker init-markdown--math-fast-marker nil)
+                  (setq init-markdown--math-fast-marker nil))))))))))
+
+(defun init-markdown--run-math-prewarm (buffer)
+  "Render the next batch of pending formulas in Markdown BUFFER."
+  (when (buffer-live-p buffer)
+    (with-current-buffer buffer
+      (setq init-markdown--math-prewarm-timer nil)
+      (when (and (derived-mode-p 'markdown-ts-mode)
+                 init-markdown--selective-rendering
+                 (not init-markdown--render-dirty))
+        ;; The preceding refresh has already reconciled source and overlays.
+        ;; Send only pending requests here, avoiding a full-buffer scan per batch.
+        (let ((init-markdown--math-request-budget
+               init-markdown-math-prewarm-batch-size))
+          (dolist (preview markdown-ts-appear-math--objects)
+            (when (and (> init-markdown--math-request-budget 0)
+                       (overlay-buffer preview)
+                       (markdown-ts-appear-math--eligible-p
+                        (overlay-start preview) (overlay-end preview)))
+              (when-let* ((input (overlay-get preview
+                                              'markdown-ts-appear-math--input)))
+                (overlay-put preview 'markdown-ts-appear-math--input nil)
+                (apply #'markdown-ts-appear-math--request preview input)))))
+        (init-markdown--schedule-math-prewarm)))))
 
 (defun init-markdown--defer-dirty-math-refresh (original &optional force)
-  "Defer changed-buffer scans by ORIGINAL until the render debounce expires."
-  (unless (and init-markdown--render-dirty (not force))
-    (funcall original force)))
+  "Debounce changed-buffer scans and batch MathJax requests by ORIGINAL."
+  (unless (and (not force)
+               (or init-markdown--render-dirty
+                   (init-markdown--plain-edit-at-point-p)))
+    (let ((init-markdown--math-request-budget
+           init-markdown-math-prewarm-batch-size))
+      (funcall original force))))
 
 (defun init-markdown--run-deferred-render (buffer)
-  "Reconcile visible formula previews in live Markdown BUFFER."
+  "Reconcile formula previews in live Markdown BUFFER."
   (when (buffer-live-p buffer)
     (with-current-buffer buffer
       (let ((refresh-math init-markdown--render-dirty)
@@ -183,13 +554,26 @@ variable to remain positive even when no fixed visual width is wanted."
         (when (derived-mode-p 'markdown-ts-mode)
           ;; Both consumers share the same source index for this edit.
           (when (and refresh-math
-                     (bound-and-true-p markdown-ts-appear-mode))
+                     init-markdown--selective-rendering)
             (markdown-ts-appear-math--refresh t))
           (when refresh-headings
-            (init-markdown--refresh-heading-numbers buffer)))))))
+            (init-markdown--refresh-heading-numbers buffer))
+          (init-markdown--schedule-math-prewarm))))))
+
+(defun init-markdown--pause-render-before-command ()
+  "Keep background Markdown timers out of active command hooks."
+  (when (timerp init-markdown--render-timer)
+    (cancel-timer init-markdown--render-timer))
+  (when (timerp init-markdown--math-prewarm-timer)
+    (cancel-timer init-markdown--math-prewarm-timer))
+  (when (timerp init-markdown--math-fast-timer)
+    (cancel-timer init-markdown--math-fast-timer))
+  (setq init-markdown--render-timer nil
+        init-markdown--math-prewarm-timer nil
+        init-markdown--math-fast-timer nil))
 
 (defun init-markdown--schedule-deferred-render (&rest _)
-  "Debounce a dirty preview update after command processing or scrolling."
+  "Debounce a dirty preview update after command processing."
   (when (or init-markdown--render-dirty
             init-markdown--heading-numbers-dirty)
     (when (timerp init-markdown--render-timer)
@@ -197,22 +581,28 @@ variable to remain positive even when no fixed visual width is wanted."
     (setq init-markdown--render-timer
           (run-with-idle-timer init-markdown-render-debounce nil
                                #'init-markdown--run-deferred-render
-                               (current-buffer)))))
-
-(defun init-markdown--viewport-changed (window _start)
-  "Schedule formula reconciliation when WINDOW scrolls this buffer."
-  (when-let* ((buffer (window-buffer window))
-              ((buffer-live-p buffer)))
-    (with-current-buffer buffer
-      (when (derived-mode-p 'markdown-ts-mode)
-        (setq init-markdown--render-dirty t)
-        (init-markdown--schedule-deferred-render)))))
+                               (current-buffer))))
+  (unless (or init-markdown--render-dirty
+              init-markdown--heading-numbers-dirty)
+    (init-markdown--schedule-math-prewarm))
+  (init-markdown--schedule-fast-math)
+  (setq init-markdown--plain-edit-tick nil
+        init-markdown--plain-edit-end nil))
 
 (defun init-markdown--cancel-deferred-render ()
-  "Cancel a pending viewport render in the current buffer."
+  "Cancel pending preview and MathJax batch timers in this buffer."
   (when (timerp init-markdown--render-timer)
     (cancel-timer init-markdown--render-timer))
+  (when (timerp init-markdown--math-prewarm-timer)
+    (cancel-timer init-markdown--math-prewarm-timer))
+  (when (timerp init-markdown--math-fast-timer)
+    (cancel-timer init-markdown--math-fast-timer))
+  (when (markerp init-markdown--math-fast-marker)
+    (set-marker init-markdown--math-fast-marker nil))
   (setq init-markdown--render-timer nil
+        init-markdown--math-prewarm-timer nil
+        init-markdown--math-fast-timer nil
+        init-markdown--math-fast-marker nil
         init-markdown--render-dirty nil
         init-markdown--heading-numbers-dirty nil))
 
@@ -254,29 +644,92 @@ relative height, weight, and the final level's slant distinguish the levels."
               (plist-put init-markdown--source-index-cache key value))
         value))))
 
+(defun init-markdown--closed-fence-end ()
+  "Return the end of a matching fence from this line, or nil.
+Opening and closing fences must use the same character and quote depth;
+the closer must be at least as long and contain no trailing info string."
+  (save-excursion
+    (beginning-of-line)
+    (when (looking-at
+           "[ \t]*\\(\\(?:>[ \t]?\\)*\\)[ \t]*\\(`\\{3,\\}\\|~\\{3,\\}\\)\\(.*\\)$")
+      (let* ((quote-depth (cl-count ?> (match-string-no-properties 1)))
+             (token (match-string-no-properties 2))
+             (info (match-string-no-properties 3))
+             (character (aref token 0))
+             (length (length token)))
+        (unless (and (eq character ?`) (string-search "`" info))
+          (forward-line 1)
+          (catch 'closed
+            (while (re-search-forward
+                    "^[ \t]*\\(\\(?:>[ \t]?\\)*\\)[ \t]*\\(`\\{3,\\}\\|~\\{3,\\}\\)[ \t]*$"
+                    nil t)
+              (let ((closing (match-string-no-properties 2)))
+                (when (and (= quote-depth
+                              (cl-count ?> (match-string-no-properties 1)))
+                           (eq character (aref closing 0))
+                           (>= (length closing) length))
+                  (throw 'closed (min (point-max) (1+ (line-end-position)))))))))))))
+
+(defun init-markdown--unclosed-fence-p (node)
+  "Return non-nil when NODE belongs to a fence with no real closing token."
+  (when-let* ((block (treesit-parent-until
+                     node "\\`fenced_code_block\\'" t)))
+    (< (length (treesit-filter-child
+                block (lambda (child)
+                        (and (equal (treesit-node-type child)
+                                    "fenced_code_block_delimiter")
+                             (not (treesit-node-check child 'missing))))))
+       2)))
+
+(defun init-markdown--pending-fence-language (node)
+  "Interpret an unclosed fence NODE as ordinary Markdown."
+  (when (init-markdown--unclosed-fence-p node)
+    'markdown))
+
+(defun init-markdown--closed-code-only (original node &rest args)
+  "Call code renderer ORIGINAL only when NODE has a matching fence."
+  (if (init-markdown--unclosed-fence-p node)
+      ;; Deleting a closing fence leaves the host node alive, so the native
+      ;; stale-overlay notifier does not remove its old code background.
+      (when (equal (treesit-node-type node) "code_fence_content")
+        (let ((beg (save-excursion
+                     (goto-char (treesit-node-start node))
+                     (line-beginning-position))))
+          (dolist (ov (overlays-in beg (treesit-node-end node)))
+            (when (and (overlay-get ov 'markdown-ts-code-block)
+                       (= (overlay-start ov) beg))
+              (delete-overlay ov)))))
+    (apply original node args)))
+
+(defvar-local init-markdown--pending-fence-settings nil)
+
+(defun init-markdown--setup-pending-fences ()
+  "Use a local Markdown parser for the body of an unfinished fence.
+The primary parser retains its stable full-buffer range."
+  (unless init-markdown--pending-fence-settings
+    (setq init-markdown--pending-fence-settings
+          (treesit-range-rules
+           :embed #'init-markdown--pending-fence-language
+           :host 'markdown :local t
+           '((fenced_code_block (code_fence_content) @content) @language)))
+    (setq-local treesit-range-settings
+                (append init-markdown--pending-fence-settings
+                        treesit-range-settings))))
+
 (defun init-markdown--compute-math-source-ranges ()
   "Return source ranges delimited by LaTeX math markers in this buffer.
 This scanner uses source text only; it never queries Tree-sitter from a timer
 or edit hook."
-  (let (fence-char fence-length ranges)
+  (let (ranges)
     (save-excursion
       (goto-char (point-min))
       (while (< (point) (point-max))
         (cond
-         (fence-char
-          (beginning-of-line)
-          (when (looking-at "^ \\{0,3\\}\\(`+\\|~+\\)")
-            (let ((token (match-string-no-properties 1)))
-              (when (and (eq (aref token 0) fence-char)
-                         (>= (length token) fence-length))
-                (setq fence-char nil fence-length nil))))
-          (forward-line 1))
-         ((and (bolp) (looking-at "^ \\{0,3\\}\\(`+\\|~+\\)"))
-          (let ((token (match-string-no-properties 1)))
-            (when (>= (length token) 3)
-              (setq fence-char (aref token 0)
-                    fence-length (length token))))
-          (forward-line 1))
+         ((and (bolp)
+               (looking-at "[ \t]*\\(?:>[ \t]?\\)*[ \t]*\\(?:`\\{3,\\}\\|~\\{3,\\}\\)"))
+          (if-let* ((end (init-markdown--closed-fence-end)))
+              (goto-char end)
+            (forward-line 1)))
          ((and (bolp) (looking-at "\\(?:    \\|\t\\)"))
           (forward-line 1))
          (t
@@ -306,17 +759,43 @@ or edit hook."
   (init-markdown--source-index-value
    :math #'init-markdown--compute-math-source-ranges))
 
+(defvar-local init-markdown--interval-cache nil
+  "Identity cache of immutable source range lists and their search vectors.")
+(defvar-local init-markdown--interval-cache-tick nil)
+
+(defun init-markdown--range-vector (ranges)
+  "Return sorted, merged RANGES as a cached vector for binary searching."
+  (unless (and init-markdown--interval-cache
+               (equal init-markdown--interval-cache-tick
+                      (buffer-chars-modified-tick)))
+    (setq init-markdown--interval-cache (make-hash-table :test #'eq)
+          init-markdown--interval-cache-tick (buffer-chars-modified-tick)))
+  (or (gethash ranges init-markdown--interval-cache)
+      (let (merged)
+        (dolist (range (sort (copy-sequence ranges)
+                            (lambda (a b) (< (car a) (car b)))))
+          (if (and merged (<= (car range) (cdar merged)))
+              (setcdr (car merged) (max (cdar merged) (cdr range)))
+            (push (cons (car range) (cdr range)) merged)))
+        (puthash ranges (vconcat (nreverse merged))
+                 init-markdown--interval-cache))))
+
 (defun init-markdown--range-overlaps-p (beg end ranges)
-  "Return non-nil when BEG through END overlaps one of RANGES."
-  (seq-some (lambda (range)
-              (and (< beg (cdr range)) (< (car range) end)))
-            ranges))
+  "Return non-nil when BEG through END overlaps RANGES, in logarithmic time."
+  (when (< beg end)
+    (let* ((vector (init-markdown--range-vector ranges))
+           (low 0) (high (length vector)))
+      ;; Find the last interval starting strictly before END.
+      (while (< low high)
+        (let ((middle (/ (+ low high) 2)))
+          (if (< (car (aref vector middle)) end)
+              (setq low (1+ middle))
+            (setq high middle))))
+      (and (> low 0) (> (cdr (aref vector (1- low))) beg)))))
 
 (defun init-markdown--position-in-ranges-p (position ranges)
   "Return non-nil when POSITION lies in one of RANGES."
-  (seq-some (lambda (range)
-              (and (<= (car range) position) (< position (cdr range))))
-            ranges))
+  (init-markdown--range-overlaps-p position (1+ position) ranges))
 
 (defun init-markdown--compute-source-headings ()
   "Return Markdown headings as (LEVEL START END), using source text only.
@@ -418,9 +897,12 @@ in Emacs 31 after edits near EOF or inside block quotes."
                   (push overlay
                         init-markdown--heading-number-overlays))))))))))
 
-(defun init-markdown--schedule-heading-numbers (&rest _)
-  "Mark source-only heading numbers for the next debounced refresh."
-  (setq init-markdown--heading-numbers-dirty t))
+(defun init-markdown--schedule-heading-numbers (&optional beg end _old-length)
+  "Refresh section numbers when heading syntax changes near BEG through END."
+  (when (or (null beg)
+            init-markdown--heading-edit-before
+            (init-markdown--heading-syntax-near-p beg end))
+    (setq init-markdown--heading-numbers-dirty t)))
 
 (defun init-markdown--enable-heading-numbers ()
   "Enable automatically refreshed rendered heading numbers."
@@ -459,7 +941,7 @@ in Emacs 31 after edits near EOF or inside block quotes."
   "Return fenced, indented, and inline code ranges using source text only."
   (unless math-ranges
     (setq math-ranges (init-markdown--math-source-ranges)))
-  (let (fence-beg fence-char fence-length fence-ranges code-ranges)
+  (let (fence-ranges code-ranges)
     (save-excursion
       ;; Find fenced blocks first.  A closing fence must use the same character
       ;; and be at least as long as its opener.
@@ -467,25 +949,12 @@ in Emacs 31 after edits near EOF or inside block quotes."
       (while (< (point) (point-max))
         (let ((line-beg (line-beginning-position))
               (line-end (line-end-position)))
-          (when (and (not (init-markdown--range-overlaps-p
-                           line-beg (max (1+ line-beg) line-end) math-ranges))
-                     (looking-at "^ \\{0,3\\}\\(`+\\|~+\\)"))
-            (let* ((token (match-string-no-properties 1))
-                   (character (aref token 0))
-                   (length (length token)))
-              (cond
-               ((and fence-beg (eq character fence-char)
-                     (>= length fence-length))
-                (push (cons fence-beg (min (point-max) (1+ line-end)))
-                      fence-ranges)
-                (setq fence-beg nil fence-char nil fence-length nil))
-               ((and (null fence-beg) (>= length 3))
-                (setq fence-beg line-beg
-                      fence-char character
-                      fence-length length)))))
-          (forward-line 1)))
-      (when fence-beg
-        (push (cons fence-beg (point-max)) fence-ranges))
+          (if-let* (((not (init-markdown--range-overlaps-p
+                          line-beg (max (1+ line-beg) line-end) math-ranges)))
+                    (end (init-markdown--closed-fence-end)))
+              (progn (push (cons line-beg end) fence-ranges)
+                     (goto-char end))
+            (forward-line 1))))
       (setq fence-ranges (nreverse fence-ranges)
             code-ranges (copy-sequence fence-ranges))
       ;; Find line-local inline code and indented code outside fenced blocks.
@@ -550,6 +1019,49 @@ decide whether a math closing delimiter is valid."
           (equal source
                  (overlay-get preview 'markdown-ts-appear-math--source))))
    markdown-ts-appear-math--objects))
+
+(defun init-markdown--fast-math-candidate-at (end)
+  "Return a just-closed math segment ending at END, or nil.
+The result is (BEG END MATH DISPLAY-P COMPATIBILITY-P).  This bounded,
+source-only path avoids querying the live parser while an edit settles."
+  (when-let* ((closing (init-markdown--math-closer-at end))
+              (opening (pcase closing
+                         ("\\]" "\\[")
+                         ("\\)" "\\(")
+                         (_ closing)))
+              (close-beg (- end (length closing)))
+              ((not (init-markdown--escaped-position-p close-beg))))
+    (let ((lower (max (point-min)
+                      (- end init-markdown-math-fast-max-chars))))
+      (when (string= opening "$")
+        (setq lower (max lower
+                         (save-excursion
+                           (goto-char close-beg)
+                           (line-beginning-position)))))
+      (save-excursion
+        (goto-char close-beg)
+        (catch 'found
+          (while (search-backward opening lower t)
+            (let ((beg (point)))
+              (when (and (not (init-markdown--escaped-position-p beg))
+                         (not (and (string= opening "$")
+                                   (or (eq (char-before beg) ?$)
+                                       (eq (char-after (1+ beg)) ?$))))
+                         (or (not (string= opening "$"))
+                             (and (> close-beg (1+ beg))
+                                  (not (memq (char-after (1+ beg))
+                                             '(?\s ?\t ?\n)))
+                                  (not (memq (char-before close-beg)
+                                             '(?\s ?\t ?\n)))))
+                         (not (init-markdown--code-at-p beg)))
+                (throw 'found
+                       (list beg end
+                             (init-markdown--normalize-quoted-math
+                              (buffer-substring-no-properties
+                               (+ beg (length opening)) close-beg)
+                              beg)
+                             (not (null (member opening '("\\[" "$$"))))
+                             (not (string= opening "$"))))))))))))
 
 (defun init-markdown--block-quote-depth-before (position)
   "Return the Markdown block-quote depth immediately before POSITION."
@@ -680,7 +1192,7 @@ their original Markdown block-quote markers."
     (let* ((beg (overlay-start preview))
            (end (overlay-end preview))
            (visible
-            (and (memq #'markdown-ts-appear--update post-command-hook)
+            (and (eq init-markdown-render-mode 'live)
                  (<= beg (point))
                  (< (point) end))))
       ;; Font-lock can hide the backslashes again as point moves between
@@ -877,13 +1389,33 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
                    #'init-markdown--flush-table-realignments buffer)))))))
 
 (defun init-markdown--enable-renderers ()
-  "Enable markup, math, image, and table rendering in this buffer."
+  "Enable only heading, math and table rendering in this buffer."
+  (when (bound-and-true-p markdown-ts-appear-mode)
+    (markdown-ts-appear-mode -1))
   (init-markdown--setup-table-inline-ranges)
   (init-markdown--enable-heading-numbers)
-  (setq-local markdown-ts-inline-images t)
+  (setq-local markdown-ts-inline-images nil)
+  (markdown-ts--remove-image-overlays)
+  (setq-local markdown-ts-hide-markup nil)
+  (markdown-ts--set-hide-markup nil)
+  ;; Only heading fontifiers set this property while native prose retains
+  ;; `markdown-ts-hide-markup' nil.
+  (add-to-invisibility-spec 'markdown-ts--markup)
   (when (require 'markdown-ts-appear nil t)
-    (unless markdown-ts-appear-mode
-      (markdown-ts-appear-mode 1)))
+    (unless init-markdown--selective-rendering
+      (setq init-markdown--selective-rendering t)
+      ;; Reuse the table drawer and MathJax cache, never Appear's semantic
+      ;; point tracking, general decorators, or global fontifier advice.
+      (let ((markdown-ts-appear-code-fence-style 'raw)
+            (markdown-ts-appear-block-quote-marker nil)
+            (markdown-ts-appear-render-callouts nil))
+        (markdown-ts-appear--install-block-font-lock))
+      (add-hook 'after-change-functions #'init-markdown--selective-after-change 90 t)
+      (add-hook 'post-command-hook #'init-markdown--selective-point-update nil t)
+      (when markdown-ts-appear-enable-math-preview
+        (markdown-ts-appear-math--setup)
+        (remove-hook 'before-change-functions #'markdown-ts-appear-math--clear t)
+        (add-hook 'before-change-functions #'init-markdown--clear-edited-math nil t))))
   (when (and (display-graphic-p) (require 'valign nil t))
     (unless valign-mode
       (valign-mode 1))))
@@ -894,6 +1426,16 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
   (init-markdown--disable-heading-numbers)
   (when (bound-and-true-p markdown-ts-appear-mode)
     (markdown-ts-appear-mode -1))
+  (when init-markdown--selective-rendering
+    (setq init-markdown--selective-rendering nil)
+    (remove-hook 'after-change-functions #'init-markdown--selective-after-change t)
+    (remove-hook 'post-command-hook #'init-markdown--selective-point-update t)
+    (remove-hook 'before-change-functions #'init-markdown--clear-edited-math t)
+    (markdown-ts-appear-math--teardown)
+    (markdown-ts-appear-stop)
+    (markdown-ts-appear--remove-block-font-lock)
+    (markdown-ts-appear--release-managed-properties))
+  (init-markdown--cancel-deferred-render)
   (when (bound-and-true-p valign-mode)
     (valign-mode -1))
   (init-markdown--remove-table-inline-ranges)
@@ -908,11 +1450,9 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
   (unless (derived-mode-p 'markdown-ts-mode)
     (user-error "This is not a Markdown TS buffer"))
   (read-only-mode -1)
-  (init-markdown--enable-renderers)
-  ;; Preview mode leaves appear enabled but stops point tracking.
-  (when (fboundp 'markdown-ts-appear-start)
-    (markdown-ts-appear-start))
   (setq init-markdown-render-mode 'live)
+  (init-markdown--enable-renderers)
+  (init-markdown--selective-point-update)
   (font-lock-flush)
   (font-lock-ensure)
   (message "Markdown rendering: live"))
@@ -935,11 +1475,10 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
   (unless (derived-mode-p 'markdown-ts-mode)
     (user-error "This is not a Markdown TS buffer"))
   (read-only-mode -1)
-  (init-markdown--enable-renderers)
-  ;; Keep all markup rendered instead of revealing the element at point.
-  (when (fboundp 'markdown-ts-appear-stop)
-    (markdown-ts-appear-stop))
   (setq init-markdown-render-mode 'preview)
+  (init-markdown--enable-renderers)
+  (init-markdown--selective-point-update)
+  (markdown-ts-appear-math--refresh t)
   (font-lock-flush)
   (font-lock-ensure)
   (read-only-mode 1)
@@ -955,11 +1494,19 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
 
 (defun init-markdown--initialize-render-mode ()
   "Apply `init-markdown-default-render-mode' to a new buffer."
+  (init-markdown--configure-nonblocking-flyspell)
+  (init-markdown--setup-pending-fences)
   (add-hook 'kill-buffer-hook #'init-markdown--cancel-table-realign nil t)
   (add-hook 'kill-buffer-hook #'init-markdown--disable-heading-numbers nil t)
   (add-hook 'kill-buffer-hook #'init-markdown--cancel-deferred-render nil t)
+  (add-hook 'kill-buffer-hook #'init-markdown--dispose-selective-math nil t)
+  (add-hook 'change-major-mode-hook #'init-markdown--dispose-selective-math nil t)
+  (add-hook 'before-change-functions
+            #'init-markdown--note-math-before-change -100 t)
+  (add-hook 'pre-command-hook
+            #'init-markdown--pause-render-before-command -100 t)
   (add-hook 'post-command-hook #'init-markdown--schedule-deferred-render 100 t)
-  (add-hook 'window-scroll-functions #'init-markdown--viewport-changed nil t)
+  (remove-hook 'window-scroll-functions 'init-markdown--viewport-changed t)
   (init-markdown--reset-parser-ranges)
   (setq init-markdown--render-dirty t)
   (pcase init-markdown-default-render-mode
@@ -983,11 +1530,10 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
   :hook ((markdown-ts-mode . visual-line-mode)
          (markdown-ts-mode . init-latex-flyspell-if-available))
   :custom
-  ;; Hide syntax by default; markdown-ts-appear reveals the smallest element at
-  ;; point, so the source remains directly editable without a separate preview
-  ;; state.
-  (markdown-ts-hide-markup t)
-  (markdown-ts-inline-images t)
+  ;; Ordinary Markdown retains native source styling.  Only the three
+  ;; selected renderers add display properties.
+  (markdown-ts-hide-markup nil)
+  (markdown-ts-inline-images nil)
   (markdown-ts-image-max-width 'window)
   (markdown-ts-display-remote-inline-images nil)
   (markdown-ts-fontify-code-blocks-natively t)
@@ -1038,30 +1584,59 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
   (markdown-ts-appear-enable-math-preview
    (init-markdown-math-preview-available-p))
   (markdown-ts-appear-math-scale 1.1)
-  (markdown-ts-appear-link-icon "")
-  (markdown-ts-appear-image-icon "")
-  (markdown-ts-appear-code-fence-style 'connected)
-  (markdown-ts-appear-label-caps '("" . ""))
-  (markdown-ts-appear-render-callouts t)
-  (markdown-ts-appear-block-quote-marker "▎")
+  (markdown-ts-appear-link-icon "")
+  (markdown-ts-appear-image-icon "")
+  (markdown-ts-appear-code-fence-style 'raw)
+  (markdown-ts-appear-render-callouts nil)
+  (markdown-ts-appear-block-quote-marker nil)
   ;; Replace Markdown's ASCII pipes and delimiter row with box-drawing
   ;; characters while keeping the underlying source directly editable.
   (markdown-ts-appear-table-style 'unicode)
   :config
-  ;; Follow mature viewport renderers: edits invalidate nearby lines, formula
-  ;; scans are debounced, and image previews are limited to visible windows.
+  (markdown-ts-appear--set-advice nil)
+  (unless (advice-member-p #'init-markdown--selective-math-eligible
+                           'markdown-ts-appear-math--eligible-p)
+    (advice-add 'markdown-ts-appear-math--eligible-p :around
+                #'init-markdown--selective-math-eligible))
+  (unless (advice-member-p #'init-markdown--selective-active-p
+                           'markdown-ts-appear--active-p)
+    (advice-add 'markdown-ts-appear--active-p :before-until
+                #'init-markdown--selective-active-p))
+  (dolist (function '(markdown-ts--fontify-atx-heading
+                      markdown-ts--fontify-atx-delimiter
+                      markdown-ts--fontify-setext-heading))
+    (unless (advice-member-p #'init-markdown--fontify-selected-heading function)
+      (advice-add function :around #'init-markdown--fontify-selected-heading)))
+  ;; Edits invalidate nearby lines.  Formula scans are debounced and MathJax
+  ;; requests run in idle batches, so scrolling uses already rendered images.
+  (dolist (function '(markdown-ts--fontify-code-block
+                      markdown-ts--fontify-non-ts-code-block
+                      markdown-ts--code-block-ts-language
+                      markdown-ts--fontify-delimiter
+                      markdown-ts-appear--fontify-code-block))
+    (unless (advice-member-p #'init-markdown--closed-code-only function)
+      (advice-add function :around #'init-markdown--closed-code-only
+                  '((depth . -90)))))
   (unless (advice-member-p #'init-markdown--after-change-locally
                            'markdown-ts-appear--after-change)
     (advice-add 'markdown-ts-appear--after-change :around
                 #'init-markdown--after-change-locally))
+  (unless (advice-member-p #'init-markdown--skip-plain-edit-point-update
+                           'markdown-ts-appear--update)
+    (advice-add 'markdown-ts-appear--update :around
+                #'init-markdown--skip-plain-edit-point-update))
+  (unless (advice-member-p #'init-markdown--skip-plain-edit-table-check
+                           'markdown-ts--enable-in-table-mode)
+    (advice-add 'markdown-ts--enable-in-table-mode :around
+                #'init-markdown--skip-plain-edit-table-check))
   (unless (advice-member-p #'init-markdown--defer-dirty-math-refresh
                            'markdown-ts-appear-math--refresh)
     (advice-add 'markdown-ts-appear-math--refresh :around
                 #'init-markdown--defer-dirty-math-refresh))
-  (unless (advice-member-p #'init-markdown--limit-math-to-viewport
-                           'markdown-ts-appear-math--eligible-p)
-    (advice-add 'markdown-ts-appear-math--eligible-p :around
-                #'init-markdown--limit-math-to-viewport))
+  (when (advice-member-p 'init-markdown--limit-math-to-viewport
+                         'markdown-ts-appear-math--eligible-p)
+    (advice-remove 'markdown-ts-appear-math--eligible-p
+                   'init-markdown--limit-math-to-viewport))
   ;; The Markdown inline grammar currently recognizes dollar-delimited math
   ;; but treats LaTeX's \(...\) and \[...\] forms as backslash escapes.
   (unless (advice-member-p #'init-markdown--scan-latex-delimiter-math
@@ -1072,6 +1647,15 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
                            'markdown-ts-appear-math--request)
     (advice-add 'markdown-ts-appear-math--request :around
                 #'init-markdown--request-latex-delimiter-math))
+  ;; The budget advice must wrap the compatibility request as well: that
+  ;; request sends directly to MathJax and does not call the package original.
+  (when (advice-member-p #'init-markdown--request-math-in-batches
+                         'markdown-ts-appear-math--request)
+    (advice-remove 'markdown-ts-appear-math--request
+                   #'init-markdown--request-math-in-batches))
+  (advice-add 'markdown-ts-appear-math--request :around
+              #'init-markdown--request-math-in-batches
+              '((depth . -100)))
   (unless (advice-member-p #'init-markdown--normalize-math-preview-face
                            'markdown-ts-appear-math--display)
     (advice-add 'markdown-ts-appear-math--display :around
@@ -1088,7 +1672,29 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
     (unless (advice-member-p
              #'init-markdown--skip-link-fontification-in-latex-math fontifier)
       (advice-add fontifier :around
-                  #'init-markdown--skip-link-fontification-in-latex-math))))
+                  #'init-markdown--skip-link-fontification-in-latex-math)))
+  ;; Repair buffers kept open across a configuration reload.
+  (dolist (buffer (buffer-list))
+    (with-current-buffer buffer
+      (when (derived-mode-p 'markdown-ts-mode)
+        (init-markdown--configure-nonblocking-flyspell)
+        (add-hook 'kill-buffer-hook #'init-markdown--dispose-selective-math nil t)
+        (add-hook 'change-major-mode-hook #'init-markdown--dispose-selective-math nil t)
+        (when (memq init-markdown-render-mode '(live preview))
+          (init-markdown--enable-renderers))
+        (init-markdown--setup-pending-fences)
+        (setq init-markdown--source-index-tick nil
+              init-markdown--heading-numbers-dirty t)
+        (font-lock-flush)
+        (remove-hook 'window-scroll-functions
+                     'init-markdown--viewport-changed t)
+        (init-markdown--cancel-deferred-render)
+        (add-hook 'pre-command-hook
+                  #'init-markdown--pause-render-before-command -100 t)
+        (add-hook 'before-change-functions
+                  #'init-markdown--note-math-before-change -100 t)
+        (setq init-markdown--render-dirty t)
+        (init-markdown--schedule-deferred-render)))))
 
 (use-package valign
   :if (package-installed-p 'valign)
