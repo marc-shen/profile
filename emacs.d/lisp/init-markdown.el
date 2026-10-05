@@ -113,6 +113,31 @@ variable to remain positive even when no fixed visual width is wanted."
   "Schedule local formula and heading updates after an edit."
   (init-markdown--after-change-locally nil beg end old-length))
 
+(defun init-markdown--after-revert ()
+  "Rebuild rendered structures after an external file update.
+A revert can replace the buffer while preserving its modification tick cache;
+formula overlays from the old text must therefore never count as a completed
+scan of the new text."
+  (when (derived-mode-p 'markdown-ts-mode)
+    (when markdown-ts-appear--region
+      (set-marker (car markdown-ts-appear--region) nil)
+      (set-marker (cdr markdown-ts-appear--region) nil))
+    (setq markdown-ts-appear--region nil
+          markdown-ts-appear-math--scan-tick nil
+          markdown-ts-appear-math--view nil
+          init-markdown--source-index-tick nil
+          init-markdown--source-index-cache nil
+          init-markdown--interval-cache-tick nil
+          init-markdown--interval-cache nil
+          init-markdown--render-dirty t
+          init-markdown--heading-numbers-dirty t)
+    (init-markdown--cancel-deferred-render)
+    ;; Cancellation clears the dirty flags as part of its normal teardown.
+    (setq init-markdown--render-dirty t
+          init-markdown--heading-numbers-dirty t)
+    (font-lock-flush)
+    (init-markdown--schedule-deferred-render)))
+
 (defun init-markdown--clear-edited-math (beg end)
   "Invalidate only formula overlays intersecting the actual edit."
   (dolist (preview (overlays-in beg end))
@@ -377,10 +402,12 @@ variable to remain positive even when no fixed visual width is wanted."
         (font-lock-flush refresh-beg refresh-end)))
     (if math-relevant
         (setq init-markdown--render-dirty t)
-      ;; The package's before-change hook invalidates this tick even when no
-      ;; formula was touched.  Overlay anchors already track ordinary edits.
-      (setq markdown-ts-appear-math--scan-tick
-            (buffer-chars-modified-tick)))
+      ;; Ordinary edits can reuse overlays only after the pending scan has
+      ;; completed.  Otherwise typing before the first idle render would
+      ;; mark an empty preview cache as current and suppress every formula.
+      (unless init-markdown--render-dirty
+        (setq markdown-ts-appear-math--scan-tick
+              (buffer-chars-modified-tick))))
     (setq init-markdown--plain-edit-tick
           (and (zerop old-length)
                (< beg end)
@@ -555,6 +582,9 @@ Keep PREVIEW's input for the next idle batch when the budget is exhausted."
           ;; Both consumers share the same source index for this edit.
           (when (and refresh-math
                      init-markdown--selective-rendering)
+            ;; Dirty means reconciliation is required, even if another hook
+            ;; advanced the package cache tick before this idle pass.
+            (setq markdown-ts-appear-math--scan-tick nil)
             (markdown-ts-appear-math--refresh t))
           (when refresh-headings
             (init-markdown--refresh-heading-numbers buffer))
@@ -1121,7 +1151,15 @@ their original Markdown block-quote markers."
              (overlay-get preview 'init-markdown-latex-delimiter-math))
            markdown-ts-appear-math--objects))
     (unwind-protect
-        (funcall original)
+        ;; The native grammar only discovers dollar-delimited formulas.
+        ;; Documents using exclusively LaTeX delimiters need no native scan
+        ;; (which eagerly initializes every embedded parser in the file).
+        (if (save-excursion
+              (goto-char (point-min))
+              (search-forward "$" nil t))
+            (funcall original)
+          (mapc #'markdown-ts-appear-math--delete
+                (copy-sequence markdown-ts-appear-math--objects)))
       (setq markdown-ts-appear-math--objects
             (append markdown-ts-appear-math--objects
                     (seq-filter #'overlay-buffer compatibility-previews)))))
@@ -1179,9 +1217,10 @@ their original Markdown block-quote markers."
     ;; The inline parser may already have fontified `[... ]' inside the formula
     ;; as a shortcut link before this compatibility overlay existed.  Re-run
     ;; fontification now that the link fontifiers can recognize the math range.
+    ;; Let JIT fontification refresh visible formulas.  Ensuring every range
+    ;; here eagerly creates off-screen embedded parsers during the idle scan.
     (dolist (range newly-created-ranges)
-      (font-lock-flush (car range) (cdr range))
-      (font-lock-ensure (car range) (cdr range)))))
+      (font-lock-flush (car range) (cdr range)))))
 
 (defun init-markdown--sync-latex-delimiter-visibility (preview)
   "Reveal both delimiter backslashes while compatibility PREVIEW is edited."
@@ -1289,7 +1328,9 @@ source text."
     (setq-local treesit-range-settings
                 (append treesit-range-settings
                         init-markdown--table-inline-range-settings))
-    (treesit-update-ranges (point-min) (point-max))))
+    ;; JIT fontification updates parser ranges for the displayed region.
+    ;; A full-buffer update eagerly builds every embedded parser at file open.
+    (font-lock-flush)))
 
 (defun init-markdown--remove-table-inline-ranges ()
   "Stop maintaining extra inline parsers for table cells."
@@ -1299,7 +1340,7 @@ source text."
                   (seq-remove (lambda (setting) (memq setting settings))
                               treesit-range-settings)))
     (setq init-markdown--table-inline-range-settings nil)
-    (treesit-update-ranges (point-min) (point-max))))
+    (font-lock-flush)))
 
 (defun init-markdown--table-cell-at (position)
   "Return the Markdown table cell containing POSITION, if any."
@@ -1453,8 +1494,8 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
   (setq init-markdown-render-mode 'live)
   (init-markdown--enable-renderers)
   (init-markdown--selective-point-update)
+  ;; Redisplay fontifies the visible region; do not eagerly parse the file.
   (font-lock-flush)
-  (font-lock-ensure)
   (message "Markdown rendering: live"))
 
 (defun my-markdown-render-source ()
@@ -1466,7 +1507,6 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
   (init-markdown--disable-renderers)
   (setq init-markdown-render-mode 'source)
   (font-lock-flush)
-  (font-lock-ensure)
   (message "Markdown rendering: source"))
 
 (defun my-markdown-render-preview ()
@@ -1480,7 +1520,6 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
   (init-markdown--selective-point-update)
   (markdown-ts-appear-math--refresh t)
   (font-lock-flush)
-  (font-lock-ensure)
   (read-only-mode 1)
   (message "Markdown rendering: preview (read-only)"))
 
@@ -1501,6 +1540,7 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
   (add-hook 'kill-buffer-hook #'init-markdown--cancel-deferred-render nil t)
   (add-hook 'kill-buffer-hook #'init-markdown--dispose-selective-math nil t)
   (add-hook 'change-major-mode-hook #'init-markdown--dispose-selective-math nil t)
+  (add-hook 'after-revert-hook #'init-markdown--after-revert nil t)
   (add-hook 'before-change-functions
             #'init-markdown--note-math-before-change -100 t)
   (add-hook 'pre-command-hook
@@ -1680,6 +1720,7 @@ perfectly valid `$...$' or `$$...$$' expression in a cell is rejected."
         (init-markdown--configure-nonblocking-flyspell)
         (add-hook 'kill-buffer-hook #'init-markdown--dispose-selective-math nil t)
         (add-hook 'change-major-mode-hook #'init-markdown--dispose-selective-math nil t)
+        (add-hook 'after-revert-hook #'init-markdown--after-revert nil t)
         (when (memq init-markdown-render-mode '(live preview))
           (init-markdown--enable-renderers))
         (init-markdown--setup-pending-fences)

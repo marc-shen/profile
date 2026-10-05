@@ -50,6 +50,26 @@
       (markdown-ts-appear-math--refresh t)
       (should (equal (overlay-get preview 'display) "rendered")))))
 
+(ert-deftest init-markdown-external-revert-rebuilds-formula-index ()
+  "A wholesale file reload cannot leave the formula cache falsely current."
+  (with-temp-buffer
+    (insert "Before\n\\[a\\]\n")
+    (markdown-ts-mode)
+    (init-markdown--run-deferred-render (current-buffer))
+    (should (= (length markdown-ts-appear-math--objects) 1))
+    ;; Reverts may replace text while ordinary modification hooks are
+    ;; inhibited.  Reproduce the resulting stale tick and vanished overlays.
+    (let ((inhibit-modification-hooks t))
+      (erase-buffer)
+      (insert "Before\n\\[a\\]\n\\[b\\]\n"))
+    (setq markdown-ts-appear-math--scan-tick
+          (buffer-chars-modified-tick))
+    (run-hooks 'after-revert-hook)
+    (should-not markdown-ts-appear-math--scan-tick)
+    (should init-markdown--render-dirty)
+    (init-markdown--run-deferred-render (current-buffer))
+    (should (= (length markdown-ts-appear-math--objects) 2))))
+
 (ert-deftest init-markdown-fences-render-only-after-closing ()
   "Incomplete fences preserve following headings, emphasis, and formulas."
   (skip-unless (treesit-ready-p 'markdown t))
@@ -548,5 +568,62 @@
                (regexp-quote "\n> \\mathcal")
                (buffer-substring-no-properties
                 (overlay-start preview) (overlay-end preview)))))))
+
+
+(ert-deftest init-markdown-opening-and-math-scan-stay-lazy ()
+  "Opening and idle math scans must leave off-screen fontification to JIT."
+  (skip-unless (treesit-ready-p 'markdown t))
+  (with-temp-buffer
+    (insert "## Heading\n\nBefore \\[x+y\\] after\n")
+    (cl-letf (((symbol-function 'font-lock-ensure)
+               (lambda (&rest _) (ert-fail "Eager fontification")))
+              ((symbol-function 'treesit-update-ranges)
+               (lambda (&rest _) (ert-fail "Eager parser range update"))))
+      (markdown-ts-mode)
+      (init-markdown--run-deferred-render (current-buffer))
+      (should (= (length markdown-ts-appear-math--objects) 1))
+      (my-markdown-render-source)
+      (my-markdown-render-preview)
+      (my-markdown-render-live))))
+
+(ert-deftest init-markdown-table-inline-parser-created-on-demand ()
+  "A table still receives an inline parser when its region is displayed."
+  (skip-unless (treesit-ready-p 'markdown-inline t))
+  (with-temp-buffer
+    (insert "| A | B |\n|---|---|\n| $x$ | **bold** |\n")
+    (markdown-ts-mode)
+    (treesit-update-ranges (point-min) (point-max))
+    (should (treesit-parser-list nil 'markdown-inline t))
+    (goto-char (point-min))
+    (search-forward "$x$")
+    (should (init-markdown--table-cell-at (- (point) 2)))
+    (font-lock-ensure)
+    (goto-char (point-min))
+    (should (equal (get-text-property (point) 'display) "│"))))
+
+(ert-deftest init-markdown-edit-before-first-idle-keeps-formulas-pending ()
+  "Typing before the first deferred scan cannot validate an empty cache."
+  (skip-unless (treesit-ready-p 'markdown t))
+  (with-temp-buffer
+    (insert "Before\n\\[x+y\\]\nAfter\n")
+    (markdown-ts-mode)
+    (should init-markdown--render-dirty)
+    (should-not markdown-ts-appear-math--objects)
+    (goto-char (point-max))
+    (insert "word")
+    (should-not (equal markdown-ts-appear-math--scan-tick
+                       (buffer-chars-modified-tick)))
+    (init-markdown--run-deferred-render (current-buffer))
+    (should (= (length markdown-ts-appear-math--objects) 1))))
+
+(ert-deftest init-markdown-dirty-render-repairs-stale-scan-tick ()
+  "A dirty render rebuilds previews even if the package tick looks current."
+  (skip-unless (treesit-ready-p 'markdown t))
+  (with-temp-buffer
+    (insert "Before\n\\[x+y\\]\nAfter\n")
+    (markdown-ts-mode)
+    (setq markdown-ts-appear-math--scan-tick (buffer-chars-modified-tick))
+    (init-markdown--run-deferred-render (current-buffer))
+    (should (= (length markdown-ts-appear-math--objects) 1))))
 
 ;;; init-markdown-test.el ends here
