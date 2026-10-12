@@ -14,17 +14,16 @@
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>1.0</string>
+  <string>1.1</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>2</string>
   <key>CFBundleIconFile</key>
   <string>Emacs.icns</string>
   <key>LSMinimumSystemVersion</key>
   <string>12.0</string>
-  <!-- This bundle is only a launcher.  The pinned Dock tile remains usable,
-       but the short-lived emacsclient process must not create another tile. -->
+  <!-- A resident AppKit process owns the Dock tile and handles reopen events. -->
   <key>LSUIElement</key>
-  <true/>
+  <false/>
   <key>NSHighResolutionCapable</key>
   <true/>
 </dict>

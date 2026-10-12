@@ -22,9 +22,19 @@
 (declare-function image-forward-hscroll "image-mode")
 (declare-function TeX-pdf-tools-sync-view "tex")
 (declare-function TeX-revert-document-buffer "tex")
+(declare-function TeX-active-master "tex")
 
 (defvar TeX-view-program-list)
 (defvar TeX-view-program-selection)
+
+(defun init-pdf-TeX-view ()
+  "View the compiled PDF without visiting a nonexistent output file.
+PDF Tools can leave a partially initialized buffer when opening a missing
+file; subsequent View commands then fail even after compilation succeeds."
+  (let ((pdf (TeX-active-master "pdf")))
+    (unless (file-readable-p pdf)
+      (user-error "PDF not found: %s; run LaTeXMk first" pdf))
+    (TeX-pdf-tools-sync-view)))
 
 (use-package pdf-tools
   :if (package-installed-p 'pdf-tools)
@@ -104,7 +114,7 @@
   (setq TeX-view-program-selection
         '((output-pdf "PDF Tools"))
         TeX-view-program-list
-        '(("PDF Tools" TeX-pdf-tools-sync-view)))
+        '(("PDF Tools" init-pdf-TeX-view)))
 
   (add-hook 'TeX-after-compilation-finished-functions
             #'TeX-revert-document-buffer))
