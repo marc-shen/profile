@@ -69,6 +69,9 @@
 ;; must also work in modes whose local maps claim most keys (including vterm).
 (keymap-set my-override-map "C-x S" #'my-scratch-buffer)
 
+;; Toggle fullscreen and restore the frame's previous size and position.
+(keymap-set my-override-map "<f12>" #'toggle-frame-fullscreen)
+
 ;; `C-x K' -- the shifted sibling of `C-x k' -- clears out the file buffers in
 ;; one go and leaves the `*'-named system buffers alone.
 (keymap-global-set "C-x K" #'my-kill-all-user-buffers)

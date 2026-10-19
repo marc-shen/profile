@@ -49,8 +49,15 @@
   (when (fboundp mode)
     (funcall mode -1)))
 
-(setq initial-frame-alist '((fullscreen . maximized)))
-(add-to-list 'default-frame-alist '(fullscreen . maximized))
+;; On macOS, fullscreen stays on the current desktop instead of creating a Space.
+(when (boundp 'ns-use-native-fullscreen)
+  (setq ns-use-native-fullscreen nil))
+
+;; Start both the initial frame and new client frames at 120 columns by 36 rows.
+(dolist (parameters '(initial-frame-alist default-frame-alist))
+  (setf (alist-get 'width (symbol-value parameters)) 120
+        (alist-get 'height (symbol-value parameters)) 36
+        (alist-get 'fullscreen (symbol-value parameters)) nil))
 
 (provide 'early-init)
 

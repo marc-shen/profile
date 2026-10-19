@@ -144,6 +144,7 @@ Org 为此另外提供了 `C-c <left>`、`C-c <right>`、`C-c <up>`、`C-c <down
 | `<execute>` | `execute-extended-command` | 按名称执行命令（M-x） |
 | `<f10>` | `menu-bar-open` | 用键盘打开菜单栏 |
 | `<f11>` | `toggle-frame-fullscreen` | 切换全屏 |
+| `<f12>` | `toggle-frame-fullscreen` | 切换全屏，再按恢复全屏前的窗口大小和位置；macOS 上保持在当前桌面（覆盖模式内键位） |
 | `<f3>` | `kmacro-start-macro-or-insert-counter` | 开始录制宏，录制中则插入计数器 |
 | `<f4>` | `kmacro-end-or-call-macro` | 正在录制则结束，否则执行上一个宏 |
 | `<find>` | `search-forward` | 向后查找字符串（非增量） |
