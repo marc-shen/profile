@@ -1,5 +1,7 @@
 Software 统一管理规范
 ====================
+项目入口：../README.md；配置同步：sync.md；日常维护：maintenance.md。
+
 统一采用 Software（软件是不可数名词，不用 Softwares）。
 用户安装默认 ~/Software，管理员共享安装可选 /opt/Software。
 
@@ -60,9 +62,11 @@ create 不自动覆盖全局命令。select 对已有入口拒绝覆盖；先备
 --------
 SOFTWARE_HOME 指程序根目录；SOFTWARE_USER_HOME 默认 ~/Software，保存个人数据。
 共享程序、modulefile 由管理员维护；所有人的缓存、历史、凭据和 Emacs server 分开。
-安装时生成激活脚本；日常运行已安装工具不触发 Pixi 求解或写共享目录。
+清单中的基础 CLI 在安装时生成激活脚本，日常启动不触发 Pixi 求解。
+software-app run/shell 和自定义 Pixi module 使用 Pixi，需要单独核验共享目录权限。
 用户 checkout、.emacs.d 和运行数据必须可写，不应链接到管理员只读 checkout。
-管理员部署共享程序后，各用户在自己的 checkout 执行 bootstrap.sh link/service。
+管理员部署共享程序后，个人 checkout、插件和服务仍需配置与核验。
+共享模式尚未完成端到端实机验证，参见 maintenance.md。
 个人 bin 优先于共享 bin，科研环境按 module load/unload 切换，不全局注入库路径。
 新自定义前缀需要重新安装；不能把现有 .pixi/envs 直接搬到 /opt。
 
@@ -72,4 +76,4 @@ SOFTWARE_HOME 指程序根目录；SOFTWARE_USER_HOME 默认 ~/Software，保存
 科研软件已有绝对前缀时，整理到 apps 后保留旧路径兼容链接；链接不是重复安装。
 项目文件、科研数据和私有设置不删除。系统包卸载需要真实管理员权限。
 跨系统只同步配置和安装清单，不同步 Emacs .so/.eln 或 Pixi 环境二进制。
-本次具体处理和需要管理员完成的步骤见 environment-migration-2026-10-21.md。
+2026-10-21 的具体处理与验证结果见 environment-migration-2026-10-21.md；该文件为历史快照。

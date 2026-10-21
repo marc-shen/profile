@@ -1,6 +1,7 @@
 Steam Deck 部署与维护
 ====================
-遵循 docs/Software.txt。用户程序、源码、构建依赖都在 ~/Software。
+项目入口：../README.md；同步：sync.md；服务维护：maintenance.md。
+遵循 Software.txt。用户程序、源码、构建依赖都在 ~/Software。
 Git 使用 /usr/bin/git；不执行 pacman，不关闭 SteamOS 只读。
 
   ./bootstrap.sh install
@@ -9,7 +10,7 @@ Git 使用 /usr/bin/git；不执行 pacman，不关闭 SteamOS 只读。
 
 Emacs 从当前 GNU 稳定版源码构建 GTK3/X11，启用 modules、Tree-sitter，
 禁用 PGTK/native Lisp compilation。构建依赖由应用内独立 Pixi 环境提供。
-Apps/current 指向通过验证的版本，实际依赖记录在该目录 pixi.lock 和 receipt.json。
+apps/<name>/current 指向通过验证的版本，实际依赖记录在该目录 pixi.lock 和 receipt.json。
 Modules 从源码构建；其 Tcl 依赖使用受支持的 8.6 系列范围，不固定补丁版本。
 可选的 C/C++/Fortran 编译器由 scripts/install-gcc.py 安装，module load gcc/current。
 

@@ -1,0 +1,179 @@
+# profile
+
+面向 **macOS、Fedora 和 Steam Deck** 的个人开发环境配置，统一管理 Emacs、Zsh、终端工具、Python CLI 和编译环境。Ubuntu / Debian 已有安装适配，尚未完成实机验证。
+
+配置通过 Git 同步；程序在每台机器上按平台安装。用户软件采用 `~/Software` 布局，以 `bin` 作为稳定命令入口，以 `apps/<名称>/<版本>` 容纳管理器、程序、编译器和复杂环境。Steam Deck 的安装保持在用户目录中，不解除 SteamOS 只读。
+
+## 从哪里开始
+
+| 要做的事 | 文档 |
+|---|---|
+| 在新机器安装 | 本页的[快速部署](#快速部署) |
+| 把修改同步到另一台设备 | [多设备同步](docs/sync.md) |
+| 升级工具、管理编译器、重启 Emacs、排查问题 | [日常维护](docs/maintenance.md) |
+| 理解 Software 布局和安装来源 | [Software 管理规范](docs/Software.txt) |
+| 配置 Steam 游戏模式里的 Emacs | [Steam Deck 说明](docs/Steam-Deck.txt) |
+| 查看 Emacs 操作 | [常用键位](emacs.d/KEYBINDINGS.md)、[完整键位](emacs.d/KEYBINDINGS-FULL.md) |
+| 查看此前实际安装、清理和验证情况 | [2026-10-21 迁移记录](docs/environment-migration-2026-10-21.md) |
+
+## 包含什么
+
+- **Emacs**：完整的 `emacs.d`，包含补全、项目导航、Git、终端、Python/C/Fortran、LaTeX、Markdown、Org、PDF 等配置，以及可选 AI/agent 集成。`em`、`ec` 共用当前用户的默认 daemon。
+- **Zsh**：Modules、fzf、fzf-tab、zsh-completions、zsh-autosuggestions、zsh-syntax-highlighting、zoxide 和 Starship。
+- **终端工具**：fd、ripgrep、fzf、zoxide、Starship、jq、bat、Neovim、Zsh，清单见 [tools.json](manifests/tools.json)。Neovim 配置随仓库提供，基于 NvChad；其插件由 Neovim 自身的插件管理器管理。
+- **环境管理**：官方独立 Pixi、uv；可选 fortls、pyright 和 MCP 工具；Environment Modules 用于按需选择编译器和科研环境。
+- **终端配置**：Starship 和 WezTerm 配置。部署会链接 WezTerm 配置，但不安装 WezTerm 应用。
+
+安装需求通常不固定版本，显式更新时解析可用版本；已安装程序的精确依赖保存在本机 `pixi.lock` 和 `receipt.json` 中。每个基础 CLI 使用独立 Pixi 环境，是否包含 Python 由依赖决定，不会为所有 CLI 默认安装 Python。Yazi 不在当前方案中。
+
+### 平台与来源
+
+| 组件 | macOS | Fedora | Steam Deck | Ubuntu / Debian |
+|---|---|---|---|---|
+| 基础 Git、证书、构建组件 | Xcode Command Line Tools / 系统 | 系统 / DNF | 使用现有系统组件 | 系统 / APT |
+| Pixi / uv | 官方发行二进制 | 官方发行二进制 | 官方发行二进制 | 官方发行二进制 |
+| 基础 CLI | Pixi / conda-forge | Pixi / conda-forge | Pixi / conda-forge | Pixi / conda-forge |
+| Emacs | Homebrew `emacs-app` | 源码，系统开发库 | 源码，应用内 Pixi 开发库 | 源码，系统开发库 |
+| Modules | Homebrew | 系统包 | 源码，私有 Tcl | 系统包 |
+| 验证情况 | 已实机验证 | 已实机验证 | 已实机验证 | 适配待实机验证 |
+
+本项目仅在 macOS 使用 Homebrew。工具缺少 Pixi 包时，需要明确增加系统包、上游二进制或源码配方；安装器不会因网络错误自动切换来源。平台验证记录见迁移文档，不代表所有系统版本、架构和可选功能都已测试。
+
+## 快速部署
+
+### 1. 准备系统基础组件
+
+需要 Git、curl、CA 证书和 Python 3.9+。
+
+**macOS**：先安装 Xcode Command Line Tools，再按 [Homebrew 官方说明](https://brew.sh/) 安装 Homebrew，完成安装器提示的 shell 初始化。
+
+```sh
+xcode-select --install
+```
+
+**Fedora**：
+
+```sh
+sudo dnf install git curl ca-certificates python3
+```
+
+**Ubuntu / Debian**：
+
+```sh
+sudo apt-get update
+sudo apt-get install git curl ca-certificates python3
+```
+
+**Steam Deck**：使用系统已有组件，不运行 pacman 或关闭只读。若上述基础命令缺失，先检查系统状态。
+
+### 2. 获取仓库并安装
+
+以下流程用于新机器。已有 checkout 的机器直接进入原目录，不必再 clone 一份。
+
+```sh
+git clone https://github.com/marc-shen/profile.git ~/Software/src/profile
+cd ~/Software/src/profile
+./bootstrap.sh plan
+./bootstrap.sh install
+bash scripts/install-emacs-packages.sh
+./bootstrap.sh service
+```
+
+`plan` 输出平台、安装前缀和策略概览，不下载或安装软件。`install` 安装管理器、基础工具、平台依赖、Emacs、Modules 和 Zsh 插件，再部署配置链接。Linux 源码编译可能较久；Fedora / Ubuntu / Debian 安装系统依赖需要 sudo。个人部署应由本人运行，不要给整条个人安装命令加 sudo。
+
+Emacs 包单独安装，之后才启用后台服务。现有配置被替换前会保存到 `Software/backups`；如果原目录和 checkout 中都存在独立的 Emacs 运行数据，部署会停止，需先核对数据。
+
+安装完成后进入 Zsh，再检查入口：
+
+```sh
+exec ~/Software/bin/zsh -l
+```
+
+```sh
+cd ~/Software/config/profile
+./bootstrap.sh check
+```
+
+安装 Zsh 与修改账户登录 shell 是两件事。安装器不会执行 `chsh`；新终端可显式使用 `~/Software/bin/zsh -l`。已配置的 Deck 保留系统 Bash 账户，并通过交互终端入口进入用户 Zsh，详见维护文档。
+
+### 3. 按需安装 Python CLI
+
+```sh
+cd ~/Software/config/profile
+bash scripts/install-uv-tools.sh       # fortls、pyright
+```
+
+可选 MCP 工具：
+
+```sh
+bash scripts/install-uv-tools.sh arxiv-mcp-server markitdown-mcp zotero-mcp-server
+```
+
+这些是 uv 的独立工具环境。安装不会替你创建 MCP 客户端配置、账号凭据或项目环境。
+
+## 日常命令
+
+| 命令 | 行为 |
+|---|---|
+| `em 文件名` | 连接已有 Emacs 后台；图形模式打开后返回终端 |
+| `em` | 打开当前目录 |
+| `ec 文件名` | 连接同一后台，等待编辑结束；适合 Git 的编辑器调用 |
+| `ga` | `git add . && git commit`；暂存当前目录及其子目录，不推送 |
+| `gap` | `git add -A && git commit && git push`；暂存整个仓库的修改、新增和删除 |
+| `gap -p` / `gap --patch` | 分块选择已有文件的修改，然后提交、推送 |
+| `gap -m "说明"` | 全部暂存，使用给定提交说明并推送 |
+| `sz` | 重新加载 `~/.zshrc` |
+| `module avail` / `module list` | 查看可用 / 已加载环境 |
+| `software-app list` | 查看 Software 下的应用目录 |
+
+`ec` 中编辑完按 **`C-x #`**，或执行 `M-x server-edit`；仅保存不会结束等待。无图形环境的 SSH 会话中，`em`、`ec` 使用终端界面，此时 `em` 也必须保持连接。默认 `EDITOR` / `VISUAL` 优先使用 `ec`。
+
+`gap` 的 `-p` / `--patch` 必须是第一个参数，其余参数传给 `git commit`。提交包含先前已经暂存的内容；分块界面按 `q` 只结束选择，并不取消整个函数。新建未跟踪文件需要显式 `git add 文件名`。前一步失败时，后续步骤不会执行。
+
+## 配置放在哪里
+
+```text
+profile/                         # Git 管理的可同步内容
+├── README.md
+├── bootstrap.sh                 # 安装、部署和检查入口
+├── zshrc / shell/               # Shell 配置、通用环境、Modules 初始化
+├── emacs.d/                     # 完整 Emacs 配置；运行数据由 .gitignore 排除
+├── nvim/                        # Neovim / NvChad 配置
+├── starship.toml / wezterm.lua
+├── manifests/                   # CLI、系统依赖、Git 插件、可选 uv 工具清单
+├── scripts/                     # 安装、源码构建、部署和清单导出
+├── platform/steamdeck/           # Steam 启动器和本机 native 模块构建
+├── modulefiles/                 # 可复用模板，实际模块在各机 Software 中
+├── docs/                        # 同步、维护、平台说明及历史记录
+└── archieve/                    # 历史文件，不作为活动安装配置
+```
+
+部署后，`~/.zshrc` 链接到仓库 `zshrc`，`~/.emacs.d` **完整链接**到仓库 `emacs.d`，`~/Software/config/profile` 链接到该 checkout。因此直接修改 `~/.zshrc` 或已跟踪的 Emacs 配置文件，就会修改 Git 工作树。
+
+本机变量放在 `~/Software/config/local/env.sh`；交互 Shell 的本机扩展放在 `~/Software/config/local/zshrc`。它们不在仓库中。Emacs 的 `custom.el`、ELPA、`.eln`、缓存、历史等同样不通过 Git 同步；需共享的设置写入已跟踪的配置文件。
+
+## 多设备同步
+
+修改设备提交并推送；接收设备拉取同一分支。不要同步整份 Software 二进制目录。
+
+```sh
+# 在接收设备上：先确认工作树没有需要保留的未提交修改
+cd ~/Software/config/profile
+git status
+git pull --ff-only
+```
+
+拉取 Zsh 修改后执行 `source ~/.zshrc`，或重开终端。Emacs 配置需重新加载，通常保存缓冲区后重启后台。新增依赖和部署入口则需运行对应脚本，见[完整同步流程](docs/sync.md)。
+
+**日常拉取配置不需要运行 `./bootstrap.sh update`。** 后者会更新安装环境，并在 Linux 重编译 Emacs；操作范围见[维护指南](docs/maintenance.md)。
+
+## 共享安装与限制
+
+默认是 `~/Software` 个人安装，也提供管理员安装入口：
+
+```sh
+./bootstrap.sh plan --scope system --prefix /opt/Software
+sudo ./bootstrap.sh install --scope system --prefix /opt/Software
+```
+
+共享前缀由管理员维护，个人配置、缓存、凭据和 Emacs server 仍应分开。此流程尚未完成端到端实机验证，个人服务和插件对共享路径的接入仍需核对；不要将其视为已验证的一键多用户部署。macOS 的 Homebrew 应先由其普通用户拥有者安装所需组件；Steam Deck 不使用 `/opt` 共享安装。具体边界见[维护指南](docs/maintenance.md)。
