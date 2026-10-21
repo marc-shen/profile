@@ -1,0 +1,32 @@
+#%Module1.0######################################################################
+##
+## GSL modulefile
+##
+#################################################################################
+
+proc ModulesHelp { } {
+  puts stderr "\tGSL 2.8 (GNU Scientific Library)\n"
+}
+
+module-whatis      "Sets up GSL 2.8 (GNU Scientific Library)"
+
+conflict           gsl
+prereq             gcc/14.2
+
+set                basedir               /opt/homebrew/Cellar/gsl/2.8/
+
+prepend-path       PATH                  $basedir/bin
+prepend-path       LD_LIBRARY_PATH       $basedir/lib
+prepend-path       LIBRARY_PATH          $basedir/lib
+prepend-path       MANPATH               $basedir/share/man
+prepend-path       GSL_ROOT              $basedir
+prepend-path       GSL_DIR               $basedir
+prepend-path       GSLDIR                $basedir
+prepend-path       PKG_CONFIG_PATH       $basedir/lib/pkgconfig
+
+append-path        -d { } LDFLAGS        -L$basedir/lib
+append-path        -d { } INCLUDE        -I$basedir/include/
+append-path        CPATH                 $basedir/include/
+append-path        -d { } LOCAL_LDFLAGS  -L$basedir/lib
+append-path        -d { } LOCAL_INCLUDE  -I$basedir/include/
+append-path        -d { } LOCAL_CFLAGS   -I$basedir/include/

@@ -1,0 +1,20 @@
+#%Module1.0
+
+proc ModulesHelp { } {
+    puts stderr "Build and runtime dependencies for EMPi-Fortran with MPICH."
+    puts stderr "GFortran + MPICH + parallel HDF5 1.14.6 + FFTW 3.3.11."
+    puts stderr "Slurm srun defaults to PMI-2."
+}
+
+module-whatis "EMPi-Fortran dependency environment: MPICH, parallel HDF5, OpenMP, and FFTW"
+
+conflict empi-fortran
+conflict mpi/openmpi-x86_64
+conflict intel/mpi
+conflict empi/openmpi
+
+prereq mpi/mpich-x86_64
+prereq hdf5/1.14.6-mpich
+prereq fftw/3.3.11-gcc
+
+setenv SLURM_MPI_TYPE pmi2

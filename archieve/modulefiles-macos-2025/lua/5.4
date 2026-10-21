@@ -1,0 +1,30 @@
+#%Module1.0######################################################################
+##
+## Lua modulefile
+##
+#################################################################################
+
+proc ModulesHelp { } {
+  puts stderr "\tLua 5.4.7\n"
+}
+
+module-whatis      "Sets up Lua 5.4.7"
+
+conflict           lua
+
+set                basedir               /opt/homebrew/Cellar/lua/5.4.7/
+
+prepend-path       PATH                  $basedir/bin
+prepend-path       LD_LIBRARY_PATH       $basedir/lib
+prepend-path       LIBRARY_PATH          $basedir/lib
+prepend-path       MANPATH               $basedir/share/man
+prepend-path       LUA_ROOT              $basedir
+prepend-path       LUA_DIR               $basedir
+prepend-path       LUADIR                $basedir
+
+append-path        -d { } LDFLAGS        -L$basedir/lib
+append-path        -d { } INCLUDE        -I$basedir/include/lua
+append-path        CPATH                 $basedir/include/lua
+append-path        -d { } LOCAL_LDFLAGS  -L$basedir/lib
+append-path        -d { } LOCAL_INCLUDE  -I$basedir/include/lua
+append-path        -d { } LOCAL_CFLAGS   -I$basedir/include/lua

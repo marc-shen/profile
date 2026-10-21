@@ -1,0 +1,75 @@
+Software 统一管理规范
+====================
+统一采用 Software（软件是不可数名词，不用 Softwares）。
+用户安装默认 ~/Software，管理员共享安装可选 /opt/Software。
+
+Software/
+  bin/                       用户管理命令的统一稳定入口
+  apps/<name>/<version>/     管理器、程序、编译器和复杂环境
+  apps/<name>/current        当前已验证版本
+  share/modulefiles/        按需启用的编译器、MPI、科研库
+  share/zsh/                插件、补全和已安装提交记录
+  config/profile            本机 profile checkout 的链接
+  config/local/             私有设置，不进入 Git
+  src/、build/               源码、可重建构建目录
+  downloads/                上游发行文件和校验值
+  cache/                    可重新生成的缓存
+  data/                     持久数据，不作为缓存清理
+  logs/、docs/、backups/     安装记录、说明、迁移备份
+  env.sh                    终端、Emacs、Steam 启动器的环境入口
+
+来源策略
+--------
+基础 Git、证书、系统集成由系统提供。Mac 先安装 Xcode Command Line Tools。
+uv/Pixi 使用官方独立二进制。Mac 的 Homebrew 保持其默认前缀。
+普通 CLI 优先 Pixi/conda-forge，每个程序一个环境。
+需要替代来源时，按 brew/dnf/apt、上游二进制、源码配方的顺序评估，明确记录选择；
+网络错误或依赖求解失败不会静默切换来源。当前 tools.json 中的工具均有 Pixi 包。
+源码配方在 scripts/build-*.py。新的来源适配应经过验证后加入安装器，不能猜测 URL。
+Python CLI 使用 uv tool；项目 .venv 和锁文件留在项目中。
+Mac Emacs 用 brew，Linux Emacs 源码编译。Deck 的构建依赖全部在 Software 内。
+SteamOS 不使用系统包管理器，不解除只读，不改动电源/网络设置。
+
+版本与更新
+----------
+安装需求默认 *，每次更新解析最新兼容稳定版；依赖实际版本由 pixi.lock 记录。
+Git 插件跟随上游分支，提交 SHA 是安装收据而不是永久限制。
+版本化程序禁止原地 self update，避免目录名与实际版本不同。
+同版本重建使用 <version>-r<timestamp>，记录不同依赖或编译参数。
+在最终前缀构建/安装；验证成功后切换 current 和 bin，失败保留旧入口。
+不要搬动新 Pixi 环境或已编译程序；绝对前缀可能存在于 RPATH、脚本和缓存中。
+
+  software-app install fd ripgrep
+  software-app update fd ripgrep
+  software-app list
+  ./bootstrap.sh update
+
+独立项目工具环境：
+  software-app create experiment-tools 1 python numpy scipy
+  software-app run experiment-tools 1 python --version
+  software-app module experiment-tools 1
+  module load experiment-tools/1
+  module unload experiment-tools
+
+create 不自动覆盖全局命令。select 对已有入口拒绝覆盖；先备份再显式选择。
+已有项目所需的 Python/Numba/MPI 约束需要保留，不能用全局“最新”覆盖项目兼容性。
+系统包或 Homebrew 包仍留在其包管理器拥有的目录中，不复制 Cellar、/usr 到 apps。
+被其他软件依赖的包、登录 shell、运行中的进程依赖不作为重复安装直接删除。
+
+共享安装
+--------
+SOFTWARE_HOME 指程序根目录；SOFTWARE_USER_HOME 默认 ~/Software，保存个人数据。
+共享程序、modulefile 由管理员维护；所有人的缓存、历史、凭据和 Emacs server 分开。
+安装时生成激活脚本；日常运行已安装工具不触发 Pixi 求解或写共享目录。
+用户 checkout、.emacs.d 和运行数据必须可写，不应链接到管理员只读 checkout。
+管理员部署共享程序后，各用户在自己的 checkout 执行 bootstrap.sh link/service。
+个人 bin 优先于共享 bin，科研环境按 module load/unload 切换，不全局注入库路径。
+新自定义前缀需要重新安装；不能把现有 .pixi/envs 直接搬到 /opt。
+
+迁移与回退
+----------
+旧配置备份到 backups。旧版本清理之前验证可执行文件、服务、native 模块和依赖路径。
+科研软件已有绝对前缀时，整理到 apps 后保留旧路径兼容链接；链接不是重复安装。
+项目文件、科研数据和私有设置不删除。系统包卸载需要真实管理员权限。
+跨系统只同步配置和安装清单，不同步 Emacs .so/.eln 或 Pixi 环境二进制。
+本次具体处理和需要管理员完成的步骤见 environment-migration-2026-10-21.md。

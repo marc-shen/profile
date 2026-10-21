@@ -1,0 +1,13 @@
+# System integration and Emacs native module build dependencies only.
+brew "modules"
+brew "cmake"
+brew "make"
+brew "pkgconf"
+brew "autoconf"
+brew "automake"
+brew "libtool"
+brew "libvterm"
+brew "poppler"
+brew "gnutls"
+brew "tree-sitter"
+cask "emacs-app"

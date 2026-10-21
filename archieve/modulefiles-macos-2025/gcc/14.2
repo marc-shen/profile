@@ -1,0 +1,74 @@
+#%Module1.0######################################################################
+##
+## GCC 14.2.0 modulefile
+##
+#################################################################################
+proc ModulesHelp { } {
+  puts stderr "\tGCC 14.2.0 compiler suite\n"
+}
+#   puts stderr "\tSets up environment for GCC 14.2.0 including:\n"
+#   puts stderr "\t- Compilers (C, C++, Fortran)\n"
+#   puts stderr "\t- Preprocessor flags (CPPFLAGS)\n"
+#   puts stderr "\t- Linker flags (LDFLAGS, LIBS)\n"
+#   puts stderr "\t- Compiler-specific flags (CFLAGS, CXXFLAGS, FCFLAGS)\n"
+# }
+
+module-whatis      "Sets up GCC 14.2.0 compiler suite with all related flags"
+
+conflict           gcc clang llvm intel-compilers
+
+set                basedir               /opt/homebrew/Cellar/gcc/14.2.0_1
+set                version               14.2.0
+
+# Basic paths
+prepend-path       PATH                  $basedir/bin
+prepend-path       MANPATH               $basedir/share/man
+prepend-path       LD_LIBRARY_PATH       $basedir/lib/gcc/14
+prepend-path       LIBRARY_PATH          $basedir/lib/gcc/14
+
+# Include paths for all languages
+append-path -d { } LOCAL_INCLUDE      -I$basedir/include
+append-path -d { } LOCAL_CFLAGS       -I$basedir/include
+append-path -d { } LOCAL_CXXFLAGS     -I$basedir/include
+append-path -d { } LOCAL_FCFLAGS      -I$basedir/include
+
+# Library paths
+append-path -d { } LOCAL_LDFLAGS      -L$basedir/lib/gcc/14
+
+# Compiler executables
+setenv             CC                    $basedir/bin/gcc-14
+setenv             CXX                   $basedir/bin/g++-14
+setenv             FC                    $basedir/bin/gfortran-14
+setenv             F77                   $basedir/bin/gfortran-14
+
+# Preprocessor flags
+setenv             CPPFLAGS              "-I$basedir/include"
+
+# Linker flags
+setenv             LDFLAGS               "-L$basedir/lib/gcc/14 -Wl,-rpath,$basedir/lib/gcc/14"
+
+# Library flags
+setenv             LIBS                  "-lgfortran -lquadmath -lm"
+
+# Compiler-specific flags
+setenv             CFLAGS                "-O2 -march=native"
+setenv             CXXFLAGS              "-O2 -march=native -std=c++17"
+setenv             FCFLAGS               "-O2 -march=native"
+
+# Home directories
+setenv             GCC_HOME              $basedir
+setenv             GXX_HOME              $basedir
+setenv             GFORTRAN_HOME         $basedir
+
+# if { [ module-info mode load ] } {
+#     puts stderr "GCC 14.2.0 compiler suite has been loaded with:"
+#     puts stderr "  CC=$env(CC)"
+#     puts stderr "  CXX=$env(CXX)"
+#     puts stderr "  FC=$env(FC)"
+#     puts stderr "  CPPFLAGS=$env(CPPFLAGS)"
+#     puts stderr "  LDFLAGS=$env(LDFLAGS)"
+#     puts stderr "  LIBS=$env(LIBS)"
+#     puts stderr "  CFLAGS=$env(CFLAGS)"
+#     puts stderr "  CXXFLAGS=$env(CXXFLAGS)"
+#     puts stderr "  FCFLAGS=$env(FCFLAGS)"
+# }

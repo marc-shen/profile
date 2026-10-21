@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "${SOFTWARE_HOME:-$HOME/Software}/env.sh"
+source "$SOFTWARE_HOME/apps/emacs/current/activate.sh"
+if [[ $# == 0 ]]; then set -- bash; fi
+exec "$@"

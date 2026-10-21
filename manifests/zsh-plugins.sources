@@ -1,0 +1,5 @@
+# name upstream-ref repository
+fzf-tab HEAD https://github.com/Aloxaf/fzf-tab.git
+zsh-autosuggestions HEAD https://github.com/zsh-users/zsh-autosuggestions.git
+zsh-completions HEAD https://github.com/zsh-users/zsh-completions.git
+zsh-syntax-highlighting HEAD https://github.com/zsh-users/zsh-syntax-highlighting.git

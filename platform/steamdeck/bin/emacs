@@ -1,0 +1,28 @@
+#!/bin/bash
+set -euo pipefail
+source "$HOME/Software/env.sh"
+# Explicit batch/debug/startup options retain the native Emacs command interface.
+terminal=0
+files=()
+end_options=0
+for arg in "$@"; do
+ if [[ $end_options == 1 ]]; then files+=("$arg"); continue; fi
+ case "$arg" in
+  -nw|--no-window-system) terminal=1 ;;
+  --) end_options=1; files+=("$arg") ;;
+  -*) exec "$HOME/Software/bin/emacs-x11" "$@" ;;
+  *) files+=("$arg") ;;
+ esac
+done
+systemctl --user start emacs.service
+client="$HOME/Software/bin/emacsclient"
+ready=0
+for ((i=0;i<100;i++)); do
+ if "$client" -s server --eval t >/dev/null 2>&1; then ready=1; break; fi
+ sleep .1
+done
+[[ $ready == 1 ]] || { echo 'Emacs daemon did not become ready' >&2; exit 1; }
+if [[ $terminal == 1 || ( -z ${DISPLAY:-} && -z ${WAYLAND_DISPLAY:-} ) ]]; then
+ exec "$client" -s server --tty "${files[@]}"
+fi
+exec "$client" -s server --create-frame "${files[@]}"

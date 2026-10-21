@@ -1,0 +1,34 @@
+Steam Deck 部署与维护
+====================
+遵循 docs/Software.txt。用户程序、源码、构建依赖都在 ~/Software。
+Git 使用 /usr/bin/git；不执行 pacman，不关闭 SteamOS 只读。
+
+  ./bootstrap.sh install
+  bash scripts/install-emacs-packages.sh
+  ./bootstrap.sh service
+
+Emacs 从当前 GNU 稳定版源码构建 GTK3/X11，启用 modules、Tree-sitter，
+禁用 PGTK/native Lisp compilation。构建依赖由应用内独立 Pixi 环境提供。
+Apps/current 指向通过验证的版本，实际依赖记录在该目录 pixi.lock 和 receipt.json。
+Modules 从源码构建；其 Tcl 依赖使用受支持的 8.6 系列范围，不固定补丁版本。
+可选的 C/C++/Fortran 编译器由 scripts/install-gcc.py 安装，module load gcc/current。
+
+Steam 非 Steam 游戏快捷方式：
+  目标："/home/deck/Software/bin/emacs-steam"
+  起始位置：/home/deck
+  启动选项：留空
+用户名不是 deck 时使用实际 Home。不要开启 Proton 兼容层。
+启动器使用 SteamAppId 标记客户端窗口，在窗口关闭前保持 Steam 启动进程。
+所有客户端连接 emacs.service 的默认 server，不另建 emacs-steam.service。
+切换游戏/桌面模式会关闭原 X 服务，GTK daemon 可能退出并由 systemd 重启；
+切换前保存文件。单一后台不意味着它能跨图形服务器关闭保留内存缓冲区。
+
+更新 Emacs、vterm/PDF Tools 后，在新的应用依赖环境中重编译本机模块：
+  bash "$PROFILE_HOME/platform/steamdeck/scripts/rebuild-native.sh"
+进入当前 Emacs 构建依赖环境执行命令：
+  deck-build bash
+
+新版本编译成功会切换入口，但不会终止运行中的 Emacs。
+确认缓冲区已保存后，用 systemctl --user restart emacs 启用新构建。
+共享 emacs.d 保持完整；二进制模块和个人运行数据不跨平台同步。
+2026-10-21 实机迁移、版本和备份见 environment-migration-2026-10-21.md。

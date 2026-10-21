@@ -1,0 +1,18 @@
+#%Module1.0
+
+proc ModulesHelp { } {
+    puts stderr "Build and runtime dependencies for EMPi-Fortran with Intel MPI."
+    puts stderr "IntelLLVM 2026.1 + Intel MPI 2021.18 + HDF5 2.2.0 + FFTW 3.3.11."
+    puts stderr "Slurm srun defaults to PMI-2 through the Intel HDF5 module."
+}
+
+module-whatis "EMPi-Fortran dependency environment: Intel MPI, parallel HDF5, OpenMP, and FFTW"
+
+conflict empi-fortran
+conflict mpi/openmpi-x86_64
+conflict mpi/mpich-x86_64
+conflict empi/openmpi
+conflict empi/mpich
+
+prereq hdf5/2.2.0-intel
+prereq fftw/3.3.11-intel

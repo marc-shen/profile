@@ -1,0 +1,41 @@
+#%Module1.0
+
+proc ModulesHelp { } {
+    puts stderr "HDF5 2.2.0: IntelLLVM 2026.1, Intel MPI 2021.18,"
+    puts stderr "parallel I/O, Fortran, high-level APIs, and zlib support."
+    puts stderr "Slurm srun defaults to PMI-2; Intel PMI is enabled inside allocations."
+}
+
+module-whatis "HDF5 2.2.0 parallel build with IntelLLVM 2026.1 and Intel MPI 2021.18"
+
+conflict hdf5
+conflict mpi/openmpi-x86_64
+conflict mpi/mpich-x86_64
+conflict empi/openmpi
+conflict empi/mpich
+
+prereq intel/compiler-intel-llvm/2026.1.1
+prereq intel/mpi/2021.18
+
+set root $env(HOME)/Software/apps/hdf5/2.2.0-intel
+
+setenv HDF5_ROOT    $root
+setenv HDF5_DIR     $root/lib64/cmake/hdf5
+setenv HDF5_VERSION 2.2.0
+
+prepend-path PATH              $root/bin
+prepend-path LD_LIBRARY_PATH   $root/lib64
+prepend-path LIBRARY_PATH      $root/lib64
+prepend-path CPATH             $root/include
+prepend-path CMAKE_PREFIX_PATH $root
+prepend-path PKG_CONFIG_PATH   $root/lib64/pkgconfig
+
+# SLURM_MPI_TYPE is the environment equivalent of srun --mpi.
+setenv SLURM_MPI_TYPE pmi2
+
+# Intel MPI needs Slurm's PMI-2 library for direct srun launches.  Restrict
+# this setting to an active Slurm allocation so ordinary mpiexec/CTest use
+# Intel MPI's normal Hydra process manager.
+if { [info exists ::env(SLURM_JOB_ID)] || [info exists ::env(SLURM_JOBID)] } {
+    setenv I_MPI_PMI_LIBRARY /usr/lib64/libpmi2.so
+}

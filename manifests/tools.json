@@ -1,0 +1,11 @@
+{
+ "fd": {"package": "fd-find", "commands": ["fd"]},
+ "ripgrep": {"package": "ripgrep", "commands": ["rg"]},
+ "fzf": {"package": "fzf", "commands": ["fzf"]},
+ "zoxide": {"package": "zoxide", "commands": ["zoxide"]},
+ "starship": {"package": "starship", "commands": ["starship"]},
+ "jq": {"package": "jq", "commands": ["jq"]},
+ "bat": {"package": "bat", "commands": ["bat"]},
+ "neovim": {"package": "nvim", "commands": ["nvim"]},
+ "zsh": {"package": "zsh", "commands": ["zsh"]}
+}

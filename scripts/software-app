@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+"""Manage versioned user applications without changing system packages."""
+import os
+from pathlib import Path
+import platform
+import re
+import shlex
+import shutil
+import subprocess as sp
+import sys
+
+root = Path(os.environ.get('SOFTWARE_HOME', str(Path.home() / 'Software')))
+args = sys.argv[1:]
+usage = '''software-app install NAME [NAME ...]
+software-app update [NAME ...]
+software-app list
+software-app create NAME VERSION PACKAGE [PACKAGE ...]
+software-app run NAME VERSION COMMAND [ARG ...]
+software-app shell NAME VERSION
+software-app select NAME VERSION COMMAND [COMMAND ...]
+software-app module NAME VERSION
+
+create: own Pixi workspace; select: expose commands in Software/bin (refuses conflicts).
+module: generate an activation module in share/modulefiles; no global library paths.
+'''
+if not args or args[0] in ['help', '-h', '--help']:
+    print(usage); sys.exit(0)
+action = args.pop(0)
+if action in ['install', 'update']:
+    mode = 'tools' if action == 'install' else 'update'
+    os.execv(sys.executable, [sys.executable, str(Path(__file__).resolve().with_name('software.py')), mode, *args])
+
+if action == 'list':
+    for p in sorted((root / 'apps').glob('*/*')):
+        if p.is_dir(): print(p.relative_to(root / 'apps'))
+    sys.exit(0)
+if len(args) < 2: sys.exit(usage)
+name, version, *rest = args
+if not re.fullmatch(r'[a-z0-9][a-z0-9_-]*', name) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._+-]*', version):
+    sys.exit('Invalid name or version')
+app = root / 'apps' / name / version
+manifest = app / 'pixi.toml'
+pixi = shutil.which('pixi') or str(root / 'bin/pixi')
+if action == 'create':
+    if not rest: sys.exit('Specify one or more Conda packages')
+    target = {('Darwin', 'arm64'): 'osx-arm64', ('Darwin', 'x86_64'): 'osx-64',
+              ('Linux', 'x86_64'): 'linux-64', ('Linux', 'aarch64'): 'linux-aarch64'}.get((platform.system(), platform.machine()))
+    if not target: sys.exit('Unsupported platform')
+    app.mkdir(parents=True, exist_ok=False)
+    manifest.write_text(f'[workspace]\nname = "{name}"\nchannels = ["conda-forge"]\nplatforms = ["{target}"]\n\n[dependencies]\n')
+    sp.run([pixi, 'add', '--manifest-path', str(manifest), *rest], check=True)
+    (app / 'bin').symlink_to('.pixi/envs/default/bin')
+elif action in ['run', 'shell']:
+    if not manifest.is_file(): sys.exit(f'Missing {manifest}')
+    if action == 'run' and not rest: sys.exit('Specify a command')
+    os.execv(pixi, [pixi, action, '--manifest-path', str(manifest), '--frozen', *rest])
+elif action == 'select':
+    if not rest: sys.exit('Specify commands to expose')
+    # Preflight all targets before writing any entries.
+    for command in rest:
+        if not re.fullmatch(r'[A-Za-z0-9_+.-]+', command) or command.startswith('.'):
+            sys.exit('Invalid command name')
+        target = root / 'bin' / command
+        if target.exists() or target.is_symlink(): sys.exit(f'{target} already exists; back up/remove it explicitly before switching')
+        if not (app / 'bin' / command).is_file(): sys.exit(f'Missing {app / "bin" / command}')
+    (root / 'bin').mkdir(exist_ok=True)
+    for command in rest:
+        target = root / 'bin' / command
+        if manifest.exists():
+            invocation = shlex.join([str(root / 'bin/software-app'), 'run', name, version, command])
+            target.write_text(f'#!/bin/sh\nexec {invocation} "$@"\n')
+            target.chmod(0o755)
+        else: target.symlink_to(app / 'bin' / command)
+elif action == 'module':
+    if not app.is_dir(): sys.exit(f'Missing {app}')
+    dest = root / 'share/modulefiles' / name / version
+    if dest.exists(): sys.exit(f'{dest} exists; edit it directly')
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    content = f'''#%Module1.0
+module-whatis "{name} {version}"
+conflict {name}
+set root [file join $env(HOME) Software]
+if {{[info exists env(SOFTWARE_HOME)]}} {{set root $env(SOFTWARE_HOME)}}
+set app [file join $root apps {name} {version}]
+'''
+    if manifest.exists():
+        hook = app / 'module-env.sh'
+        hook.write_text('#!/bin/bash\nset -e\n' + 'activation=$(' + shlex.join([pixi, 'shell-hook', '--manifest-path', str(manifest), '--frozen', '--shell', 'bash']) + ')\neval "$activation"\n')
+        content += 'source-sh bash [file join $app module-env.sh]\n'
+    else:
+        content += '''prepend-path PATH [file join $app bin]
+prepend-path CMAKE_PREFIX_PATH $app
+if {[file isdirectory [file join $app lib pkgconfig]]} {prepend-path PKG_CONFIG_PATH [file join $app lib pkgconfig]}
+if {[file isdirectory [file join $app share man]]} {prepend-path MANPATH [file join $app share man]}
+'''
+    dest.write_text(content)
+    print(dest)
+else: sys.exit(usage)

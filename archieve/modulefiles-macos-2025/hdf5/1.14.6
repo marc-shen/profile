@@ -1,0 +1,33 @@
+#%Module1.0######################################################################
+##
+## HDF5 with MPI support modulefile
+##
+#################################################################################
+proc ModulesHelp { } {
+  puts stderr "\tHDF5 \n"
+}
+
+module-whatis      "Sets up HDF5 "    
+
+conflict           hdf5 phdf5 hdf5-mpi hdf5-parallel
+prereq             gcc/14.2
+
+set                basedir               /opt/homebrew/Cellar/hdf5/1.14.6/
+prepend-path       PATH                  $basedir/bin
+prepend-path       LD_LIBRARY_PATH       $basedir/lib
+prepend-path       LIBRARY_PATH          $basedir/lib
+prepend-path       MANPATH               $basedir/man
+prepend-path       HDF5_ROOT             $basedir
+prepend-path       HDF5_DIR             $basedir
+prepend-path       HDF5DIR               $basedir
+append-path        -d { } LDFLAGS        -L$basedir/lib
+append-path        -d { } INCLUDE        -I$basedir/include
+append-path        CPATH                 $basedir/include
+append-path        -d { } FFLAGS         -I$basedir/include
+append-path        -d { } FCFLAGS        -I$basedir/include
+append-path        -d { } LOCAL_LDFLAGS  -L$basedir/lib
+append-path        -d { } LOCAL_INCLUDE  -I$basedir/include
+append-path        -d { } LOCAL_CFLAGS   -I$basedir/include
+append-path        -d { } LOCAL_FFLAGS   -I$basedir/include
+append-path        -d { } LOCAL_FCFLAGS  -I$basedir/include
+append-path        -d { } LOCAL_CXXFLAGS -I$basedir/include

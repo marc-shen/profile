@@ -1,0 +1,40 @@
+#!/bin/bash
+set -euo pipefail
+unset LD_LIBRARY_PATH LD_PRELOAD
+source "$HOME/Software/env.sh"
+mkdir -p "$HOME/Software/logs/emacs"
+exec >>"$HOME/Software/logs/emacs/steam-client.log" 2>&1
+client="$HOME/Software/bin/emacsclient"
+server=server
+systemctl --user start emacs.service
+ready=0
+for ((i=0;i<100;i++)); do
+ if "$client" -s "$server" --eval t >/dev/null 2>&1; then ready=1; break; fi
+ sleep .1
+done
+[[ $ready == 1 ]] || { echo 'Steam Emacs daemon did not become ready'; exit 1; }
+[[ -n ${DISPLAY:-} ]] || { echo 'No X11 DISPLAY supplied by Steam'; exit 1; }
+app_id=${SteamAppId:?Launch this entry from Steam so SteamAppId is supplied}
+[[ $app_id =~ ^[0-9]+$ ]] || exit 2
+token="steam-$$"
+frame_expr="(seq-find (lambda (f) (equal (frame-parameter f 'steam-launch-token) \"$token\")) (frame-list))"
+cleanup() {
+ "$client" -s "$server" --eval "(let ((f $frame_expr)) (when (frame-live-p f) (delete-frame f)))" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+printf '[%s] create client app=%s display=%s token=%s\n' "$(date -Is)" "$app_id" "$DISPLAY" "$token"
+# No --no-wait: keep the Steam launch alive until this client frame closes.
+"$client" -s "$server" --create-frame --display "$DISPLAY" \
+ --frame-parameters "((steam-launch-token . \"$token\") (fullscreen . maximized))" "$@" &
+client_pid=$!
+tagged=0
+for ((i=0;i<100;i++)); do
+ if ! kill -0 "$client_pid" 2>/dev/null; then break; fi
+ result=$("$client" -s "$server" --eval "(let ((f $frame_expr)) (when (frame-live-p f) (x-change-window-property \"STEAM_GAME\" (list $app_id) f \"CARDINAL\" 32 t) (frame-parameter f 'outer-window-id)))" 2>/dev/null) || result=nil
+ if [[ $result != nil && -n $result ]]; then tagged=1; printf 'Steam frame window=%s\n' "$result"; break; fi
+ sleep .1
+done
+[[ $tagged == 1 ]] || echo 'Warning: could not tag Steam client frame'
+wait "$client_pid"

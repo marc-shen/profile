@@ -1,0 +1,7 @@
+[workspace]
+name = "deck-fd"
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[dependencies]
+fd-find = "==10.5.0"

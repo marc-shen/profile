@@ -1,0 +1,23 @@
+#%Module1.0
+
+proc ModulesHelp { } {
+    puts stderr "FFTW 3.3.11 built with GCC."
+    puts stderr "Provides serial, POSIX-thread, and OpenMP FFTW libraries."
+}
+
+module-whatis "FFTW 3.3.11 built with GCC for GNU/OpenMPI/MPICH applications"
+
+conflict fftw
+
+set root $env(HOME)/Software/apps/fftw/3.3.11-gcc
+
+setenv FFTW_ROOT    $root
+setenv FFTW_VERSION 3.3.11
+setenv FFTW_FLAVOR  gcc
+
+prepend-path PATH              $root/bin
+prepend-path LD_LIBRARY_PATH   $root/lib64
+prepend-path LIBRARY_PATH      $root/lib64
+prepend-path CPATH             $root/include
+prepend-path CMAKE_PREFIX_PATH $root
+prepend-path PKG_CONFIG_PATH   $root/lib64/pkgconfig

@@ -1,0 +1,17 @@
+#%Module1.0######################################################################
+##
+## sedona modulefile
+##
+#################################################################################
+
+proc ModulesHelp { } {
+  puts stderr "\tSedona by dnkasen \(pubsed\)\n"
+}
+
+prereq                 gcc/14.2
+prereq                 mpi/mpich-4.2.3
+prereq                 hdf5/1.14.6
+prereq                 gsl/2.8
+prereq                 lua/5.4
+
+setenv   SEDONA_HOME   /Users/marcshen/program/GitHub/pubsed/

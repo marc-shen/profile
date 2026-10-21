@@ -1,0 +1,4 @@
+#!/bin/bash
+set -e
+root=${SOFTWARE_HOME:-$HOME/Software}
+exec "$root/apps/emacs/current/launch/emacs" "$@"

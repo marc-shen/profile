@@ -1,0 +1,62 @@
+#%Module1.0#####################################################################
+##
+## HDF5-MPI 1.14.6 Modulefile
+## Optimized for MPI-accelerated HDF5 development
+##
+################################################################################
+proc ModulesHelp { } {
+    puts stderr "\n\tHDF5 1.14.6 with MPI Parallel Support"
+}
+#    puts stderr "\tRecommended compilers:"
+#    puts stderr "\t  C: h5pcc (MPI wrapper)"
+#    puts stderr "\t  Fortran: h5pfc (MPI wrapper)"
+#    puts stderr "\tBinaries: $basedir/bin\n"
+# }
+
+module-whatis "Parallel HDF5 1.14.6 with MPI-IO support"
+
+# Hard dependencies
+conflict        hdf5 
+prereq          gcc/14.2
+prereq          mpi/openmpi-5.0.7
+
+set             basedir          /opt/homebrew/Cellar/hdf5-mpi/1.14.6
+set             version          1.14.6
+
+# Priority PATH prepend for MPI wrappers
+prepend-path    PATH             $basedir/bin
+prepend-path    MANPATH          $basedir/share/man
+
+# Library configurations (RPATH safe)
+prepend-path    LD_LIBRARY_PATH  $basedir/lib
+prepend-path    LIBRARY_PATH     $basedir/lib
+prepend-path    PKG_CONFIG_PATH  $basedir/lib/pkgconfig
+
+# MPI-aware compiler wrappers
+setenv          HDF5_CC          $basedir/bin/h5pcc
+setenv          HDF5_CXX         $basedir/bin/h5pc++
+setenv          HDF5_FC          $basedir/bin/h5pfc
+setenv          HDF5_F90         $basedir/bin/h5pfc
+
+# Development flags (MPI optimized)
+setenv          HDF5_MPI_FLAGS   "-DOMPI_SKIP_MPICXX -DH5_HAVE_PARALLEL"
+setenv          HDF5_CPPFLAGS    "-I$basedir/include $env(HDF5_MPI_FLAGS)"
+setenv          HDF5_LDFLAGS     "-L$basedir/lib -Wl,-rpath,$basedir/lib"
+setenv          HDF5_LIBS        "-lhdf5_fortran -lhdf5_hl_fortran -lhdf5_hl -lhdf5"
+
+# Fortran-specific configurations
+setenv          FORTRAN_LIBS     "$basedir/lib/libhdf5_fortran.dylib"
+setenv          FORTRAN_INCLUDE  "$basedir/include"
+
+# Compatibility with CMake FindHDF5
+setenv          HDF5_ROOT        $basedir
+setenv          HDF5_DIR         $basedir
+
+# Diagnostic info
+# if { [ module-info mode load ] } {
+#     puts stderr "--> HDF5 MPI Wrappers Activated:"
+#     puts stderr "   C Compiler:    $env(HDF5_CC)"
+#     puts stderr "   Fortran Comp:  $env(HDF5_FC)"
+#     puts stderr "   MPI Flags:     $env(HDF5_MPI_FLAGS)"
+#     puts stderr "   Test command:  h5pfc simple.f90 -o h5test\n"
+# }

@@ -1,0 +1,20 @@
+#%Module1.0
+
+proc ModulesHelp { } {
+    puts stderr "Build and runtime dependencies for EMPi-Fortran with OpenMPI."
+    puts stderr "GFortran + OpenMPI + parallel HDF5 1.14.6 + FFTW 3.3.11."
+    puts stderr "Slurm srun defaults to PMIx v5."
+}
+
+module-whatis "EMPi-Fortran dependency environment: OpenMPI, parallel HDF5, OpenMP, and FFTW"
+
+conflict empi-fortran
+conflict mpi/mpich-x86_64
+conflict intel/mpi
+conflict empi/mpich
+
+prereq mpi/openmpi-x86_64
+prereq hdf5/1.14.6-openmpi
+prereq fftw/3.3.11-gcc
+
+setenv SLURM_MPI_TYPE pmix_v5

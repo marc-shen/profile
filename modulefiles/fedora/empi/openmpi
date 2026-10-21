@@ -1,0 +1,30 @@
+#%Module1.0
+
+proc ModulesHelp { } {
+    puts stderr "Load the EMPi uv environment with OpenMPI."
+}
+
+module-whatis "EMPi uv environment with OpenMPI and PMIx v5"
+
+module load mpi/openmpi-x86_64
+conflict empi/mpich
+
+set project_root $env(HOME)/projects/EMPi
+set venv_root    $project_root/.venv_openmpi
+
+if { ! [file isdirectory $venv_root] } {
+    puts stderr "EMPi virtual environment does not exist:"
+    puts stderr "  $venv_root"
+    puts stderr ""
+    puts stderr "Create it first with:"
+    puts stderr "  cd $project_root"
+    puts stderr "  uv sync --extra mpi"
+    break
+}
+
+setenv EMPI_ROOT $project_root
+setenv VIRTUAL_ENV $venv_root
+prepend-path PATH $venv_root/bin
+unsetenv PYTHONHOME
+
+setenv SLURM_MPI_TYPE pmix_v5

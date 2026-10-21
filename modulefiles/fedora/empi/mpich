@@ -1,0 +1,26 @@
+#%Module1.0
+
+proc ModulesHelp { } {
+    puts stderr "Load the EMPi uv environment with MPICH."
+}
+
+module-whatis "EMPi uv environment with MPICH and PMI-2"
+
+module load mpi/mpich-x86_64
+conflict empi/openmpi
+
+set project_root $env(HOME)/projects/EMPi
+set venv_root    $project_root/.venv_mpich
+
+if { ! [file isdirectory $venv_root] } {
+    puts stderr "MPICH virtual environment does not exist:"
+    puts stderr "  $venv_root"
+    break
+}
+
+setenv EMPI_ROOT $project_root
+setenv VIRTUAL_ENV $venv_root
+prepend-path PATH $venv_root/bin
+unsetenv PYTHONHOME
+
+setenv SLURM_MPI_TYPE pmi2

@@ -1,0 +1,4 @@
+# Optional MCP tools already used on this Mac; install only where needed.
+arxiv-mcp-server
+markitdown-mcp
+zotero-mcp-server

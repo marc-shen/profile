@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+root=${SOFTWARE_HOME:-$HOME/Software}
+[[ ! -r $root/env.sh ]] || source "$root/env.sh"
+# Optional machine choice of native binary (not a frontend invoking emacsclient).
+if [[ -n ${EMACS_BINARY:-} ]]; then exec "$EMACS_BINARY" --fg-daemon; fi
+for binary in "$root/bin/emacs-x11" "$root/bin/emacs-real" /Applications/Emacs.app/Contents/MacOS/Emacs /usr/bin/emacs; do
+ [[ ! -x $binary ]] || exec "$binary" --fg-daemon
+done
+echo 'No native Emacs binary. Set EMACS_BINARY in Software/config/local/env.sh.' >&2
+exit 1

@@ -1,0 +1,7 @@
+[workspace]
+name = "deck-zoxide"
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[dependencies]
+zoxide = "==0.10.0"

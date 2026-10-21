@@ -1,0 +1,10 @@
+# Copy to ~/Software/config/local/zshrc; never commit credentials.
+# Sourced after shared setup, before syntax highlighting.
+# export PROFILE_HIGHLIGHTER=fast  # fast or standard (one highlighter only)
+# export NVM_DIR="$HOME/.nvm"
+# [[ ! -s "$NVM_DIR/nvm.sh" ]] || source "$NVM_DIR/nvm.sh"
+# export PNPM_HOME="$HOME/Library/pnpm"  # macOS, if installed
+# path=("$PNPM_HOME" $path)
+# export PROXY_URL=http://127.0.0.1:7897
+# export ALL_PROXY_URL=socks5://127.0.0.1:7897
+# export OPENROUTER_API_KEY=...  # local only

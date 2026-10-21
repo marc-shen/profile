@@ -1,0 +1,24 @@
+#%Module1.0
+
+proc ModulesHelp { } {
+    puts stderr "FFTW 3.3.11 built with IntelLLVM 2026.1."
+    puts stderr "Provides serial, POSIX-thread, and OpenMP FFTW libraries."
+}
+
+module-whatis "FFTW 3.3.11 built with IntelLLVM 2026.1"
+
+conflict fftw
+prereq intel/compiler-intel-llvm/2026.1.1
+
+set root $env(HOME)/Software/apps/fftw/3.3.11-intel
+
+setenv FFTW_ROOT    $root
+setenv FFTW_VERSION 3.3.11
+setenv FFTW_FLAVOR  intel
+
+prepend-path PATH              $root/bin
+prepend-path LD_LIBRARY_PATH   $root/lib64
+prepend-path LIBRARY_PATH      $root/lib64
+prepend-path CPATH             $root/include
+prepend-path CMAKE_PREFIX_PATH $root
+prepend-path PKG_CONFIG_PATH   $root/lib64/pkgconfig
