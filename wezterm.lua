@@ -6,12 +6,13 @@ local act = wezterm.action
 local config = wezterm.config_builder()
 
 local mod = {}
-mod.SUPER = 'SUPER'
-mod.SUPER_REV = 'SUPER|CTRL'
+local is_macos = wezterm.target_triple:find('apple') ~= nil
+mod.SUPER = is_macos and 'SUPER' or 'CTRL|SHIFT'
+mod.SUPER_REV = is_macos and 'SUPER|CTRL' or 'CTRL|SHIFT|ALT'
 
 -- Note: These are global variables and not part of the config table
-initial_cols = 120
-initial_rows = 60
+config.initial_cols = 120
+config.initial_rows = 60
 
 -- Font settings
 config.font = wezterm.font_with_fallback {
@@ -28,7 +29,7 @@ config.window_frame = {
 config.enable_scroll_bar = true
 
 config.window_background_opacity = 0.75
-config.macos_window_background_blur = 100
+if is_macos then config.macos_window_background_blur = 100 end
 
 wezterm.on("gui-startup", function(cmd)
   local screen = wezterm.gui.screens().active

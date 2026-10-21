@@ -1,43 +1,19 @@
 #!/usr/bin/env bash
-
 set -euo pipefail
-
-if [ "$#" -eq 0 ]; then
-    set -- "$PWD"
+if [[ -n ${SteamAppId:-}${SteamGameId:-} && -x ${SOFTWARE_HOME:-$HOME/Software}/bin/emacs-steam ]]; then
+ exec "${SOFTWARE_HOME:-$HOME/Software}/bin/emacs-steam" "$@"
 fi
-
-# Resolve relative paths before emacsclient changes the selected frame's
-# context.  Keep arguments in an array: an eval-based reconstruction would
-# misparse quotes and allow shell syntax embedded in a file name to execute.
-arguments=()
-
-for argument in "$@"; do
-    case "$argument" in
-        -*|+[0-9]*)
-            arguments+=("$argument")
-            ;;
-        /*)
-            arguments+=("$argument")
-            ;;
-        *)
-            arguments+=("$PWD/$argument")
-            ;;
-    esac
+script=${BASH_SOURCE[0]}
+while [[ -L $script ]]; do
+ dir=$(cd -P "$(dirname "$script")" && pwd)
+ script=$(readlink "$script")
+ [[ $script == /* ]] || script=$dir/$script
 done
-
-# Recover the launchd service if it is temporarily unavailable, but never use
-# an empty alternate editor: that would start a second, unmanaged daemon.
-if ! emacsclient --eval t >/dev/null 2>&1 && [ "$(uname -s)" = Darwin ]; then
-    launchctl kickstart "gui/$(id -u)/org.gnu.emacs.daemon" >/dev/null 2>&1 || true
-    for _ in {1..20}; do
-        emacsclient --eval t >/dev/null 2>&1 && break
-        sleep 0.25
-    done
+repo=$(cd "$(dirname "$script")/.." && pwd -P)
+source "$repo/scripts/emacs-client.sh"
+[[ $# -gt 0 ]] || set -- "$PWD"
+# Terminal clients must stay attached; GUI em is asynchronous.
+if [[ ${frame[0]} == --tty ]]; then
+ exec "$client" --socket-name=server "${frame[@]}" "$@"
 fi
-
-if emacsclient -n -c "${arguments[@]}" >/dev/null 2>&1; then
-    exit 0
-fi
-
-echo "Emacs server is not running" >&2
-exit 1
+exec "$client" --socket-name=server --no-wait "${frame[@]}" "$@"

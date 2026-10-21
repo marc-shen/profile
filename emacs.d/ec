@@ -1,17 +1,12 @@
 #!/usr/bin/env bash
-
 set -euo pipefail
-
-# A short preflight lets launchd recover the service without allowing
-# emacsclient's empty alternate editor to create an unmanaged second daemon.
-if ! emacsclient --eval t >/dev/null 2>&1 && [ "$(uname -s)" = Darwin ]; then
-    launchctl kickstart "gui/$(id -u)/org.gnu.emacs.daemon" >/dev/null 2>&1 || true
-    for _ in {1..20}; do
-        emacsclient --eval t >/dev/null 2>&1 && break
-        sleep 0.25
-    done
-fi
-
-# External programs such as Git must wait until editing is finished.  Do not
-# add --no-wait here: `git commit' must not continue before `server-edit'.
-exec emacsclient --create-frame "$@"
+script=${BASH_SOURCE[0]}
+while [[ -L $script ]]; do
+ dir=$(cd -P "$(dirname "$script")" && pwd)
+ script=$(readlink "$script")
+ [[ $script == /* ]] || script=$dir/$script
+done
+repo=$(cd "$(dirname "$script")/.." && pwd -P)
+source "$repo/scripts/emacs-client.sh"
+# Wait until C-x # / server-edit; required by Git and EDITOR.
+exec "$client" --socket-name=server "${frame[@]}" "$@"

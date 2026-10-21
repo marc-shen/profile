@@ -4,3 +4,19 @@ emacs.d/eln-cache/
 emacs.d/var/
 # Written by the Customize interface, so its contents describe one machine.
 emacs.d/custom.el
+
+# Local Emacs runtime when ~/.emacs.d links to the whole checkout.
+emacs.d/tree-sitter/
+emacs.d/projects.eld
+emacs.d/projects
+emacs.d/tramp
+emacs.d/auto-save-list/
+emacs.d/eshell/
+emacs.d/transient/
+emacs.d/log/
+emacs.d/agent/
+emacs.d/tramp-rpc/
+**/__pycache__/
+.DS_Store
+
+emacs.d/.cache/
