@@ -60,7 +60,15 @@ else
 fi
 alias ll='ls -alF' la='ls -A' l='ls -CF' sz='source ~/.zshrc'
 alias ga='git add . && git commit'
-alias gap='git add -p && git commit && git push'
+unalias gap 2>/dev/null
+function gap {
+ local add_mode=-A
+ if [[ ${1:-} == -p || ${1:-} == --patch ]]; then
+  add_mode=-p
+  shift
+ fi
+ git add "$add_mode" && git commit "$@" && git push
+}
 proxy-on() {
  export http_proxy=${PROXY_URL:-http://127.0.0.1:7897}
  export https_proxy=$http_proxy all_proxy=${ALL_PROXY_URL:-socks5://127.0.0.1:7897}
