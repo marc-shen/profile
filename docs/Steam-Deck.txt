@@ -4,6 +4,19 @@ Steam Deck 部署与维护
 遵循 Software.txt。用户程序、源码、构建依赖都在 ~/Software。
 Git 使用 /usr/bin/git；不执行 pacman，不关闭 SteamOS 只读。
 
+桌面模式插电不自动休眠（用户级持久化）：
+  python3 platform/steamdeck/scripts/install-desktop-power.py
+设置 ~/.config/powerdevilrc 的 [AC][SuspendAndShutdown] AutoSuspendAction=0，
+立即让 PowerDevil 重载。应用脚本独立复制到 ~/Software/scripts/desktop-ac-awake.sh，
+并在 ~/.config/systemd/user/plasma-powerdevil.service.d/90-profile-ac-awake.conf
+添加 ExecStartPre，每次桌面电源服务启动前重新应用。两处都在 Home 下，
+SteamOS 的系统分区更新不会替换这些用户文件；不需要关闭系统只读。
+仅管理插电时的自动休眠，不修改电池、屏幕熄灭或电源按钮设置。
+安装前的备份在 Software/backups/desktop-power-*。
+若以后希望改回由 KDE 界面完全管理，删除上述 drop-in，执行
+  systemctl --user daemon-reload
+然后在系统设置中调整插电休眠策略。
+
   ./bootstrap.sh install
   bash scripts/install-emacs-packages.sh
   ./bootstrap.sh service
@@ -21,6 +34,10 @@ Steam 非 Steam 游戏快捷方式：
 用户名不是 deck 时使用实际 Home。不要开启 Proton 兼容层。
 启动器使用 SteamAppId 标记客户端窗口，在窗口关闭前保持 Steam 启动进程。
 所有客户端连接 emacs.service 的默认 server，不另建 emacs-steam.service。
+KDE 的 XAUTHORITY 指向每次登录生成的临时文件。em/ec、emacs 和 Steam 启动器
+通过 scripts/emacs-x11-auth.sh 将当前授权合并到用户私有 ~/.Xauthority（0600），
+后台启动时固定使用该路径，避免早于桌面启动的 daemon 无法连接新桌面。
+使用 SteamOS 已有的 xauth，不修改系统文件，也不需要放宽 X server 访问控制。
 切换游戏/桌面模式会关闭原 X 服务，GTK daemon 可能退出并由 systemd 重启；
 切换前保存文件。单一后台不意味着它能跨图形服务器关闭保留内存缓冲区。
 
@@ -33,3 +50,33 @@ Steam 非 Steam 游戏快捷方式：
 确认缓冲区已保存后，用 systemctl --user restart emacs 启用新构建。
 共享 emacs.d 保持完整；二进制模块和个人运行数据不跨平台同步。
 2026-10-21 实机迁移、版本和备份见 environment-migration-2026-10-21.md。
+
+可选软件（不加入基础环境的自动安装，按需执行）：
+  python3 scripts/install-wezterm.py
+  python3 scripts/install-texlive.py
+国内可给 TeX Live 指定镜像：
+  python3 scripts/install-texlive.py --repository https://mirrors.tuna.tsinghua.edu.cn/CTAN/systems/texlive/tlnet
+
+WezTerm 从上游最新稳定 release 下载 AppImage，校验 SHA256 后解包，
+安装到 apps/wezterm/<version>，不需要 FUSE。bin/wezterm 为统一入口，
+桌面菜单有 WezTerm；沿用 ~/.wezterm.lua，默认不自动全屏，F12 手动切换。
+再次运行安装脚本检查最新稳定版；旧版本保留，current 指向验证过的版本。
+
+TeX Live 使用上游发行版，安装到 apps/texlive/<year>，由 tlmgr 管理宏包。
+默认 medium 方案，另加中文、latexextra、bibtexextra、latexmk、biber。
+不安装离线文档和源码；此选择可以通过 tlmgr 更改。
+bin 提供 xelatex、pdflatex、lualatex、latexmk、biber、tlmgr 等常用命令；
+module load texlive/current 可将全部 TeX Live 命令加入当前终端。
+个人宏包：~/Software/share/texmf；跨年度本地宏包：Software/share/texmf-local。
+个人缓存：~/Software/cache/texlive/<year>；配置：~/Software/config/texlive/<year>。
+  tlmgr update --self --all             # 更新当前年度
+  tlmgr install <package>              # 补装宏包
+  tlmgr install scheme-full            # 如需全部宏包
+  tlmgr install --reinstall --with-doc fontspec  # 补装某包的离线文档
+跨年度重新运行安装脚本，创建新的年度目录；不要让 tlmgr 跨年度原地升级。
+安装记录见各应用 receipt.json；TeX 宏包清单由 tlmgr list --only-installed 查看。
+
+上游说明：
+  https://wezterm.org/install/linux.html
+  https://tug.org/texlive/quickinstall.html
+  https://tug.org/texlive/doc/tlmgr.html

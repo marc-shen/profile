@@ -2,6 +2,7 @@ git
 python3
 curl
 ca-certificates
+xauth
 environment-modules
 build-essential
 gfortran

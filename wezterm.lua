@@ -10,9 +10,9 @@ local is_macos = wezterm.target_triple:find('apple') ~= nil
 mod.SUPER = is_macos and 'SUPER' or 'CTRL|SHIFT'
 mod.SUPER_REV = is_macos and 'SUPER|CTRL' or 'CTRL|SHIFT|ALT'
 
--- Note: These are global variables and not part of the config table
-config.initial_cols = 120
-config.initial_rows = 60
+-- Initial window size; F12 toggles fullscreen manually.
+config.initial_cols = 80
+config.initial_rows = 24
 
 -- Font settings
 config.font = wezterm.font_with_fallback {
@@ -31,18 +31,18 @@ config.enable_scroll_bar = true
 config.window_background_opacity = 0.75
 if is_macos then config.macos_window_background_blur = 100 end
 
-wezterm.on("gui-startup", function(cmd)
-  local screen = wezterm.gui.screens().active
-  -- local ratio = 0.4
-  -- local width, height = screen.width * ratio, screen.height * ratio
-  local tab, pane, window = wezterm.mux.spawn_window {
-    position = {
-      x = (screen.width) / 2,
-      y = (screen.height) / 2,
-      origin = 'ActiveScreen' }
-  }
-  -- window:gui_window():set_inner_size(width, height)
-end)
+if is_macos then
+  wezterm.on('gui-startup', function(cmd)
+    local screen = wezterm.gui.screens().active
+    cmd = cmd or {}
+    cmd.position = cmd.position or {
+      x = screen.width / 2,
+      y = screen.height / 2,
+      origin = 'ActiveScreen',
+    }
+    wezterm.mux.spawn_window(cmd)
+  end)
+end
 
 config.color_scheme = 'Monokai (base16)'
 -- config.color_scheme = 'Monokai Pro' 

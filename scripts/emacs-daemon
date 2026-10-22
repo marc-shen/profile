@@ -2,6 +2,9 @@
 set -euo pipefail
 root=${SOFTWARE_HOME:-$HOME/Software}
 [[ ! -r $root/env.sh ]] || source "$root/env.sh"
+source "${PROFILE_HOME:-$root/config/profile}/scripts/emacs-x11-auth.sh"
+# Do not retain KDE's temporary per-login authority filename in a long-lived daemon.
+if [[ $(uname -s) == Linux ]]; then export XAUTHORITY="$HOME/.Xauthority"; fi
 # Optional machine choice of native binary (not a frontend invoking emacsclient).
 if [[ -n ${EMACS_BINARY:-} ]]; then exec "$EMACS_BINARY" --fg-daemon; fi
 for binary in "$root/bin/emacs-x11" "$root/bin/emacs-real" /Applications/Emacs.app/Contents/MacOS/Emacs /usr/bin/emacs; do

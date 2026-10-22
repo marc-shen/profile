@@ -2,6 +2,7 @@ git
 python3
 curl
 ca-certificates
+xorg-x11-xauth
 environment-modules
 gcc
 gcc-c++

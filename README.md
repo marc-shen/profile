@@ -22,7 +22,7 @@
 - **Zsh**：Modules、fzf、fzf-tab、zsh-completions、zsh-autosuggestions、zsh-syntax-highlighting、zoxide 和 Starship。
 - **终端工具**：fd、ripgrep、fzf、zoxide、Starship、jq、bat、Neovim、Zsh，清单见 [tools.json](manifests/tools.json)。Neovim 配置随仓库提供，基于 NvChad；其插件由 Neovim 自身的插件管理器管理。
 - **环境管理**：官方独立 Pixi、uv；可选 fortls、pyright 和 MCP 工具；Environment Modules 用于按需选择编译器和科研环境。
-- **终端配置**：Starship 和 WezTerm 配置。部署会链接 WezTerm 配置，但不安装 WezTerm 应用。
+- **终端配置**：Starship 和 WezTerm 配置。部署会链接 WezTerm 配置，但不安装 WezTerm 应用。共享配置默认以 80 列 × 24 行窗口启动；Linux 窗口大小也受桌面窗口管理器控制，不自动全屏，F12 可手动切换全屏。
 
 安装需求通常不固定版本，显式更新时解析可用版本；已安装程序的精确依赖保存在本机 `pixi.lock` 和 `receipt.json` 中。每个基础 CLI 使用独立 Pixi 环境，是否包含 Python 由依赖决定，不会为所有 CLI 默认安装 Python。Yazi 不在当前方案中。
 
@@ -102,6 +102,15 @@ cd ~/Software/config/profile
 cd ~/Software/config/profile
 bash scripts/install-uv-tools.sh       # fortls、pyright
 ```
+
+Steam Deck 可另行安装 WezTerm 和 TeX Live，均保存在 Software 中，不关闭系统只读：
+
+```sh
+python3 scripts/install-wezterm.py
+python3 scripts/install-texlive.py
+```
+
+这两项不随基础环境自动安装。来源、中文排版方案和更新命令见 [Steam Deck 维护说明](docs/Steam-Deck.txt)。
 
 可选 MCP 工具：
 

@@ -14,6 +14,7 @@ for arg in "$@"; do
   *) files+=("$arg") ;;
  esac
 done
+if [[ $terminal == 0 ]]; then source "$PROFILE_HOME/scripts/emacs-x11-auth.sh"; fi
 systemctl --user start emacs.service
 client="$HOME/Software/bin/emacsclient"
 ready=0

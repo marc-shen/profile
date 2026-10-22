@@ -2,6 +2,7 @@
 set -euo pipefail
 unset LD_LIBRARY_PATH LD_PRELOAD
 source "$HOME/Software/env.sh"
+source "$PROFILE_HOME/scripts/emacs-x11-auth.sh"
 mkdir -p "$HOME/Software/logs/emacs"
 exec >>"$HOME/Software/logs/emacs/steam-client.log" 2>&1
 client="$HOME/Software/bin/emacsclient"

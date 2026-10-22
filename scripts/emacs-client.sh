@@ -1,6 +1,7 @@
 # Sourced by em/ec. Never starts an unmanaged alternate daemon.
 root=${SOFTWARE_HOME:-$HOME/Software}
 [[ ! -r $root/env.sh ]] || source "$root/env.sh"
+source "${PROFILE_HOME:-$root/config/profile}/scripts/emacs-x11-auth.sh"
 if [[ $(uname -s) == Darwin && -x /Applications/Emacs.app/Contents/MacOS/bin/emacsclient ]]; then
  client=/Applications/Emacs.app/Contents/MacOS/bin/emacsclient
 else
