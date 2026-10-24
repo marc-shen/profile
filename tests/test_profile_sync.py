@@ -81,6 +81,18 @@ target.chmod(0o755)
         for option in ['--component', '--tool', '--reinstall', '--install-missing', '--scope', '--prefix']:
             self.assertNotIn(option, result.stdout)
 
+    def test_removed_install_missing_option_is_rejected(self):
+        for action in ['apply', 'sync']:
+            result = sp.run([sys.executable, '-B', str(self.repo / 'scripts/bootstrap.py'),
+                             action, '--install-missing'], env=self.env,
+                            capture_output=True, text=True)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn('unrecognized arguments: --install-missing', result.stderr)
+            direct = self.run_sync(action, '--install-missing')
+            self.assertEqual(direct.returncode, 2)
+            self.assertIn('unrecognized arguments: --install-missing', direct.stderr)
+        self.assertFalse(self.root.exists())
+
     def test_manual_git_update_is_compared_with_last_applied_snapshot(self):
         self.install_stubs()
         result = self.run_sync()

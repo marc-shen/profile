@@ -57,7 +57,7 @@ cd ~/Software/config/profile
 | `--config-only` | 跳过依赖安装与 LSP 握手，只部署和检查配置；sync 仍会拉取 Git |
 | `--only emacs` / `shell` / `helix` | 限定配置范围，默认 all；Shell 范围沿用现有规则，也部署 Helix 配置 |
 
-`--help` 查看上述选项。旧 `--install-missing` 保留兼容，作用与现在的默认行为相同，无需再写。`--prefix`、`--scope` 等历史参数仍兼容，但不出现在日常帮助中；apply/sync 仍只支持个人部署。
+`--help` 查看上述选项。apply/sync 只支持个人部署，日常使用不需要额外参数。
 
 首次从旧版脚本升级，需要先手动 `git pull --ff-only`，再运行 `apply`。首次装机仍使用 README 的安装流程；`apply` 不会隐式源码编译缺失的 Emacs 本体，也不负责安装全部 ELPA 包或 Tree-sitter grammar。
 
