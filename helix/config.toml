@@ -1,0 +1,49 @@
+theme = "monokai"
+
+[editor]
+line-number = "relative"
+mouse = true
+
+[editor.cursor-shape]
+insert = "bar"
+normal = "block"
+select = "underline"
+
+[editor.whitespace]
+render = "all"
+
+[editor.indent-guides]
+render = true
+skip-levels = 1
+
+[editor.statusline]
+left = ["mode", "spinner"]
+center = ["file-name"]
+right = ["diagnostics", "selections", "position", "file-encoding", "file-line-ending", "file-type"]
+separator = "|"
+# mode.normal = "普通模式"
+# mode.insert = "插入模式"
+# mode.select = "选择模式"
+
+[editor.auto-save]
+focus-lost = true
+
+[editor.lsp]
+display-messages = true
+
+[editor.soft-wrap]
+enable = true
+
+[keys.insert]
+j = { k = "normal_mode" }
+C-b = "move_char_left"
+C-f = "move_char_right"
+C-p = "move_line_up"
+C-n = "move_line_down"
+
+[keys.normal.z]
+w = [":toggle soft-wrap.enable", ":redraw"]
+r = [":toggle line-number absolute relative"]
+
+[keys.normal]
+C-y = "file_picker"

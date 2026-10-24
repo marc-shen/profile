@@ -28,18 +28,51 @@ git push
 
 `git commit` 只创建本地提交；只有 `git push` 成功后，其他设备才能从远程取得它。默认 `git push` 依赖分支的远程配置，GitHub 推送认证需要事先配置。
 
-### 在接收设备拉取
+### 在接收设备快速同步
+
+已经部署过的个人设备，推荐：
 
 ```sh
 cd ~/Software/config/profile
-git status
-git branch --show-current
-git pull --ff-only
+./bootstrap.sh sync
+# 需要一起补装新增工具、插件和语言服务时：
+./bootstrap.sh sync --install-missing
 ```
 
-两端应使用同一个仓库和分支。`--ff-only` 只接受快进更新，遇到分叉会停止，留给你明确选择合并方式。[Git 官方说明](https://git-scm.com/docs/git-pull)
+`sync` 要求工作树干净，使用 `git pull --ff-only`，然后执行**刚拉取的新版本**部署脚本。不会自动 stash、丢弃本地修改或强制合并。两端应使用同一分支。[Git 官方说明](https://git-scm.com/docs/git-pull)
 
-首次部署已建立的软链接会自然指向更新后的文件，不需要每次重新复制 `.zshrc` 或 `.emacs.d`。
+如果已手动 `git pull`，或正在调试本地配置：
+
+```sh
+./bootstrap.sh apply --plan                 # 离线预览，不写入、不下载
+./bootstrap.sh apply                        # 部署配置并报告缺失依赖
+./bootstrap.sh apply --install-missing      # 同时补装缺失依赖
+./bootstrap.sh apply --only emacs           # 只更新 Emacs 配置、入口及服务定义
+./bootstrap.sh check
+```
+
+首次从旧版脚本升级，需要先手动 `git pull --ff-only`，再运行 `apply`。首次装机仍使用 README 的安装流程；`apply --install-missing` 不会隐式源码编译缺失的 Emacs 本体，也不负责安装全部 ELPA 包或 Tree-sitter grammar。
+
+`apply` 会修复配置链接、补齐新命令、更新 macOS 的 Emacs Client.app、执行现有的配置迁移，并写入服务定义；不停止或重启 Emacs。Linux 写入服务定义后执行 `daemon-reload`，不启动服务；macOS 仅写 plist。首次启动仍使用 `./bootstrap.sh service`。Dock 应用更新后退出并重新打开 Emacs Client，后台仍可保留。
+
+部署状态保存在 `Software/data/profile/deployment.json`，按 Shell、Emacs、Helix 分别记录内容指纹与提交号。因此先手动拉取也不会遗漏待部署变化；本地未提交配置可以 `apply`，状态会标记 dirty。失败时保留上次成功的配置快照及失败步骤，重跑即可继续。缺失依赖会单独记录：仅配置已部署但仍有依赖缺失时退出码为 **2**，执行失败为 **1**，完成为 **0**。日志位于 `Software/logs/profile-*.log`。
+
+重复 `apply` 仍会检查并修复链接，已部署内容保持不变。它不是整个桌面环境的事务回滚；部分步骤失败时，已完成的操作可能已经生效，原配置备份位于 `Software/backups/`。
+
+清单中已安装的工具不因 `apply` 自动升级或卸载。需要升级时显式选择：
+
+```sh
+./bootstrap.sh upgrade --plan
+./bootstrap.sh upgrade --component tools --tool fd --tool ripgrep
+./bootstrap.sh upgrade --component languages
+./bootstrap.sh upgrade --component languages --tool python --tool fortran
+./bootstrap.sh upgrade --component plugins
+./bootstrap.sh upgrade --component managers
+./bootstrap.sh upgrade --component emacs
+./bootstrap.sh upgrade --component all      # 包含 Linux Emacs 源码构建
+```
+
+默认 `upgrade` 只升级清单中的基础 CLI 工具；`--tool` 仅用于 tools/languages，不能与其他 component 混用。软件升级后执行 `apply`，再按提示重新加载应用。`apply/sync/upgrade` 当前面向个人安装；管理员 `/opt/Software` 部署仍是单独且未完成端到端验证的流程。
 
 ## 拉取后怎样生效
 
@@ -48,13 +81,16 @@ git pull --ff-only
 | `zshrc`、Shell 函数/别名 | `source ~/.zshrc`，或重开终端 |
 | `shell/env.sh` / 本机环境入口 | 新开登录 Shell；已运行的 Emacs 等进程需单独重启 |
 | `starship.toml` | 已启用 Starship 的新提示符读取配置；必要时重开终端 |
+| `helix/` 配置 | 首次运行 `./bootstrap.sh link --only helix`；之后在 Helix 中执行 `:config-reload` 或重新启动 |
 | Emacs Lisp 配置 | 保存缓冲区后重启后台；具体命令见维护指南 |
 | Emacs 包清单新增依赖 | `bash scripts/install-emacs-packages.sh`，再重启 Emacs |
 | `manifests/tools.json` 新增或调整工具 | `software-app install 工具名`；多个工具名可一起传入 |
 | Zsh 插件来源 | `python3 scripts/plugins.py`，再重开终端 |
-| `manifests/uv-tools.txt` | `bash scripts/install-uv-tools.sh` |
-| 新增配置链接、部署脚本变化 | `./bootstrap.sh link` |
+| `manifests/language-servers.json` / 默认 Python 工具 | `python3 scripts/language-servers.py install`；升级用 `upgrade --component languages` |
+| 新增配置链接、部署脚本变化 | `./bootstrap.sh apply` |
 | Emacs 服务定义变化 | `./bootstrap.sh service`，保存工作后按维护指南重启/重载服务 |
+
+Neovim 配置现归档于 `archieve/nvim/`。拉取后运行 `./bootstrap.sh link --only shell`，会备份并移走指向此 checkout 的旧 `~/.config/nvim` 链接；独立配置目录和其他来源的链接不受影响。新开终端后，profile 不再设置 Neovim 编辑器或 `vim` / `vimdiff` 别名。已安装的 Neovim 程序及插件数据保留，不会自动删除。
 
 清单是期望配置，不会自动卸载已移除的工具。`uv-tools-mcp.txt` 是可选项目列表，不由默认 uv 安装命令自动遍历；需要的包作为参数传给安装脚本。
 
@@ -109,7 +145,7 @@ git rebase '@{upstream}'
 
 | 内容 | 是否通过本仓库同步 |
 |---|---|
-| 已跟踪的 Zsh、Emacs、Neovim、Starship、WezTerm 配置 | 是 |
+| 已跟踪的 Zsh、Emacs、Helix、Starship、WezTerm 配置及归档文件 | 是 |
 | 安装脚本、软件清单、可复用 modulefile 模板 | 是 |
 | `~/Software/config/local/env.sh`、`local/zshrc` | 否，本机设置 |
 | Emacs `custom.el`、ELPA、`.eln`、native 模块、历史、缓存 | 否，以 `.gitignore` 为准 |
@@ -120,4 +156,4 @@ Emacs Customize 保存到 `custom.el` 的设置不会自动到达其他设备。
 
 ## 新设备与已部署设备
 
-新设备先按 [README 的快速部署](../README.md#快速部署) 安装并建立链接。已经部署的设备，通常只需 **pull → 按修改类型重新加载**。不必为了一个别名或键位变化执行全套 `bootstrap.sh update`。
+新设备先按 [README 的快速部署](../README.md#快速部署) 安装并建立链接。已经部署的设备，通常使用 **sync → 按提示重新加载**。不必为了一个别名或键位变化执行全套 `bootstrap.sh update`。

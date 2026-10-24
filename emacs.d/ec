@@ -8,5 +8,6 @@ while [[ -L $script ]]; do
 done
 repo=$(cd "$(dirname "$script")/.." && pwd -P)
 source "$repo/scripts/emacs-client.sh"
+profile_emacs_stdin ec "$@"
 # Wait until C-x # / server-edit; required by Git and EDITOR.
 exec "$client" --socket-name=server "${frame[@]}" "$@"

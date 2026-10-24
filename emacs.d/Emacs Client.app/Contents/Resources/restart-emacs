@@ -1,0 +1,22 @@
+#!/bin/bash
+# Invoked only after the Dock application confirms loss of unsaved buffers.
+set -euo pipefail
+service="gui/$(id -u)/org.gnu.emacs.daemon"
+helper_directory=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+if info=$(launchctl print "$service" 2>/dev/null); then
+  old_pid=$(printf '%s\n' "$info" | awk '/^[[:space:]]*pid = / {print $3; exit}')
+  if [[ $old_pid =~ ^[0-9]+$ ]] && kill -0 "$old_pid" 2>/dev/null; then
+    # Kill only this user's managed daemon; do not match unrelated processes.
+    launchctl kill SIGKILL "$service"
+    for _ in {1..50}; do
+      kill -0 "$old_pid" 2>/dev/null || break
+      sleep 0.1
+    done
+    if kill -0 "$old_pid" 2>/dev/null; then
+      echo "Emacs daemon $old_pid did not exit; refusing to start another instance." >&2
+      exit 1
+    fi
+  fi
+fi
+# Handles both launchd auto-restart and an unloaded/missing service definition.
+exec /bin/bash "$helper_directory/activate-emacs" --new-window

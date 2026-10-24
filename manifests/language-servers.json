@@ -1,0 +1,9 @@
+{
+  "python": {"backend": "uv", "package": "basedpyright", "commands": ["basedpyright", "basedpyright-langserver"], "lsp": ["basedpyright-langserver", "--stdio"], "version": ["basedpyright", "--version"]},
+  "fortran": {"backend": "uv", "package": "fortls", "commands": ["fortls"], "lsp": ["fortls", "--disable_autoupdate"], "version": ["fortls", "--version"]},
+  "ruff": {"backend": "uv", "package": "ruff", "commands": ["ruff"], "lsp": ["ruff", "server"], "version": ["ruff", "--version"]},
+  "c-cpp": {"backend": "pixi", "package": "clang-tools", "commands": ["clangd"], "lsp": ["clangd"]},
+  "bash": {"backend": "pixi", "package": "bash-language-server", "commands": ["bash-language-server"], "lsp": ["bash-language-server", "start"]},
+  "json": {"backend": "pixi", "package": "vscode-langservers-extracted", "commands": ["vscode-json-language-server"], "lsp": ["vscode-json-language-server", "--stdio"]},
+  "yaml": {"backend": "pixi", "package": "yaml-language-server", "commands": ["yaml-language-server"], "lsp": ["yaml-language-server", "--stdio"]}
+}

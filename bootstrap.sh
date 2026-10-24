@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export PYTHONDONTWRITEBYTECODE=1
 repo=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 if ! command -v python3 >/dev/null; then
  case $(uname -s) in

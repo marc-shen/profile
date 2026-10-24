@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Install/update the shared Zsh plugins from upstream; refuse to discard local changes."""
 import os
+import argparse
 from pathlib import Path
 import subprocess as sp
 
 repo = Path(__file__).resolve().parents[1]
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--missing-only', action='store_true')
+args = parser.parse_args()
 root = Path(os.environ.get('SOFTWARE_HOME', str(Path.home() / 'Software')))
 plugins = root / 'share/zsh/plugins'
 plugins.mkdir(parents=True, exist_ok=True)
@@ -14,6 +18,9 @@ for line in (repo / 'manifests/zsh-plugins.sources').read_text().splitlines():
         continue
     name, _previous_commit, url = line.split()
     path = plugins / name
+    if args.missing_only and path.is_dir():
+        records[name] = {'url': url, 'commit': sp.check_output(['git', '-C', str(path), 'rev-parse', 'HEAD'], text=True).strip()}
+        continue
     if not path.exists():
         sp.run(['git', 'clone', '--depth=1', '--no-checkout', url, str(path)], check=True)
     else:

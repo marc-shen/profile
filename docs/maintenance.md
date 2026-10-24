@@ -10,14 +10,19 @@
 |---|---|---|
 | 查看平台与安装策略 | `./bootstrap.sh plan` | 概览，无安装动作；不是逐包差异报告 |
 | 检查入口和插件目录 | `./bootstrap.sh check` | 只读；不等于完整功能测试 |
-| 重新部署配置 | `./bootstrap.sh link` | 链接配置，必要时备份原文件；不安装软件 |
+| 快速同步 | `./bootstrap.sh sync` | 快进拉取，再部署和检查配置 |
+| 部署当前 checkout | `./bootstrap.sh apply` | 更新配置、命令、Dock 应用和服务定义；记录状态，不重启后台 |
+| 预览部署 | `./bootstrap.sh apply --plan` | 根据本机上次部署快照报告变化，无网络和写入 |
+| 补齐缺失依赖 | `./bootstrap.sh apply --install-missing` | 只补装缺失工具、插件、语言服务 |
+| 仅执行旧链接流程 | `./bootstrap.sh link` | 链接配置，必要时备份；不记录部署状态 |
 | 只重新部署 Shell 配置 | `./bootstrap.sh link --only shell` | 不部署 Emacs 配置 |
 | 只重新部署 Emacs 配置 | `./bootstrap.sh link --only emacs` | 不替换 Zsh 配置 |
 | 安装或更新指定基础工具 | `software-app install fd ripgrep` | 按当前清单解析版本，验证后切换入口 |
 | 更新管理器及指定基础工具 | `software-app update fd ripgrep` | 先更新 Pixi/uv，再更新指定工具 |
 | 仅更新官方管理器 | `python3 scripts/software.py managers` | Pixi、uv；不更新其他工具 |
 | 更新 Zsh 插件和管理器补全 | `python3 scripts/plugins.py` | 上游 Git HEAD，拒绝覆盖脏插件工作树 |
-| 安装/升级默认 Python CLI | `bash scripts/install-uv-tools.sh` | 默认 fortls、pyright；额外包可通过参数指定 |
+| 安装/升级默认 Python CLI | `bash scripts/install-uv-tools.sh` | 默认 fortls、basedpyright、ruff；额外包可通过参数指定 |
+| 升级语言服务 | `./bootstrap.sh upgrade --component languages` | 当前配置支持的 LSP 和 Ruff |
 | 维护完整安装环境 | `./bootstrap.sh update` | 管理器、全部基础 CLI、平台依赖、Emacs、插件，再部署配置 |
 
 `bootstrap.sh update` 在 Linux 会源码重编译 Emacs，在 Deck 还会构建 Modules；它不只是刷新配置，也不自动升级 ELPA、所有 uv 工具或个人科研环境。`--reinstall` 可让 Pixi 基础工具重装。
@@ -44,6 +49,39 @@ python3 scripts/inventory.py --system --output ~/Software/docs/installed.json
 
 **重启前先保存所有需要保留的缓冲区。** `ec` 的 `C-x #` 结束客户端编辑等待，并不会关闭后台。
 
+### Emacs 文件比较
+
+```sh
+ediff old.txt new.txt
+ediff "旧文件.txt" "目录/新 文件.txt"
+```
+
+`ediff` 接收两个可读的本地文件，支持相对路径；通过 `em` 复用当前后台，图形模式打开后返回终端，无图形环境时使用终端界面。配置默认左右比较，并把控制面板保留在同一个 Emacs 窗口中。`ediff --help` 查看命令格式。
+
+也可以在 Emacs 中执行 `M-x ediff-files` 选择文件，或用 `M-x ediff-buffers` 比较已打开的缓冲区。在 Ediff 控制面板中，`n` / `p` 切换差异，`a` 将当前差异从 A 复制到 B，`b` 从 B 复制到 A，`w a` / `w b` 保存，`?` 查看帮助，`q` 退出比较。修改文件缓冲区后需要保存才会写入磁盘；终端客户端比较结束后可用 `C-x 5 0` 关闭客户端 frame，返回 shell。
+
+新增命令的设备同步：更新 profile 后运行 `./bootstrap.sh link --only emacs`。已有 daemon 可执行 `M-:` 输入 `(setq ediff-window-setup-function 'ediff-setup-windows-plain ediff-split-window-function 'split-window-horizontally)`，让后续比较立即使用新布局，无需重启。
+
+### Emacs 终端输入
+
+`emacs` 是原生程序入口；`em` / `ec` 连接已有后台。原生 Emacs 和 emacsclient 不会自动把标准输入当作待编辑文本；本仓库的 `em` / `ec` 包装脚本提供此功能：
+
+```sh
+em file.txt other.txt             # 打开多个文件
+em +42:8 file.txt                 # 跳到第 42 行、第 8 列
+em .                             # 浏览当前目录
+ls -la | em                      # 输出作为文本导入，不是目录浏览器
+git diff | em                    # 导入差异文本
+printf '你好\n' | ec              # 导入并等待 C-x #
+em --stdin < output.txt           # 显式读入 stdin；单独的 - 也可以
+```
+
+无参数且 stdin 为管道或普通文件时自动导入，也可只传一个 `--stdin` / `-`。带文件名或其他参数时仍按普通客户端参数处理；`--stdin` 不与其他参数混用。交互式无参数 `em` 仍打开当前目录。导入要等上游输出结束，因此持续运行的日志流应先截取有限内容。
+
+每次导入都会创建独立、可编辑的 `*stdin*` 文本缓冲区（重名时加编号），不关联源文件；用 **`C-x C-w`** 另存为文件。临时传输文件权限为仅本人可读写，后台读入后立即删除。`ec` 用 **`C-x #`** 结束等待，导入的缓冲区仍保留；不会把编辑结果输出回 shell，若需将结果继续传给别的命令，请先保存到文件。
+
+没有图形环境时，脚本读完管道后从 `/dev/tty` 接收键盘输入；此时 `em` / `ec` 都等待 `C-x #`。需要有控制终端（SSH 可分配 PTY）。`emacs` 本身的入口和启动参数不变，推荐用 `命令 | em` 共享当前后台。
+
 ### Linux：Fedora、Steam Deck、Ubuntu / Debian
 
 ```sh
@@ -61,6 +99,8 @@ journalctl --user -u emacs -n 80 --no-pager
 如果服务定义有变化，先运行 `./bootstrap.sh service` 更新定义，再重启。
 
 ### macOS
+
+后台卡住时，可以右键 Dock 中的 **Emacs Client → 强制重启 Emacs 后台…**。确认后会强制终止当前用户的 `org.gnu.emacs.daemon`，清除等待中的打开请求，再启动后台并打开新窗口；未保存的修改会丢失，磁盘上的文件和配置保留。恢复操作独立于普通打开队列，避免被卡住的 emacsclient 阻塞。
 
 查看状态：
 

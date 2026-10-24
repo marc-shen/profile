@@ -16,12 +16,35 @@ for argument in "$@"; do
   esac
 done
 
-if ! "$client" --eval t >/dev/null 2>&1; then
-  launchctl kickstart "gui/$(id -u)/org.gnu.emacs.daemon" >/dev/null 2>&1 || true
+if ! "$client" --timeout=5 --eval t >/dev/null 2>&1; then
+  domain="gui/$(id -u)"
+  service="$domain/org.gnu.emacs.daemon"
+  plist="$HOME/Library/LaunchAgents/org.gnu.emacs.daemon.plist"
+  if ! launchctl print "$service" >/dev/null 2>&1; then
+   if [[ ! -r $plist ]]; then
+    echo "Missing $plist; run ./bootstrap.sh service from the profile checkout." >&2
+    exit 1
+   fi
+   # A stopped/unloaded service needs bootstrap, not just kickstart.
+   # Another launcher may win the race to load it; verify before failing.
+   if ! launchctl bootstrap "$domain" "$plist"; then
+    launchctl print "$service" >/dev/null 2>&1 || exit 1
+   fi
+  fi
+  # No -k: never kill a running daemon or its unsaved buffers.
+  launchctl kickstart "$service" >/dev/null
+  ready=false
   for _ in {1..20}; do
-    "$client" --eval t >/dev/null 2>&1 && break
+    if "$client" --timeout=1 --eval t >/dev/null 2>&1; then
+      ready=true
+      break
+    fi
     sleep 0.25
   done
+  if ! $ready; then
+    echo "Emacs daemon is not responding. Save or recover unsaved buffers before restarting it." >&2
+    exit 1
+  fi
 fi
 
 # The Dock associates the frame with the daemon's Emacs.app process rather
@@ -29,7 +52,7 @@ fi
 # pinned Emacs Client tile is the only Emacs icon in the Dock.  Accessory apps
 # can still own normal windows; they simply have no separate Dock tile.
 hide_emacs_dock_icon="(when (and (featurep 'ns) (fboundp 'ns-do-applescript)) (ns-do-applescript \"use framework \\\"AppKit\\\"\\ncurrent application's NSApplication's sharedApplication()'s setActivationPolicy:1\"))"
-"$client" --eval "$hide_emacs_dock_icon" >/dev/null 2>&1 || true
+"$client" --timeout=5 --eval "$hide_emacs_dock_icon" >/dev/null 2>&1 || true
 
 # Tag the frame so activation targets this request's new window, even if
 # another client changes the selected frame while this helper is running.
@@ -39,9 +62,9 @@ create_window() {
   local parameters="((emacs-client-launch-id . \"$created_frame_id\"))"
   # Bash 3.2 treats an empty array as unset under nounset.
   if [ "${#arguments[@]}" -gt 0 ]; then
-    "$client" --no-wait --create-frame --frame-parameters "$parameters" "${arguments[@]}"
+    "$client" --timeout=10 --no-wait --create-frame --frame-parameters "$parameters" "${arguments[@]}"
   else
-    "$client" --no-wait --create-frame --frame-parameters "$parameters"
+    "$client" --timeout=10 --no-wait --create-frame --frame-parameters "$parameters"
   fi
 }
 
@@ -52,7 +75,7 @@ else
   # Include minimized windows, but skip the daemon terminal and child frames
   # (completion popups, tooltips, etc.). Do not use MRU order: that would keep
   # alternating between two windows when three or more are open.
-  activated=$("$client" --eval "(let* ((frames (seq-filter
+  activated=$("$client" --timeout=5 --eval "(let* ((frames (seq-filter
                                    (lambda (frame)
                                      (and (display-graphic-p frame)
                                           (not (frame-parent frame))))
@@ -75,12 +98,12 @@ fi
 # Creating the first GUI frame can promote a daemon back to a regular AppKit
 # application.  Apply the accessory policy again after Emacs has finished
 # creating the frame.
-"$client" --eval "$hide_emacs_dock_icon" >/dev/null 2>&1 || true
+"$client" --timeout=5 --eval "$hide_emacs_dock_icon" >/dev/null 2>&1 || true
 
 # Set the final Dock policy before activating: changing application policy
 # after focusing a window can leave the launcher (or another app) in front.
 if [ -n "$created_frame_id" ]; then
-  "$client" --eval "(let ((frame (seq-find
+  "$client" --timeout=5 --eval "(let ((frame (seq-find
       (lambda (frame)
         (equal (frame-parameter frame 'emacs-client-launch-id)
                \"$created_frame_id\"))

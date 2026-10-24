@@ -45,12 +45,9 @@ fi
 # ec waits for server-edit and chooses a terminal frame when no GUI is available.
 if (( $+commands[ec] )); then
  export EDITOR=ec VISUAL=ec
-elif (( $+commands[nvim] )); then
- export EDITOR=nvim VISUAL=nvim
 else
  export EDITOR=vi VISUAL=vi
 fi
-(( ! $+commands[nvim] )) || alias vim=nvim vimdiff='nvim -d'
 (( ! $+commands[code-insiders] )) || alias code=code-insiders
 if [[ $PROFILE_PLATFORM == macos ]]; then
  alias ls='ls -GF' o=open

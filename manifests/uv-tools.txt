@@ -1,3 +1,4 @@
-# Optional language servers; upstream packages, updated explicitly with uv.
+# Default Python developer tools; also managed by language-servers.json.
 fortls
-pyright
+basedpyright
+ruff

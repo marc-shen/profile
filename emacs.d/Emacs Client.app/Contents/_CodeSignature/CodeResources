@@ -10,11 +10,15 @@
 		</data>
 		<key>Resources/activate-emacs</key>
 		<data>
-		KFNmuxtzJDunT0GZ6c0BsmW/HJE=
+		k9aIGegbbElqwsq1kPmfZ2GoAe4=
 		</data>
 		<key>Resources/launcher.m</key>
 		<data>
-		poY94eNG41K1XFTbX8JWkaYQfE8=
+		2cZZ0rAYG021THl/06wMP1utVsw=
+		</data>
+		<key>Resources/restart-emacs</key>
+		<data>
+		3VIwgcklljOJ/4MD2wBMCoaLoBk=
 		</data>
 	</dict>
 	<key>files2</key>
@@ -30,14 +34,21 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			iT/JfRlPZyr9PT+2X1WyejYAzjcI0SuFjyMiC1YoLyg=
+			7x+itrwgTU1KaYCDOlKsL12hdFgC6S1BmL9bcH8Lt9w=
 			</data>
 		</dict>
 		<key>Resources/launcher.m</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			kF5gP0FSRyr0uE/tZWrUr5IFlUrZ++NSc8XmWBwoNaQ=
+			D2QaVcPtwrIFLPd8Pf9uCxAgyd6J6e8U2OIWJ72gKi8=
+			</data>
+		</dict>
+		<key>Resources/restart-emacs</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			rVzvJsiIGMJZMz3TS5T63nX1pPYVhxKxY81Ssr157IM=
 			</data>
 		</dict>
 	</dict>

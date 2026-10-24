@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Compare two local files using the same daemon and frame policy as em.
+set -euo pipefail
+if [[ $# == 1 && ( $1 == --help || $1 == -h ) ]]; then
+ printf 'Usage: ediff [--] FILE_A FILE_B\nCompare two files in the existing Emacs daemon.\n'
+ exit 0
+fi
+if [[ ${1:-} == -- ]]; then shift; fi
+if [[ $# != 2 ]]; then
+ printf 'Usage: ediff [--] FILE_A FILE_B\n' >&2
+ exit 2
+fi
+files=()
+for file in "$@"; do
+ [[ $file == /* ]] || file=$PWD/$file
+ if [[ ! -f $file || ! -r $file ]]; then
+  printf 'ediff: not a readable regular file: %s\n' "$file" >&2
+  exit 1
+ fi
+ # Quote paths as Lisp strings, never as executable Lisp or shell text.
+ file=${file//\\/\\\\}
+ file=${file//\"/\\\"}
+ files+=("$file")
+done
+script=${BASH_SOURCE[0]}
+while [[ -L $script ]]; do
+ dir=$(cd -P "$(dirname "$script")" && pwd)
+ script=$(readlink "$script")
+ [[ $script == /* ]] || script=$dir/$script
+done
+directory=$(cd "$(dirname "$script")" && pwd -P)
+exec "$directory/em" --suppress-output --eval "(ediff-files \"${files[0]}\" \"${files[1]}\")"

@@ -11,6 +11,7 @@ while [[ -L $script ]]; do
 done
 repo=$(cd "$(dirname "$script")/.." && pwd -P)
 source "$repo/scripts/emacs-client.sh"
+profile_emacs_stdin em "$@"
 [[ $# -gt 0 ]] || set -- "$PWD"
 # Terminal clients must stay attached; GUI em is asynchronous.
 if [[ ${frame[0]} == --tty ]]; then

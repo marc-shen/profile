@@ -514,6 +514,10 @@ DIRECTION must be either `clockwise' or `counterclockwise'."
                     :box '(:line-width 1 :color "gray40"))
 
 
+;; Ediff keeps its controls in this frame and compares files side by side.
+(setq ediff-window-setup-function 'ediff-setup-windows-plain
+      ediff-split-window-function 'split-window-horizontally)
+
 (provide 'init-ui)
 
 ;;; init-ui.el ends here

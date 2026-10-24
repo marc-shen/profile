@@ -9,7 +9,7 @@ for command in fd rg fzf zoxide starship bat jq; do
  "$root/bin/$command" --version >/dev/null
 done
 packages=()
-for package in fd-find ripgrep fzf zoxide starship bat jq neovim; do
+for package in fd-find ripgrep fzf zoxide starship bat jq; do
  rpm -q "$package" >/dev/null 2>&1 && packages+=("$package")
 done
 [[ ${#packages[@]} -gt 0 ]] || { echo 'No obsolete RPM tools remain.'; exit 0; }

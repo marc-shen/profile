@@ -82,9 +82,11 @@ def install_environment(root,name,version,work,reinstall=False):
 
 def activation(root,app):
  # Generate once, so launching never writes to the shared installation.
- env=dict(os.environ,PATH='/__PROFILE_CALLER_PATH__')
+ # Keep system utilities available for Pixi's glibc detection and activation hooks.
+ caller_path='/__PROFILE_CALLER_PATH__'+os.pathsep+os.defpath
+ env=dict(os.environ,PATH=caller_path)
  hook=output([root/'bin/pixi','shell-hook','--shell','bash','--manifest-path',app/'pixi.toml','--locked'],env=env)
- hook=hook.replace('/__PROFILE_CALLER_PATH__','${PATH}')
+ hook=hook.replace(caller_path,'${PATH}')
  (app/'activate.sh').write_text(hook)
 
 def wrapper(app,command,binary):
@@ -98,7 +100,11 @@ def tool(root,name,spec,reinstall=False):
  version=next(p['version'] for p in packages if p['name']==spec['package'])
  app=install_environment(root,name,version,work,reinstall);activation(root,app)
  for command in spec['commands']:
-  entry=wrapper(app,command,app/'.pixi/envs/default/bin'/command);run([entry,'--version'],stdout=sp.DEVNULL)
+  entry=wrapper(app,command,app/'.pixi/envs/default/bin'/command)
+  if not spec.get('lsp'):run([entry,'--version'],stdout=sp.DEVNULL)
+ if spec.get('lsp'):
+  from lsp_probe import probe
+  probe([app/'launch'/spec['lsp'][0],*spec['lsp'][1:]])
  receipt(app,dict(name=name,version=version,backend='pixi',dependencies={spec['package']:'*'},lock_sha256=hashlib.sha256((app/'pixi.lock').read_bytes()).hexdigest(),commands=spec['commands']))
  atomic_link(app,root/'apps'/name/'current',root)
  for command in spec['commands']:atomic_link(root/'apps'/name/'current/launch'/command,root/'bin'/command,root)

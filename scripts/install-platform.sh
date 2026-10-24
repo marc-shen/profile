@@ -41,3 +41,4 @@ case $(uname -s) in
   esac;;
 esac
 python3 "$repo/scripts/plugins.py"
+python3 "$repo/scripts/language-servers.py" install

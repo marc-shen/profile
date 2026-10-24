@@ -96,7 +96,12 @@
 ;; Emacs 31 knows the built-in Fortran modes, but not the external
 ;; Tree-sitter mode.  Its name naturally maps to the same "f90" language id.
 (with-eval-after-load 'eglot
-  (add-to-list 'eglot-server-programs '(f90-ts-mode . ("fortls"))))
+  (add-to-list 'eglot-server-programs
+               `((python-mode python-ts-mode)
+                 . ,(eglot-alternatives '(("basedpyright-langserver" "--stdio")
+                                         ("pyright-langserver" "--stdio") "pylsp"))))
+  (add-to-list 'eglot-server-programs
+               '((f90-ts-mode f90-mode fortran-mode) . ("fortls" "--disable_autoupdate"))))
 
 (defconst init-development-tool-groups
   '(("Python LSP" "basedpyright-langserver" "pyright-langserver" "pylsp")

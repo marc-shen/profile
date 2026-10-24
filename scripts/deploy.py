@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Reversible dotfile deployment. Does not install packages or restart a live Emacs."""
 import argparse
+import hashlib
+import json
 import datetime
 import os
 from pathlib import Path
@@ -25,7 +27,8 @@ parser.add_argument('action', choices=['plan', 'link', 'check', 'service'])
 parser.add_argument('--scope', choices=['user', 'system'], default='user')
 parser.add_argument('--prefix', type=Path)
 parser.add_argument('--dry-run', action='store_true')
-parser.add_argument('--only', choices=['all', 'shell', 'emacs'], default='all')
+parser.add_argument('--no-start', action='store_true', help='Write service definitions without starting/restarting Emacs')
+parser.add_argument('--only', choices=['all', 'shell', 'emacs', 'helix'], default='all')
 args = parser.parse_args()
 if args.prefix:
     ROOT = args.prefix.expanduser().absolute()
@@ -96,7 +99,7 @@ def emacs_config():
                     if old.is_dir(): shutil.copytree(old, new, symlinks=True)
                     else: shutil.copy2(old, new)
     link(source, dest)
-    for command in ['em', 'ec']:
+    for command in ['em', 'ec', 'ediff']:
         link(source / command, ROOT / 'bin' / command)
     link(REPO / 'scripts/emacs-daemon', ROOT / 'bin/emacs-daemon')
     mac_emacs = Path('/Applications/Emacs.app/Contents/MacOS/Emacs')
@@ -114,6 +117,40 @@ def emacs_config():
         for candidate in candidates:
             if candidate.is_file():
                 link(candidate, ROOT / 'bin/emacsclient'); break
+    if sys.platform == 'darwin':
+        mac_client()
+
+def bundle_digest(path):
+    digest = hashlib.sha256()
+    for item in sorted(path.rglob('*')):
+        digest.update(str(item.relative_to(path)).encode())
+        if item.is_symlink(): digest.update(os.readlink(item).encode())
+        elif item.is_file():
+            digest.update(item.read_bytes())
+            digest.update(str(item.stat().st_mode & 0o777).encode())
+    return digest.hexdigest()
+
+def mac_client():
+    source = REPO / 'emacs.d/Emacs Client.app'
+    if not source.is_dir(): return
+    target = HOME / 'Applications/Emacs Client.app'
+    if target.is_dir() and bundle_digest(source) == bundle_digest(target): return
+    print('deploy Dock application:', target)
+    if DRY: return
+    sp.run(['codesign', '--verify', '--deep', '--strict', str(source)], check=True)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    import tempfile
+    staging = Path(tempfile.mkdtemp(prefix='.emacs-client-', dir=target.parent))
+    try:
+        shutil.copytree(source, staging / target.name, symlinks=True)
+        save(target)
+        (staging / target.name).rename(target)
+    finally:
+        shutil.rmtree(staging)
+    print('Dock launcher updated. Quit/reopen Emacs Client to load its new binary; the daemon is kept running.')
+
+def helix_config():
+    link(REPO / 'helix', HOME / '.config/helix')
 
 def shell_config():
     link(REPO / 'zshrc', ROOT / 'config/shell/zshrc')
@@ -130,7 +167,12 @@ def shell_config():
         block(HOME / '.zprofile', 'export SOFTWARE_HOME=' + shlex.quote(str(ROOT)) + '\n. ' + shlex.quote(str(REPO / 'shell/env.sh')))
     link(REPO / 'starship.toml', HOME / '.config/starship.toml')
     link(REPO / 'wezterm.lua', HOME / '.wezterm.lua')
-    if args.only == 'all': link(REPO / 'nvim', HOME / '.config/nvim')
+    # Retire only profile-owned links, including dangling links after a pull.
+    nvim = HOME / '.config/nvim'
+    retired = [REPO / 'nvim', REPO / 'archieve/nvim',
+               ROOT / 'config/profile/nvim', ROOT / 'config/profile/archieve/nvim']
+    if nvim.is_symlink() and nvim.resolve() in [p.resolve() for p in retired]:
+        save(nvim)
     modules = ROOT / 'apps/modules/current/init'
     if modules.is_dir(): link(modules, ROOT / 'config/modules/init')
 
@@ -144,7 +186,7 @@ def service():
                  'RunAtLoad': True, 'KeepAlive': True, 'ProcessType': 'Interactive',
                  'LimitLoadToSessionType': 'Aqua', 'ThrottleInterval': 10}
         write(target, plistlib.dumps(value).decode())
-        if not DRY:
+        if not DRY and not args.no_start:
             domain = f'gui/{os.getuid()}'
             active = sp.run(['launchctl', 'print', domain + '/org.gnu.emacs.daemon'], stdout=sp.DEVNULL, stderr=sp.DEVNULL).returncode == 0
             if not active: sp.run(['launchctl', 'bootstrap', domain, str(target)], check=True)
@@ -154,11 +196,12 @@ def service():
         write(target, '[Unit]\nDescription=Personal Emacs daemon\n\n[Service]\nType=simple\nEnvironment="SOFTWARE_HOME=' + str(ROOT) + '"\nExecStart="' + str(ROOT / 'bin/emacs-daemon') + '"\nRestart=on-failure\nRestartSec=3\n\n[Install]\nWantedBy=default.target\n')
         if not DRY:
             sp.run(['systemctl', '--user', 'daemon-reload'], check=True)
-            sp.run(['systemctl', '--user', 'enable', '--now', 'emacs.service'], check=True)
+            if not args.no_start:
+                sp.run(['systemctl', '--user', 'enable', '--now', 'emacs.service'], check=True)
 
 def check():
     missing = []
-    for name in ['git', 'zsh', 'fd', 'rg', 'fzf', 'zoxide', 'starship', 'uv', 'pixi', 'emacsclient', 'software-app']:
+    for name in ['git', 'zsh', 'fd', 'rg', 'fzf', 'zoxide', 'starship', 'uv', 'pixi', 'hx', 'emacsclient', 'software-app']:
         path = shutil.which(name, path=str(ROOT / 'bin') + os.pathsep + os.environ.get('PATH', ''))
         print(f'{name}: {path or "MISSING"}')
         if not path: missing.append(name)
@@ -166,6 +209,12 @@ def check():
         ok = (ROOT / 'share/zsh/plugins' / name).is_dir()
         print(f'{name}: {"OK" if ok else "MISSING"}')
         if not ok: missing.append(name)
+    manifest = REPO / 'manifests/language-servers.json'
+    if manifest.exists():
+        for name, spec in json.loads(manifest.read_text()).items():
+            absent = [command for command in spec['commands'] if not shutil.which(command, path=str(ROOT / 'bin') + os.pathsep + os.environ.get('PATH', ''))]
+            print('language-server ' + name + ': ' + ('MISSING ' + ', '.join(absent) if absent else 'OK'))
+            missing.extend(absent)
     print('emacs.d ->', (HOME / '.emacs.d').resolve())
     print('Software:', ROOT)
     return bool(missing)
@@ -207,6 +256,7 @@ else:
     if args.only in ['all', 'emacs']: emacs_config()
     layout()
     if args.only in ['all', 'shell']: shell_config()
+    if args.only in ['all', 'shell', 'helix']: helix_config()
     print('Review local settings in', ROOT / 'config/local/zshrc')
     print('Existing files are saved under', BACKUP)
     print('Service setup is separate: ./bootstrap.sh service')

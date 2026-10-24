@@ -20,8 +20,8 @@
 
 - **Emacs**：完整的 `emacs.d`，包含补全、项目导航、Git、终端、Python/C/Fortran、LaTeX、Markdown、Org、PDF 等配置，以及可选 AI/agent 集成。`em`、`ec` 共用当前用户的默认 daemon。
 - **Zsh**：Modules、fzf、fzf-tab、zsh-completions、zsh-autosuggestions、zsh-syntax-highlighting、zoxide 和 Starship。
-- **终端工具**：fd、ripgrep、fzf、zoxide、Starship、jq、bat、Neovim、Zsh，清单见 [tools.json](manifests/tools.json)。Neovim 配置随仓库提供，基于 NvChad；其插件由 Neovim 自身的插件管理器管理。
-- **环境管理**：官方独立 Pixi、uv；可选 fortls、pyright 和 MCP 工具；Environment Modules 用于按需选择编译器和科研环境。
+- **终端工具**：fd、ripgrep、fzf、zoxide、Starship、jq、bat、Helix（`hx`）、Zsh，清单见 [tools.json](manifests/tools.json)。Neovim / NvChad 配置完整保留在 `archieve/nvim/`，不再默认安装、部署或作为编辑器候选。
+- **环境管理**：官方独立 Pixi、uv；基础语言服务及可选 MCP 工具；Environment Modules 用于按需选择编译器和科研环境。
 - **终端配置**：Starship 和 WezTerm 配置。部署会链接 WezTerm 配置，但不安装 WezTerm 应用。共享配置默认以 80 列 × 24 行窗口启动；Linux 窗口大小也受桌面窗口管理器控制，不自动全屏，F12 可手动切换全屏。
 
 安装需求通常不固定版本，显式更新时解析可用版本；已安装程序的精确依赖保存在本机 `pixi.lock` 和 `receipt.json` 中。每个基础 CLI 使用独立 Pixi 环境，是否包含 Python 由依赖决定，不会为所有 CLI 默认安装 Python。Yazi 不在当前方案中。
@@ -100,7 +100,7 @@ cd ~/Software/config/profile
 
 ```sh
 cd ~/Software/config/profile
-bash scripts/install-uv-tools.sh       # fortls、pyright
+bash scripts/install-uv-tools.sh       # fortls、basedpyright、ruff（显式升级）
 ```
 
 Steam Deck 可另行安装 WezTerm 和 TeX Live，均保存在 Software 中，不关闭系统只读：
@@ -127,6 +127,9 @@ bash scripts/install-uv-tools.sh arxiv-mcp-server markitdown-mcp zotero-mcp-serv
 | `em 文件名` | 连接已有 Emacs 后台；图形模式打开后返回终端 |
 | `em` | 打开当前目录 |
 | `ec 文件名` | 连接同一后台，等待编辑结束；适合 Git 的编辑器调用 |
+| `ediff 文件A 文件B` | 在同一 Emacs 后台中左右比较两个文件 |
+| `ls \| em` | 将管道文本放入可编辑的 `*stdin*` 缓冲区，图形模式立即返回 |
+| `ls \| ec` | 导入管道文本，等待 `C-x #`；保留未保存的缓冲区 |
 | `ga` | `git add . && git commit`；暂存当前目录及其子目录，不推送 |
 | `gap` | `git add -A && git commit && git push`；暂存整个仓库的修改、新增和删除 |
 | `gap -p` / `gap --patch` | 分块选择已有文件的修改，然后提交、推送 |
@@ -137,7 +140,13 @@ bash scripts/install-uv-tools.sh arxiv-mcp-server markitdown-mcp zotero-mcp-serv
 
 `ec` 中编辑完按 **`C-x #`**，或执行 `M-x server-edit`；仅保存不会结束等待。无图形环境的 SSH 会话中，`em`、`ec` 使用终端界面，此时 `em` 也必须保持连接。默认 `EDITOR` / `VISUAL` 优先使用 `ec`。
 
+`em +行号:列号 文件名` 可以定位，多个文件名可以一起传入。管道用法和保存方式见 [Emacs 终端输入](docs/maintenance.md#emacs-终端输入)。
+
 `gap` 的 `-p` / `--patch` 必须是第一个参数，其余参数传给 `git commit`。提交包含先前已经暂存的内容；分块界面按 `q` 只结束选择，并不取消整个函数。新建未跟踪文件需要显式 `git add 文件名`。前一步失败时，后续步骤不会执行。
+
+Emacs 语言服务默认包括 Python basedpyright、Fortran fortls、C/C++ clangd、Bash、JSON、YAML，并安装 Ruff 供 Python 格式化。Python 工具使用 uv 隔离环境，其他语言服务使用 Pixi；版本自由更新，实际版本和锁文件留在本机。详见 [语言服务](docs/language-servers.md)。
+
+Helix 使用 `hx 文件名` 启动，`Ctrl-Y` 打开内置文件选择器。三平台统一通过 Pixi 安装，更新可运行 `software-app install helix`，再运行 `./bootstrap.sh link --only helix` 部署配置；已有配置会备份。语言服务器按需单独安装，详见 [Helix 配置说明](helix/README.md)。
 
 ## 配置放在哪里
 
@@ -147,14 +156,14 @@ profile/                         # Git 管理的可同步内容
 ├── bootstrap.sh                 # 安装、部署和检查入口
 ├── zshrc / shell/               # Shell 配置、通用环境、Modules 初始化
 ├── emacs.d/                     # 完整 Emacs 配置；运行数据由 .gitignore 排除
-├── nvim/                        # Neovim / NvChad 配置
+├── helix/                       # Helix 配置；部署到 ~/.config/helix
 ├── starship.toml / wezterm.lua
 ├── manifests/                   # CLI、系统依赖、Git 插件、可选 uv 工具清单
 ├── scripts/                     # 安装、源码构建、部署和清单导出
 ├── platform/steamdeck/           # Steam 启动器和本机 native 模块构建
 ├── modulefiles/                 # 可复用模板，实际模块在各机 Software 中
 ├── docs/                        # 同步、维护、平台说明及历史记录
-└── archieve/                    # 历史文件，不作为活动安装配置
+└── archieve/                    # 历史文件与 nvim/ 配置，不作为活动安装配置
 ```
 
 部署后，`~/.zshrc` 链接到仓库 `zshrc`，`~/.emacs.d` **完整链接**到仓库 `emacs.d`，`~/Software/config/profile` 链接到该 checkout。因此直接修改 `~/.zshrc` 或已跟踪的 Emacs 配置文件，就会修改 Git 工作树。
@@ -166,15 +175,16 @@ profile/                         # Git 管理的可同步内容
 修改设备提交并推送；接收设备拉取同一分支。不要同步整份 Software 二进制目录。
 
 ```sh
-# 在接收设备上：先确认工作树没有需要保留的未提交修改
 cd ~/Software/config/profile
-git status
-git pull --ff-only
+./bootstrap.sh sync                         # 拉取并部署配置
+./bootstrap.sh sync --install-missing       # 同时补齐缺失的工具、插件、语言服务
 ```
 
-拉取 Zsh 修改后执行 `source ~/.zshrc`，或重开终端。Emacs 配置需重新加载，通常保存缓冲区后重启后台。新增依赖和部署入口则需运行对应脚本，见[完整同步流程](docs/sync.md)。
+已手动 `git pull` 时，使用 `./bootstrap.sh apply`；先预览可加 `--plan`。第一次从尚无 sync 命令的旧版升级，先 `git pull --ff-only` 再 `apply`。本地有未提交修改时 sync 会停止，apply 可以部署当前工作树并记录 dirty 状态。
 
-**日常拉取配置不需要运行 `./bootstrap.sh update`。** 后者会更新安装环境，并在 Linux 重编译 Emacs；操作范围见[维护指南](docs/maintenance.md)。
+部署会更新链接、命令入口、Mac Dock 应用及服务定义，记录本机上次部署状态并验证链接；不会重启正在编辑的 Emacs。缺失依赖退出码为 2，可用 `--install-missing` 补装。重新加载方式、备份和日志见[完整同步流程](docs/sync.md)。
+
+软件升级独立执行，例如 `./bootstrap.sh upgrade --component languages` 或 `./bootstrap.sh upgrade --component tools --tool fd`。旧的 `update` 保留完整维护行为，会在 Linux 编译 Emacs；日常配置同步使用 sync/apply。
 
 ## 共享安装与限制
 
