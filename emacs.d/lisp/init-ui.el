@@ -4,8 +4,9 @@
 
 ;; `Emacs Client.app' is the Dock-facing launcher.  A macOS daemon is a
 ;; separate AppKit application, so without this it also gets its own Dock tile.
-;; Emacs promotes itself back to a regular application when it creates a GUI
-;; frame, hence this must run after every new frame rather than only at startup.
+;; Emacs promotes itself back to a regular application for every NS frame,
+;; including Corfu's child frames.  Corfu binds `after-make-frame-functions'
+;; to nil, so use return-value advice that also covers suppressed frame hooks.
 ;; Standalone Emacs is unchanged: it has no client launcher to represent it.
 (defun init-ui-hide-macos-daemon-dock-icon (&optional _frame)
   "Keep the macOS Emacs daemon from adding a second Dock icon."
@@ -20,9 +21,19 @@
                  "setActivationPolicy:1"))
       (error nil))))
 
-(init-ui-hide-macos-daemon-dock-icon)
-(add-hook 'after-make-frame-functions
-          #'init-ui-hide-macos-daemon-dock-icon)
+(defun init-ui-macos-frame-without-dock-icon (frame)
+  "Restore the daemon's accessory policy and return FRAME unchanged."
+  (when (eq (framep frame) 'ns)
+    (init-ui-hide-macos-daemon-dock-icon))
+  frame)
+
+;; Remove the old hook as well when reloading into a running daemon.
+(remove-hook 'after-make-frame-functions
+             #'init-ui-hide-macos-daemon-dock-icon)
+(when (and (eq system-type 'darwin) (daemonp) (featurep 'ns))
+  (advice-add 'make-frame :filter-return
+              #'init-ui-macos-frame-without-dock-icon)
+  (init-ui-hide-macos-daemon-dock-icon))
 
 ;; Keep Latin/code glyphs monospaced and choose one deterministic Chinese font
 ;; instead of letting the platform select a different fallback for each glyph

@@ -102,6 +102,8 @@ journalctl --user -u emacs -n 80 --no-pager
 
 后台卡住时，可以右键 Dock 中的 **Emacs Client → 强制重启 Emacs 后台…**。确认后会强制终止当前用户的 `org.gnu.emacs.daemon`，清除等待中的打开请求，再启动后台并打开新窗口；未保存的修改会丢失，磁盘上的文件和配置保留。恢复操作独立于普通打开队列，避免被卡住的 emacsclient 阻塞。
 
+macOS 使用 Emacs Client 时，Dock 只保留启动器的图标。`init-ui.el` 在后台创建 NS 窗口后恢复 accessory 策略，也覆盖 Corfu 补全创建的子窗口（它会禁用普通的窗口创建钩子）。此设置仅作用于 macOS daemon，不改变独立启动的 Emacs 或 Linux；无需定时轮询或在每次输入时执行脚本。
+
 查看状态：
 
 ```sh
