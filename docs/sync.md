@@ -59,7 +59,7 @@ cd ~/Software/config/profile
 
 重复 `apply` 仍会检查并修复链接，已部署内容保持不变。它不是整个桌面环境的事务回滚；部分步骤失败时，已完成的操作可能已经生效，原配置备份位于 `Software/backups/`。
 
-清单中已安装的工具不因 `apply` 自动升级或卸载。需要升级时显式选择：
+`--install-missing` 会额外验证已有语言服务的 LSP 握手；它不会升级这些服务。清单中已安装的工具不因 `apply` 自动升级或卸载。需要升级时显式选择：
 
 ```sh
 ./bootstrap.sh upgrade --plan

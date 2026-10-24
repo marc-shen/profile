@@ -34,6 +34,7 @@ def probe(command, timeout=30):
         def response(identifier):
             deadline = time.monotonic() + timeout
             while True:
+                if time.monotonic() >= deadline: raise TimeoutError('language server response deadline exceeded')
                 item = messages.get(timeout=max(.01, deadline - time.monotonic()))
                 if isinstance(item, Exception): raise item
                 if item.get('id') == identifier and ('result' in item or 'error' in item):
@@ -49,7 +50,7 @@ def probe(command, timeout=30):
                   'rootUri': uri, 'rootPath': directory, 'capabilities': {},
                   'workspaceFolders': [{'uri': uri, 'name': 'profile-probe'}]}})
             result = response(1)
-            if not isinstance(result, dict) or 'capabilities' not in result:
+            if not isinstance(result, dict) or not isinstance(result.get('capabilities'), dict):
                 raise RuntimeError('initialize did not return server capabilities')
             send({'method': 'initialized', 'params': {}})
             send({'id': 2, 'method': 'shutdown', 'params': None})
@@ -70,3 +71,5 @@ def probe(command, timeout=30):
             except sp.TimeoutExpired:
                 os.killpg(process.pid, signal.SIGKILL); process.wait()
             thread.join(timeout=2)
+            process.stdin.close()
+            process.stdout.close()

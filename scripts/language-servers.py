@@ -2,6 +2,7 @@
 """Install missing Eglot tools or explicitly upgrade them, using upstream uv/Pixi."""
 import argparse
 import datetime
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -64,9 +65,13 @@ def main():
                 if spec.get('version'):
                     records[name]['version'] = sp.check_output(spec['version'], text=True).strip()
                 records_path.parent.mkdir(parents=True, exist_ok=True)
-                temporary = records_path.with_suffix('.tmp')
-                temporary.write_text(json.dumps(records, ensure_ascii=False, indent=2) + '\n')
-                temporary.replace(records_path)
+                with records_path.with_suffix('.lock').open('a') as lock:
+                    fcntl.flock(lock, fcntl.LOCK_EX)
+                    latest = json.loads(records_path.read_text()) if records_path.exists() else {}
+                    latest[name] = records[name]
+                    temporary = records_path.with_suffix('.tmp')
+                    temporary.write_text(json.dumps(latest, ensure_ascii=False, indent=2) + '\n')
+                    temporary.replace(records_path)
     return bool(failed)
 
 if __name__ == '__main__':

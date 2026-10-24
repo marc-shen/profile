@@ -92,6 +92,7 @@ class Runner:
                 print(line, end='', flush=True)
                 log.write(line)
             code = process.wait()
+            process.stdout.close()
         step.update(status='ok' if code == 0 else 'failed', returncode=code)
         if code: raise sp.CalledProcessError(code, args)
 
@@ -126,8 +127,10 @@ def install_missing(root, scopes, runner):
         runner.run('install missing tools', [sys.executable, REPO / 'scripts/software.py', 'tools', *missing['tools']])
     if missing['plugins']:
         runner.run('install missing plugins', [sys.executable, REPO / 'scripts/plugins.py', '--missing-only'])
-    if missing['languages']:
-        runner.run('install missing language servers', [sys.executable, REPO / 'scripts/language-servers.py', 'install', *missing['languages']])
+    if ('emacs' in scopes or 'helix' in scopes) and (REPO / 'manifests/language-servers.json').exists():
+        # Recheck existing servers too: a previous install may have created its
+        # executable but failed verification. Never mistake that for recovery.
+        runner.run('install missing and verify language servers', [sys.executable, REPO / 'scripts/language-servers.py', 'install', '--probe'])
 
 def report_changes(scopes, state, files, root):
     changes = {}
