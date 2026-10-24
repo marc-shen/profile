@@ -35,8 +35,6 @@ git push
 ```sh
 cd ~/Software/config/profile
 ./bootstrap.sh sync
-# 需要一起补装新增工具、插件和语言服务时：
-./bootstrap.sh sync --install-missing
 ```
 
 `sync` 要求工作树干净，使用 `git pull --ff-only`，然后执行**刚拉取的新版本**部署脚本。不会自动 stash、丢弃本地修改或强制合并。两端应使用同一分支。[Git 官方说明](https://git-scm.com/docs/git-pull)
@@ -45,13 +43,23 @@ cd ~/Software/config/profile
 
 ```sh
 ./bootstrap.sh apply --plan                 # 离线预览，不写入、不下载
-./bootstrap.sh apply                        # 部署配置并报告缺失依赖
-./bootstrap.sh apply --install-missing      # 同时补装缺失依赖
-./bootstrap.sh apply --only emacs           # 只更新 Emacs 配置、入口及服务定义
+./bootstrap.sh apply                        # 部署、补齐缺失依赖并检查
+./bootstrap.sh apply --config-only          # 只部署配置，不下载或启动 LSP 验证
+./bootstrap.sh apply --only emacs           # 更新 Emacs 配置、入口、服务定义并补齐语言服务
 ./bootstrap.sh check
 ```
 
-首次从旧版脚本升级，需要先手动 `git pull --ff-only`，再运行 `apply`。首次装机仍使用 README 的安装流程；`apply --install-missing` 不会隐式源码编译缺失的 Emacs 本体，也不负责安装全部 ELPA 包或 Tree-sitter grammar。
+日常无需附加参数。`sync` 和 `apply` 共用三个常用选项：
+
+| 选项 | 用途 |
+|---|---|
+| `--plan` | 仅预览，不拉取、不写入、不安装 |
+| `--config-only` | 跳过依赖安装与 LSP 握手，只部署和检查配置；sync 仍会拉取 Git |
+| `--only emacs` / `shell` / `helix` | 限定配置范围，默认 all；Shell 范围沿用现有规则，也部署 Helix 配置 |
+
+`--help` 查看上述选项。旧 `--install-missing` 保留兼容，作用与现在的默认行为相同，无需再写。`--prefix`、`--scope` 等历史参数仍兼容，但不出现在日常帮助中；apply/sync 仍只支持个人部署。
+
+首次从旧版脚本升级，需要先手动 `git pull --ff-only`，再运行 `apply`。首次装机仍使用 README 的安装流程；`apply` 不会隐式源码编译缺失的 Emacs 本体，也不负责安装全部 ELPA 包或 Tree-sitter grammar。
 
 `apply` 会修复配置链接、补齐新命令、更新 macOS 的 Emacs Client.app、执行现有的配置迁移，并写入服务定义；不停止或重启 Emacs。Linux 写入服务定义后执行 `daemon-reload`，不启动服务；macOS 仅写 plist。首次启动仍使用 `./bootstrap.sh service`。Dock 应用更新后退出并重新打开 Emacs Client，后台仍可保留。
 
@@ -59,7 +67,7 @@ cd ~/Software/config/profile
 
 重复 `apply` 仍会检查并修复链接，已部署内容保持不变。它不是整个桌面环境的事务回滚；部分步骤失败时，已完成的操作可能已经生效，原配置备份位于 `Software/backups/`。
 
-`--install-missing` 会额外验证已有语言服务的 LSP 握手；它不会升级这些服务。清单中已安装的工具不因 `apply` 自动升级或卸载。需要升级时显式选择：
+默认会补齐缺失依赖并验证已有语言服务的 LSP 握手；它不会升级已有服务。清单中已安装的工具不因 `apply` 自动升级或卸载。需要升级时显式选择：
 
 ```sh
 ./bootstrap.sh upgrade --plan

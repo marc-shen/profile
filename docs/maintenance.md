@@ -10,10 +10,10 @@
 |---|---|---|
 | 查看平台与安装策略 | `./bootstrap.sh plan` | 概览，无安装动作；不是逐包差异报告 |
 | 检查入口和插件目录 | `./bootstrap.sh check` | 只读；不等于完整功能测试 |
-| 快速同步 | `./bootstrap.sh sync` | 快进拉取，再部署和检查配置 |
-| 部署当前 checkout | `./bootstrap.sh apply` | 更新配置、命令、Dock 应用和服务定义；记录状态，不重启后台 |
+| 快速同步 | `./bootstrap.sh sync` | 快进拉取、部署、补齐缺失依赖并检查 |
+| 部署当前 checkout | `./bootstrap.sh apply` | 部署配置、补齐缺失依赖、验证语言服务；记录状态，不重启后台 |
 | 预览部署 | `./bootstrap.sh apply --plan` | 根据本机上次部署快照报告变化，无网络和写入 |
-| 补齐缺失依赖 | `./bootstrap.sh apply --install-missing` | 只补装缺失工具、插件、语言服务 |
+| 仅部署配置 | `./bootstrap.sh apply --config-only` | 不安装依赖，不启动 LSP 验证 |
 | 仅执行旧链接流程 | `./bootstrap.sh link` | 链接配置，必要时备份；不记录部署状态 |
 | 只重新部署 Shell 配置 | `./bootstrap.sh link --only shell` | 不部署 Emacs 配置 |
 | 只重新部署 Emacs 配置 | `./bootstrap.sh link --only emacs` | 不替换 Zsh 配置 |

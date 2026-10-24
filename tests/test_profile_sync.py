@@ -45,10 +45,41 @@ class SyncTests(unittest.TestCase):
             path.write_text('#!/bin/sh\nexit 0\n'); path.chmod(0o755)
 
     def test_plan_does_not_write_or_install(self):
-        result = self.run_sync('apply', '--plan', '--install-missing')
+        result = self.run_sync('apply', '--plan')
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('will be installed', result.stdout)
         self.assertFalse(self.root.exists())
         self.assertEqual(list(self.home.iterdir()), [])
+
+    def test_default_apply_installs_missing_managers(self):
+        (self.repo / 'scripts/software.py').write_text('''import os,sys
+from pathlib import Path
+assert sys.argv[1] == 'managers'
+target = Path(os.environ['SOFTWARE_HOME']) / 'bin' / sys.argv[2]
+target.parent.mkdir(parents=True, exist_ok=True)
+target.write_text('#!/bin/sh\\nexit 0\\n')
+target.chmod(0o755)
+''')
+        result = self.run_sync()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((self.root / 'bin/uv').is_file())
+        self.assertTrue((self.root / 'bin/pixi').is_file())
+        self.assertEqual(self.state()['last_attempt']['status'], 'ok')
+
+    def test_config_only_reports_missing_without_installing(self):
+        (self.repo / 'scripts/software.py').write_text('raise AssertionError("must not install")\n')
+        result = self.run_sync('apply', '--config-only')
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertFalse((self.root / 'bin/uv').exists())
+        self.assertEqual(self.state()['last_attempt']['status'], 'pending')
+
+    def test_public_sync_help_exposes_only_daily_options(self):
+        result = sp.run([sys.executable, '-B', str(self.repo / 'scripts/bootstrap.py'), 'sync', '--help'],
+                        env=self.env, capture_output=True, text=True, check=True)
+        for option in ['--plan', '--config-only', '--only']:
+            self.assertIn(option, result.stdout)
+        for option in ['--component', '--tool', '--reinstall', '--install-missing', '--scope', '--prefix']:
+            self.assertNotIn(option, result.stdout)
 
     def test_manual_git_update_is_compared_with_last_applied_snapshot(self):
         self.install_stubs()
@@ -89,12 +120,13 @@ class SyncTests(unittest.TestCase):
         self.git('branch', '--set-upstream-to=origin/main')
         writer = self.repo.parent / 'writer'
         sp.run(['git', 'clone', str(upstream), str(writer)], check=True, capture_output=True)
-        (writer / 'bootstrap.sh').write_text('#!/bin/sh\nprintf "UPDATED_ENTRY:%s\\n" "$1"\n')
+        (writer / 'bootstrap.sh').write_text('#!/bin/sh\nprintf "UPDATED_ENTRY:%s\\n" "$*"\n')
         for args in [('config', 'user.email', 'test@example.invalid'), ('config', 'user.name', 'Test'),
                      ('add', '.'), ('commit', '-m', 'new entry'), ('push', 'origin', 'main')]:
             sp.run(['git', '-C', str(writer), *args], check=True, capture_output=True)
-        result = self.run_sync('sync')
+        result = self.run_sync('sync', '--config-only')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('UPDATED_ENTRY:apply', result.stdout)
+        self.assertIn('--config-only', result.stdout)
 
 if __name__ == '__main__': unittest.main()

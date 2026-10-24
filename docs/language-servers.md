@@ -17,15 +17,15 @@ fortls 的自动自升级被关闭，版本更新统一通过部署命令显式�
 原有可用命令会被识别并保留，例如 macOS 已有 clangd。旧的 pyright/pylsp 不会自动卸载；Emacs 新会话优先选择 basedpyright，保留 pyright/pylsp 回退。Helix Python 同样使用 basedpyright 和 Ruff。Emacs 的 Ruff 用于手动格式化，不额外启动第二套 Python Eglot 服务。
 
 ```sh
-./bootstrap.sh apply --plan --install-missing
-./bootstrap.sh apply --install-missing
+./bootstrap.sh apply --plan
+./bootstrap.sh apply
 python3 scripts/language-servers.py plan
 python3 scripts/language-servers.py install python fortran
 python3 scripts/language-servers.py check --probe
 ./bootstrap.sh upgrade --component languages --tool python --tool fortran
 ```
 
-`install` 只补缺失项，`upgrade` 才主动解析新版本。`apply --install-missing` 还会验证已有语言服务，因此重试不会把“可执行文件存在但服务启动失败”当作安装成功。安装新语言服务时进行真实的 LSP initialize/shutdown 验证；`check --probe` 同样验证已安装服务，使用独立的临时目录和独立进程，不连接编辑器的项目或后台。安装收据在 `Software/data/profile/language-servers.json`；Pixi 安装另保留应用内锁文件和收据，uv 保留自己的工具收据。
+`install` 只补缺失项，`upgrade` 才主动解析新版本。`apply` 还会验证已有语言服务，因此重试不会把“可执行文件存在但服务启动失败”当作安装成功。安装新语言服务时进行真实的 LSP initialize/shutdown 验证；`check --probe` 同样验证已安装服务，使用独立的临时目录和独立进程，不连接编辑器的项目或后台。安装收据在 `Software/data/profile/language-servers.json`；Pixi 安装另保留应用内锁文件和收据，uv 保留自己的工具收据。
 
 新装机的 `bootstrap.sh install` 包含语言服务安装。无需全局激活项目 Python，也不将语言服务依赖添加到项目环境；项目依赖仍使用项目自己的 uv/Pixi/venv，Emacs 的 Pet 负责识别项目环境。Fortran 编译器和语言服务分开管理，fortls 的安装不会安装 GCC/GFortran。
 

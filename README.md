@@ -176,13 +176,12 @@ profile/                         # Git 管理的可同步内容
 
 ```sh
 cd ~/Software/config/profile
-./bootstrap.sh sync                         # 拉取并部署配置
-./bootstrap.sh sync --install-missing       # 同时补齐缺失的工具、插件、语言服务
+./bootstrap.sh sync   # 拉取、部署、补齐缺失依赖并检查
 ```
 
 已手动 `git pull` 时，使用 `./bootstrap.sh apply`；先预览可加 `--plan`。第一次从尚无 sync 命令的旧版升级，先 `git pull --ff-only` 再 `apply`。本地有未提交修改时 sync 会停止，apply 可以部署当前工作树并记录 dirty 状态。
 
-部署会更新链接、命令入口、Mac Dock 应用及服务定义，记录本机上次部署状态并验证链接；不会重启正在编辑的 Emacs。缺失依赖退出码为 2，可用 `--install-missing` 补装。重新加载方式、备份和日志见[完整同步流程](docs/sync.md)。
+部署会更新链接、命令入口、Mac Dock 应用及服务定义，记录本机上次部署状态并验证链接；不会重启正在编辑的 Emacs。默认补装缺失工具、插件和语言服务；只部署配置可用 `--config-only`。剩余缺失依赖（例如 Emacs 本体）退出码为 2。重新加载方式、备份和日志见[完整同步流程](docs/sync.md)。
 
 软件升级独立执行，例如 `./bootstrap.sh upgrade --component languages` 或 `./bootstrap.sh upgrade --component tools --tool fd`。旧的 `update` 保留完整维护行为，会在 Linux 编译 Emacs；日常配置同步使用 sync/apply。
 

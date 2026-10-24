@@ -180,7 +180,7 @@ def apply_unlocked(args, root):
         if changes.get('helix'): print('Reload: restart Helix or use :config-reload.')
         if any(pending.values()):
             print('Configuration deployed; dependencies remain missing:', json.dumps(pending))
-            print('Run bootstrap.sh apply --install-missing to install missing managed dependencies.')
+            print('Run bootstrap.sh apply to install missing managed dependencies; missing native Emacs still needs bootstrap.sh install.')
         print('Deployment log:', runner.path)
         return 2 if attempt['status'] == 'pending' else 0
     except Exception as error:
@@ -233,7 +233,10 @@ def main():
     parser.add_argument('--prefix', type=Path, required=True)
     parser.add_argument('--only', choices=['all', *SCOPES], default='all')
     parser.add_argument('--plan', action='store_true')
-    parser.add_argument('--install-missing', action='store_true')
+    dependencies = parser.add_mutually_exclusive_group()
+    dependencies.add_argument('--config-only', dest='install_missing', action='store_false')
+    dependencies.add_argument('--install-missing', dest='install_missing', action='store_true', help=argparse.SUPPRESS)
+    parser.set_defaults(install_missing=True)
     parser.add_argument('--component', choices=['tools', 'managers', 'plugins', 'languages', 'emacs', 'all'], default='tools')
     parser.add_argument('--tool', action='append', default=[])
     args = parser.parse_args()
@@ -252,7 +255,7 @@ def main():
             sp.run(['git', '-C', str(REPO), 'pull', '--ff-only'], check=True)
         # Execute the UPDATED entry point, not this pre-pull Python module.
         command = ['bash', str(REPO / 'bootstrap.sh'), 'apply', '--prefix', str(root), '--only', args.only]
-        if args.install_missing: command.append('--install-missing')
+        if not args.install_missing: command.append('--config-only')
         os.execvp('bash', command)
     return upgrade(args, root) if args.action == 'upgrade' else apply(args, root)
 
