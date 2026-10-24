@@ -7,6 +7,18 @@
   "Personal global and overriding key bindings."
   :group 'convenience)
 
+(defun my-keyboard-quit ()
+  "Cancel an unfocused minibuffer, otherwise use ordinary `keyboard-quit'.
+Local cancel commands such as Corfu's and Vertico's keep their bindings."
+  (interactive)
+  (if (and (active-minibuffer-window)
+           (not (eq (selected-window) (active-minibuffer-window))))
+      (abort-recursive-edit)
+    (keyboard-quit)))
+
+;; Remap only ordinary quit; do not override mode-specific C-g commands.
+(keymap-global-set "<remap> <keyboard-quit>" #'my-keyboard-quit)
+
 ;; Splitting and closing windows are left at their built-in bindings -- `C-x
 ;; 2/3' and `C-x 0/1' -- rather than aliased to `C-c w v/s/d/o' as they once
 ;; were.  Moving between windows keeps two: `C-x o' cycles, and the shift-arrow
