@@ -20,6 +20,17 @@ xkbcommon 不匹配，因此仅在应用目录中链接系统的两个 xkbcommon
 `wezterm.lua`，默认不自动全屏，F12 可手动切换。桌面入口在
 `~/.local/share/applications/org.wezfurlong.wezterm.desktop`。
 
+2026-10-28 修复游戏模式的 Steam 叠加层环境：WezTerm 启动入口在加载
+`Software/env.sh` 前，从 `LD_PRELOAD` 中移除 `gameoverlayrenderer.so`，保留
+其他预加载库（例如输入辅助库）。这避免 32 位叠加层被终端中的 64 位命令
+反复加载，产生 `wrong ELF class: ELFCLASS32`；不改 Steam 的全局环境或其他游戏。
+安装器会生成相同处理。已有窗口需要退出后重新打开，才会获得新环境。
+脚本解释器启动之前，动态加载器仍可能在 Steam 自身的启动日志中输出警告；
+过滤作用于随后的 WezTerm 和所有子进程，不通过丢弃 stderr 隐藏其他错误。
+实测注入 Steam 的两种叠加层后，游戏模式会话中的新 WezTerm 窗口、Zsh、Git
+均退出成功，子终端日志无叠加层报错。日志保存在
+`~/Software/logs/wezterm-overlay-child-test.log`。
+
 TeX Live 使用 medium 方案，补装 `collection-langchinese`、`collection-latexextra`、
 `collection-bibtexextra`、`latexmk` 和 `biber`。未安装离线文档和源码；需要时可补装。
 `module load texlive/current` 提供全部原生 TeX 命令；常用命令无需加载模块即可使用。
