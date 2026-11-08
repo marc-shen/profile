@@ -40,8 +40,7 @@
     ;; After init-development so `multiple-cursors' is on the load path when
     ;; helix-mode probes for its integrations.
     (require 'init-helix)
-    ;; macOS only -- it drives Squirrel, and there is nothing for it to do on a
-    ;; Linux box.  After init-helix, whose `helix-insert-mode-hook' it hangs off.
+    ;; macOS only: foreground-guarded input source changes follow Helix state.
     (when (eq system-type 'darwin)
       (require 'init-input-source))
     (require 'init-python)

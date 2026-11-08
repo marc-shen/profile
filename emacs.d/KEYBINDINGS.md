@@ -36,7 +36,11 @@ Python 缓冲区中会发送整个 Python 缓冲区，在 LaTeX 中则会执行 
 本配置启用了 [helix-mode](https://github.com/mgmarlow/helix-mode)，普通
 文件缓冲区默认处于 **normal 状态**（模式行显示 `helix[N]`，光标为方块），
 `i`/`a` 进入 **insert 状态**（`helix[I]`，光标为竖线），`ESC` 回到
-normal；在 macOS 上还会让 Squirrel 保持为当前输入法并切回 Rime 英文。
+normal。在 macOS 的前台 Emacs 中，输入源始终保持为 **Rime（鼠须管）**。
+`jk`/`ESC` 回到 normal 时只将 Rime 切到英文（`ascii_mode`），不切换系统 ABC。
+进入 insert 不重置 Rime 状态，可用 Shift 在 Rime 内切换中英文。
+切回 Emacs 时，normal 回到 Rime 英文，insert 保留 Rime 当前的中英文状态。
+后台 buffer 和终端 frame 不触发切换；输入法逻辑不激活应用。
 insert 状态下依次按 `jk`（间隔 0.2 秒内）等价于 ESC，图形界面和
 终端都可用——终端下 ESC 无法与 Meta 前缀区分，`jk` 是唯一可靠的退出方式。
 `j` 后若 0.2 秒内没有按 `k`，被暂存的 `j` 会照常插入。

@@ -102,7 +102,19 @@ journalctl --user -u emacs -n 80 --no-pager
 
 后台卡住时，可以右键 Dock 中的 **Emacs Client → 强制重启 Emacs 后台…**。确认后会强制终止当前用户的 `org.gnu.emacs.daemon`，清除等待中的打开请求，再启动后台并打开新窗口；未保存的修改会丢失，磁盘上的文件和配置保留。恢复操作独立于普通打开队列，避免被卡住的 emacsclient 阻塞。
 
-macOS 使用 Emacs Client 时，Dock 只保留启动器的图标。`init-ui.el` 在后台创建 NS 窗口后恢复 accessory 策略，也覆盖 Corfu 补全创建的子窗口（它会禁用普通的窗口创建钩子）。此设置仅作用于 macOS daemon，不改变独立启动的 Emacs 或 Linux；无需定时轮询或在每次输入时执行脚本。
+macOS 使用 Emacs Client 时，Dock 只保留启动器的图标。Emacs 31 每创建一个 NS 窗口（包括 Corfu 补全子窗口）都会请求 regular 策略；创建后再隐藏图标会发生 regular → accessory 切换，可能导致首次补全时丢失焦点。`init-ui.el` 加载 `init-macos-dock.el` 和原生 `dock-policy.dylib`，仅在 daemon 中提前拦截本体进入 Dock 的请求，使其保持 accessory，避免显隐切换。无需事后激活窗口、定时抢回焦点或关闭补全，也覆盖 Corfu 禁用普通窗口创建钩子的路径。
+
+原生模块只覆盖当前 Emacs 进程的 `EmacsApp` 策略方法，不修改系统 AppKit 或 Emacs 安装文件；独立启动的 Emacs 和 Linux 不加载它。模块支持无图形窗口的 daemon 启动，以及关闭全部图形窗口后重新创建窗口。运行 `(profile-macos-dock-guard-status)` 可查看状态；正常补全只增加 `:blocked-promotions`，不增加 `:policy-changes`。模块缺失时会警告并允许本体图标出现，不恢复有焦点问题的旧隐藏钩子。
+
+运行 `bash emacs.d/build-emacs-client.sh` 会重新构建并签名原生组件；需要已安装 Emacs 的 `emacs-module.h`。模块更新通过替换文件完成，避免覆盖运行中后台映射的代码；已加载的模块更新需要下次后台启动才生效。`tests/test-emacs-macos-dock.el` 覆盖无普通钩子的子窗口创建、Corfu 首次创建/复用，以及 scratch 模式输入 `pr` 自动弹窗后继续输入 `i`，同时检查策略变化计数和真实前台 PID。
+
+点击 Dock 返回 Emacs 会恢复上次选中的编辑窗口，不再自动轮换；新窗口仍从右键菜单创建。新建和恢复窗口都会先完成 Dock 策略设置，再统一激活目标窗口。
+
+输入法由 `init-input-source.el` 和原生 `input-source` 辅助程序管理。Emacs 前台始终使用 Rime（鼠须管）；normal 通过 Squirrel 的 ASCII 通知切回 Rime 英文，insert 不修改中英文状态，可手动按 Shift 切换。不会切到系统 ABC，也不保存、恢复系统英文键盘布局。切回 Emacs 时，normal 回英文、insert 保留 Rime 当前状态。`org.gnu.Emacs/ascii_mode: true` 保持新 Rime 会话的英文默认，不禁用 Shift。
+
+焦点通知去重、延后 0.1 秒并重新检查，失焦或进入 insert 会取消待执行操作；原生辅助程序发送命令前再次核对前台 PID 和当前输入源。只有当前不是鼠须管时才选择 Rime，避免反复重建输入会话；首次选择后等待输入会话就绪再请求英文。使用的是 Squirrel `--ascii` 对应的通知协议，需要鼠须管支持该接口；前台检查限定发送时机，该协议本身不提供按 Emacs 会话寻址的能力。修改辅助程序源码后运行 `bash emacs.d/build-emacs-client.sh` 重新编译并签名。
+
+图形回归测试：在前台 Emacs 中加载 `tests/test-emacs-input-source-live.el`，运行 `profile-input-live-jk-i-keeps-rime`。它检查三轮 `jk → i` 中输入源始终为 Rime、normal 为 Rime 英文，以及 insert 中手动切换中文后不会被窗口通知重置。
 
 如果底部仍有输入提示（例如多光标的 `Mark regexp in region:`），但焦点已回到主 buffer，按 `C-]` 可以取消当前递归输入。`init-keymap.el` 也将普通 `C-g` 映射为 `my-keyboard-quit`：在这种焦点离开 minibuffer 的情况下取消输入，否则保持普通取消行为。Corfu、Vertico 等模式自己的 `C-g` 绑定仍然优先；不需要关闭窗口或重启后台。
 

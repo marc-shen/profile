@@ -1,78 +1,119 @@
-;;; init-input-source.el --- Keep Squirrel in ASCII outside Helix insert -*- lexical-binding: t; -*-
+;;; init-input-source.el --- Focus-safe macOS modal input -*- lexical-binding: t; -*-
 
-;; Recent Squirrel releases expose their Rime session's `ascii_mode' through
-;; the command-line switches --ascii, --nascii and --getascii.  That is a
-;; better fit for modal editing than changing macOS input sources: Emacs can
-;; keep Squirrel selected all the time, while leaving insert state merely
-;; changes the existing Rime session back to English.
-;;
-;; `ascii_mode: true' in ~/Library/Rime/squirrel.custom.yaml supplies the same
-;; English default when Squirrel creates a fresh org.gnu.Emacs session.  This
-;; file enforces it on every transition to Helix normal state, including ESC
-;; and the `j k' escape implemented by init-helix.el.
+;; Keep the macOS input source on Squirrel in both Helix states.  Normal
+;; requests Rime ASCII mode; insert leaves that mode to the user's Shift key.
+;; The helper checks the OS foreground PID before selecting Rime or sending
+;; its ASCII command.  Do not switch to ABC or save/restore system layouts.
+
+(defvar my-input-source-program
+  (expand-file-name "../Emacs Client.app/Contents/Resources/input-source"
+                    (file-name-directory (or load-file-name buffer-file-name)))
+  "Native input source helper, built by build-emacs-client.sh.")
 
 (defvar my-input-source-rime "im.rime.inputmethod.Squirrel.Hans"
-  "Squirrel input source kept active while Emacs has focus.")
+  "Squirrel source to select if Emacs arrives from another input method.")
 
-(defvar my-squirrel-program
-  "/Library/Input Methods/Squirrel.app/Contents/MacOS/Squirrel"
-  "Squirrel executable used to control Rime's ASCII mode.")
+(defvar my-input-source--focus-frame nil
+  "Last known focused editing frame, or nil.")
+(defvar my-input-source--timer nil
+  "Pending focus-settle timer, or nil.")
 
-(defun my-squirrel--program ()
-  "Return the Squirrel executable, or nil when it is unavailable."
-  (and (eq system-type 'darwin)
-       (file-executable-p my-squirrel-program)
-       my-squirrel-program))
+(defun my-input-source--focused-frame ()
+  "Return the selected, focused NS frame, excluding child frames.
+Unknown focus is not proof of foreground ownership.  The helper additionally
+checks the OS foreground PID because Emacs focus events can arrive late."
+  (let ((frame (selected-frame)))
+    (and (eq system-type 'darwin)
+         (eq (framep frame) 'ns)
+         (not (frame-parent frame))
+         (eq (frame-focus-state frame) t)
+         frame)))
 
-(defun my-squirrel--run (&rest arguments)
-  "Run Squirrel asynchronously with ARGUMENTS.
-Return the process, or nil when the Squirrel executable is unavailable."
-  (when-let* ((program (my-squirrel--program)))
-    (make-process :name "squirrel-control"
-                  :noquery t
-                  :command (cons program arguments))))
+(defun my-input-source--run (&rest arguments)
+  "Run the foreground-guarded helper with ARGUMENTS.
+Return (PREVIOUS CURRENT) source IDs on success, otherwise nil."
+  (when (file-executable-p my-input-source-program)
+    (with-temp-buffer
+      (when (eq 0 (apply #'call-process my-input-source-program nil '(t nil) nil
+                        (number-to-string (emacs-pid)) arguments))
+        (let ((sources (split-string (buffer-string) "\n" t)))
+          (when (= (length sources) 2) sources))))))
 
-(defun my-input-source-use-rime-english ()
-  "Select Squirrel for Emacs, then put its Rime session in ASCII mode."
-  (when-let* ((program (my-squirrel--program)))
-    ;; Selection and mode change must be ordered: --ascii targets the active
-    ;; Squirrel controller, which may not exist yet if another input source was
-    ;; active when Emacs gained focus.
-    (make-process
-     :name "squirrel-select"
-     :noquery t
-     :command (list program "--select-input-source" my-input-source-rime)
-     :sentinel
-     (lambda (process _event)
-       (when (and (eq (process-status process) 'exit)
-                  (zerop (process-exit-status process)))
-         (my-squirrel--run "--ascii"))))))
+(defun my-input-source--sync (frame)
+  "Keep Rime selected; request English only in FRAME's Helix normal state."
+  (when (and frame (eq frame (my-input-source--focused-frame)))
+    (with-current-buffer (window-buffer (frame-selected-window frame))
+      (when-let* ((sources (my-input-source--run "rime" my-input-source-rime)))
+        (when (and (bound-and-true-p helix-normal-mode)
+                   (not (bound-and-true-p helix-insert-mode)))
+          (if (equal (car sources) (cadr sources))
+              (my-input-source--run "rime-ascii")
+            ;; Selecting Rime may create its input controller asynchronously.
+            ;; Let it settle; recheck focus and state before requesting ASCII.
+            ;; Entering insert or leaving Emacs cancels this pending request.
+            (my-input-source--schedule frame)))))))
+
+(defun my-input-source--schedule (frame)
+  "Schedule one guarded synchronization for FRAME after input focus settles."
+  (my-input-source--cancel-timer)
+  (setq my-input-source--timer
+        (run-at-time 0.1 nil
+                     (lambda ()
+                       (setq my-input-source--timer nil)
+                       (my-input-source--sync frame)))))
+
+(defun my-input-source--cancel-timer ()
+  "Discard pending work on focus/state changes and configuration reloads."
+  (when (timerp my-input-source--timer)
+    (cancel-timer my-input-source--timer))
+  (setq my-input-source--timer nil))
 
 (defun my-input-source-follow-helix ()
-  "Put Rime in English when the current buffer leaves Helix insert state.
-
-Entering insert state deliberately does nothing: Rime therefore starts in
-English but remains free to switch to Chinese until ESC or `j k' returns the
-buffer to normal state."
-  (unless (bound-and-true-p helix-insert-mode)
-    (my-squirrel--run "--ascii")))
+  "Change input source only for the buffer the user is actually editing."
+  (when-let* ((frame (my-input-source--focused-frame)))
+    (when (eq (current-buffer) (window-buffer (frame-selected-window frame)))
+      (my-input-source--cancel-timer)
+      (my-input-source--sync frame))))
 
 (defun my-input-source-follow-focus ()
-  "Restore Squirrel English when Emacs regains focus in normal state."
-  (when (and (seq-some #'frame-focus-state (frame-list))
-             (not (bound-and-true-p helix-insert-mode)))
-    (my-input-source-use-rime-english)))
+  "Handle actual focus transitions without changing application focus.
+Allow macOS to finish restoring its input source first.  Insert keeps Rime's
+current Chinese/English mode; only normal requests ASCII mode."
+  (let ((frame (my-input-source--focused-frame)))
+    (unless (eq frame my-input-source--focus-frame)
+      (my-input-source--cancel-timer)
+      (setq my-input-source--focus-frame frame)
+      (when frame (my-input-source--schedule frame)))))
 
-;; Loading by hand on another platform is harmless: symbols are defined, but
-;; no hooks or processes are installed.
-(when (my-squirrel--program)
-  (require 'seq)
+(defun my-input-source-follow-window (frame)
+  "Apply input policy after FRAME's selected buffer changes."
+  (my-input-source--sync frame))
+
+;; Remove old registrations and pending CLI jobs when loading this fix into a
+;; running daemon.  Do not touch the actual system Squirrel process.
+(remove-hook 'helix-insert-mode-hook #'my-input-source-follow-helix)
+(remove-function after-focus-change-function #'my-input-source-follow-focus)
+(my-input-source--cancel-timer)
+(dolist (process (process-list))
+  (when (string-match-p "\\`squirrel-\\(?:select\\|control\\)\\(?:<[0-9]+>\\)?\\'"
+                        (process-name process))
+    (set-process-sentinel process #'ignore)
+    (when (process-live-p process) (delete-process process))))
+
+;; Discard state from the previous ABC-based implementation on hot reload.
+(dolist (frame (frame-list))
+  (set-frame-parameter frame 'my-input-source-restore nil))
+
+(when (eq system-type 'darwin)
+  ;; Normal's hook runs after Helix finishes leaving insert.  A foreground
+  ;; insert transition only ensures Rime is selected; it never changes ASCII.
+  (add-hook 'helix-normal-mode-hook #'my-input-source-follow-helix)
   (add-hook 'helix-insert-mode-hook #'my-input-source-follow-helix)
   (add-function :after after-focus-change-function #'my-input-source-follow-focus)
-  ;; Establish the invariant for the frames that already exist at startup or
-  ;; when this file is reloaded.
-  (my-input-source-use-rime-english))
+  (add-hook 'window-selection-change-functions #'my-input-source-follow-window)
+  (add-hook 'window-buffer-change-functions #'my-input-source-follow-window)
+  (setq my-input-source--focus-frame nil)
+  (my-input-source-follow-focus))
 
 (provide 'init-input-source)
-
 ;;; init-input-source.el ends here

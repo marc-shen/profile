@@ -10,7 +10,23 @@
 		</data>
 		<key>Resources/activate-emacs</key>
 		<data>
-		k9aIGegbbElqwsq1kPmfZ2GoAe4=
+		lg4rvhC7ittQYJ3hWb0HqhLAjpQ=
+		</data>
+		<key>Resources/dock-policy.dylib</key>
+		<data>
+		AlziJd43mncGuuyJh0ldQWtIYYQ=
+		</data>
+		<key>Resources/dock-policy.m</key>
+		<data>
+		oblfOp+Bqq1QjoQjU1mDhmpD31g=
+		</data>
+		<key>Resources/input-source</key>
+		<data>
+		HTgo0A1g2vv4Tl6V0NeJb3/A+Mk=
+		</data>
+		<key>Resources/input-source.m</key>
+		<data>
+		qSMNrUCKpLpte03AG4TBtwA5lhc=
 		</data>
 		<key>Resources/launcher.m</key>
 		<data>
@@ -34,7 +50,35 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			7x+itrwgTU1KaYCDOlKsL12hdFgC6S1BmL9bcH8Lt9w=
+			StgaFcn0dKXqhykTxyG4LxLaTc0WOzxxTA1heDRvMuA=
+			</data>
+		</dict>
+		<key>Resources/dock-policy.dylib</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			RLNtnI8S84Jt1yOUmQnSW5gEc/yc75RpGwgCBv3rKc8=
+			</data>
+		</dict>
+		<key>Resources/dock-policy.m</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			NJNXkcAhiHcrPzNIDDgkwKQSkC/VGI4uOhvZDA4jpEo=
+			</data>
+		</dict>
+		<key>Resources/input-source</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			lnqQCY848DWon4SJ34xPt6uLWfK8tLLLUn83usC3ZZA=
+			</data>
+		</dict>
+		<key>Resources/input-source.m</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			Q7lf4U3wdR+V1+ZhmA5QL69ELWknI4JdBkifQxw6C0o=
 			</data>
 		</dict>
 		<key>Resources/launcher.m</key>

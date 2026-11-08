@@ -54,12 +54,11 @@ fi
 hide_emacs_dock_icon="(when (and (featurep 'ns) (fboundp 'ns-do-applescript)) (ns-do-applescript \"use framework \\\"AppKit\\\"\\ncurrent application's NSApplication's sharedApplication()'s setActivationPolicy:1\"))"
 "$client" --timeout=5 --eval "$hide_emacs_dock_icon" >/dev/null 2>&1 || true
 
-# Tag the frame so activation targets this request's new window, even if
+# Tag the frame so activation targets this request's window, even if
 # another client changes the selected frame while this helper is running.
-created_frame_id=""
+target_frame_id="dock-$$-$RANDOM"
 create_window() {
-  created_frame_id="dock-$$-$RANDOM"
-  local parameters="((emacs-client-launch-id . \"$created_frame_id\"))"
+  local parameters="((emacs-client-launch-id . \"$target_frame_id\"))"
   # Bash 3.2 treats an empty array as unset under nounset.
   if [ "${#arguments[@]}" -gt 0 ]; then
     "$client" --timeout=10 --no-wait --create-frame --frame-parameters "$parameters" "${arguments[@]}"
@@ -71,21 +70,21 @@ create_window() {
 if $new_window || [ "${#arguments[@]}" -gt 0 ]; then
   create_window
 else
-  # Walk the stable frame-list order, wrapping after the last GUI frame.
-  # Include minimized windows, but skip the daemon terminal and child frames
-  # (completion popups, tooltips, etc.). Do not use MRU order: that would keep
-  # alternating between two windows when three or more are open.
+  # Returning from another app should resume the selected editing frame,
+  # not cycle to an unrelated window. Include minimized windows, but skip
+  # the daemon terminal and child frames (completion popups, tooltips, etc.).
+  # Only choose/tag here: activate after the final Dock policy change below.
   activated=$("$client" --timeout=5 --eval "(let* ((frames (seq-filter
                                    (lambda (frame)
                                      (and (display-graphic-p frame)
                                           (not (frame-parent frame))))
                                    (frame-list)))
-                           (frame (or (cadr (memq (selected-frame) frames))
+                           (selected (or (frame-parent (selected-frame))
+                                         (selected-frame)))
+                           (frame (or (car (memq selected frames))
                                       (car frames))))
     (when frame
-      (make-frame-visible frame)
-      (select-frame-set-input-focus frame)
-      (raise-frame frame)
+      (set-frame-parameter frame 'emacs-client-launch-id \"$target_frame_id\")
       t))")
   # With no GUI frames, --eval runs in the daemon's terminal context.
   # A plain (make-frame) then fails with "Unknown terminal type". Let
@@ -102,11 +101,10 @@ fi
 
 # Set the final Dock policy before activating: changing application policy
 # after focusing a window can leave the launcher (or another app) in front.
-if [ -n "$created_frame_id" ]; then
-  "$client" --timeout=5 --eval "(let ((frame (seq-find
+"$client" --timeout=5 --eval "(let ((frame (seq-find
       (lambda (frame)
         (equal (frame-parameter frame 'emacs-client-launch-id)
-               \"$created_frame_id\"))
+               \"$target_frame_id\"))
       (frame-list))))
     (when frame
       (make-frame-visible frame)
@@ -116,4 +114,3 @@ if [ -n "$created_frame_id" ]; then
       (select-frame-set-input-focus frame)
       (raise-frame frame)
       (set-frame-parameter frame 'emacs-client-launch-id nil)))" >/dev/null
-fi
