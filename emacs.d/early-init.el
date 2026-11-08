@@ -53,10 +53,14 @@
 (when (boundp 'ns-use-native-fullscreen)
   (setq ns-use-native-fullscreen nil))
 
-;; Start both the initial frame and new client frames at 120 columns by 36 rows.
+;; Start initial and client frames near the upper-left corner, with a small
+;; margin, at 120 columns by 36 rows. Explicit placement avoids WM cascading.
 (dolist (parameters '(initial-frame-alist default-frame-alist))
   (setf (alist-get 'width (symbol-value parameters)) 120
         (alist-get 'height (symbol-value parameters)) 36
+        (alist-get 'left (symbol-value parameters)) 48
+        (alist-get 'top (symbol-value parameters)) 48
+        (alist-get 'user-position (symbol-value parameters)) t
         (alist-get 'fullscreen (symbol-value parameters)) nil))
 
 (provide 'early-init)
