@@ -10,11 +10,11 @@
 		</data>
 		<key>Resources/activate-emacs</key>
 		<data>
-		Pv0cOdXQa3OGKtyTQnpJY1juZN4=
+		9oUWs/FZVaLEX4WRIQ6m+dSqunI=
 		</data>
 		<key>Resources/client-menu.dylib</key>
 		<data>
-		1soCNxo4k/yjQxpTNGXzuaIRiXk=
+		rAufQObVVEpevVAKs3U19kwNYO4=
 		</data>
 		<key>Resources/client-menu.m</key>
 		<data>
@@ -22,7 +22,7 @@
 		</data>
 		<key>Resources/dock-policy.dylib</key>
 		<data>
-		RfYzfpKcZm2eE0oOWDgpHZbzOTQ=
+		STTFVrIAMH85vHdVN0NuNmRbdFA=
 		</data>
 		<key>Resources/dock-policy.m</key>
 		<data>
@@ -30,7 +30,7 @@
 		</data>
 		<key>Resources/dock-resident.dylib</key>
 		<data>
-		AcuEmEKYo7ltNtkaiY5v9qBUxp4=
+		babNrjnlGVvIpfiGOP+v/LGcb8w=
 		</data>
 		<key>Resources/dock-resident.m</key>
 		<data>
@@ -70,14 +70,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			UOPuPxl6go6mc6IgPeh/17zuKGWFUeYGglSkGUF/E44=
+			mAuBbXy25DfEmGUfOoKmMpztLFAmLrJBLpB6aM7Ny/g=
 			</data>
 		</dict>
 		<key>Resources/client-menu.dylib</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			DeQdsDTF0xCFn8nz36Q9HJgzE36Ck3u8VJWmSTeQkfE=
+			jVI3dzNjRMcypbHKnTLvIxcSUR8GOSiy9nJp2FIHiyY=
 			</data>
 		</dict>
 		<key>Resources/client-menu.m</key>
@@ -91,7 +91,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			JNchD5Ypd4oxYtRFBULweWj0KfTK+5w1FPB7wCupsBc=
+			Jv3jREdP4m5EgOrXPZtKvLFL4LEb59JDrrz2tH4VUMc=
 			</data>
 		</dict>
 		<key>Resources/dock-policy.m</key>
@@ -105,7 +105,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			zMacjAgsc8sLUqjhZ1E8MHgu5N3oOkCezyzOskDBJ+Q=
+			OvBJ9ukVT4/MOflblizkhWsK6GaxXWJnjAbnBKk1j0I=
 			</data>
 		</dict>
 		<key>Resources/dock-resident.m</key>

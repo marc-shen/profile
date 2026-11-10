@@ -10,14 +10,33 @@ if [[ ! -x $client ]]; then client=/Applications/Emacs.app/Contents/MacOS/bin/em
 # LaunchServices may append a process serial number on older macOS versions;
 # it is not an Emacs argument.
 new_window=false
+after_pid=
 arguments=()
 for argument in "$@"; do
   case "$argument" in
     -psn_*) ;;
     --new-window) new_window=true ;;
+    --after-pid=*) after_pid=${argument#--after-pid=}
+      if [[ ! $after_pid =~ ^[1-9][0-9]*$ ]]; then
+        echo "Invalid restart process ID: $after_pid" >&2
+        exit 1
+      fi ;;
     *) arguments+=("$argument") ;;
   esac
 done
+
+# Graceful restart uses a separate LaunchServices process. Do not reconnect to
+# the old server while its shutdown hooks are still running, and never kill it.
+if [[ -n $after_pid ]]; then
+  for _ in {1..300}; do
+    kill -0 "$after_pid" 2>/dev/null || break
+    sleep 0.1
+  done
+  if kill -0 "$after_pid" 2>/dev/null; then
+    echo "Emacs $after_pid has not exited; restart canceled without killing it." >&2
+    exit 1
+  fi
+fi
 
 if ! "$client" --timeout=5 --eval t >/dev/null 2>&1; then
   domain="gui/$(id -u)"

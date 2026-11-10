@@ -102,6 +102,8 @@ journalctl --user -u emacs -n 80 --no-pager
 
 后台卡住时，可以右键 Dock 中的 **Emacs Client → 强制重启 Emacs 后台…**。确认后会强制终止当前用户的 `org.gnu.emacs.daemon`，清除等待中的打开请求，再启动后台并打开新窗口；未保存的修改会丢失，磁盘上的文件和配置保留。恢复操作独立于普通打开队列，避免被卡住的 emacsclient 阻塞。
 
+正常重启使用 `M-x my-restart-emacs`。macOS 上仅当当前 PID 确认归属 `org.gnu.emacs.daemon` 时，命令才采用 launchd 重启流程：完成保存及退出确认、正常退出旧进程、通过后台服务启动新版，再自动打开并聚焦客户端窗口。独立辅助进程只在确认退出后启动，等待旧 PID 消失，不会强杀进程；取消退出不会留下重启任务。此流程不使用 Emacs 内置的原进程重新执行，因此会经过运行时升级检查。Linux 的 systemd 分支及独立 Emacs 的重启方式保持不变。
+
 macOS 使用统一的 `~/Applications/Emacs Client.app`：原生 Emacs 后台和 Client 启动器共用同一个应用包与标识，Dock 只保留 Client 一个入口。后台保持普通应用模式，提供原生菜单栏；启动器作为 accessory 辅助进程打开窗口后退出。无需隐藏编辑器的 Dock 图标，也不在补全时切换应用策略。
 
 关闭最后一个编辑窗口后，后台继续运行，Dock 图标保持运行状态；再次点击图标会打开客户端窗口。`dock-resident.dylib` 阻止原生 Emacs 在关闭最后一个图形终端时切换到禁止显示应用的状态，并避免重复设置策略影响补全焦点。此行为只用于统一版后台；真正退出后台时会解除限制。
