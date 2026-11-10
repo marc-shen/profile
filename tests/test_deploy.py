@@ -102,4 +102,17 @@ class DeploymentTests(unittest.TestCase):
         self.assertIn('collision', result.stderr)
         self.assertEqual((self.home / '.zshrc').read_text(), 'keep me')
 
+    def test_emacs_only_creates_shared_environment_without_replacing_shell(self):
+        (self.home / '.zshrc').write_text('# personal shell\n')
+        self.run_deploy('link', '--only', 'emacs')
+        environment = self.home / 'Software/env.sh'
+        self.assertTrue(environment.is_file())
+        self.assertIn(str(self.repo / 'shell/env.sh'), environment.read_text())
+        self.assertIn(str(self.repo / 'shell/modules.sh'), environment.read_text())
+        self.assertEqual((self.home / '.zshrc').read_text(), '# personal shell\n')
+        self.assertFalse((self.home / '.zprofile').exists())
+        before = environment.stat().st_mtime_ns
+        self.run_deploy('link', '--only', 'emacs')
+        self.assertEqual(environment.stat().st_mtime_ns, before)
+
 if __name__ == '__main__': unittest.main()

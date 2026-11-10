@@ -7,6 +7,7 @@ import datetime
 import os
 from pathlib import Path
 import plistlib
+import shlex
 import shutil
 import subprocess as sp
 import sys
@@ -74,6 +75,9 @@ def layout():
     link(REPO, ROOT / 'config/profile')
     link(REPO / 'scripts/software-app', ROOT / 'bin/software-app')
     link(REPO / 'docs/Software.txt', ROOT / 'README.txt')
+    # Emacs-only deployment and standalone service setup also need this entry:
+    # launchd supplies a minimal PATH, regardless of interactive shell settings.
+    write(ROOT / 'env.sh', 'export SOFTWARE_HOME=' + shlex.quote(str(ROOT)) + '\n. ' + shlex.quote(str(REPO / 'shell/env.sh')) + '\n. ' + shlex.quote(str(REPO / 'shell/modules.sh')) + '\n')
     local_env = ROOT / 'config/local/env.sh'
     if not exists(local_env):
         old_uv = [HOME / '.local/share/uv', HOME / 'Library/Application Support/uv']
@@ -165,9 +169,6 @@ def helix_config():
 def shell_config():
     link(REPO / 'zshrc', ROOT / 'config/shell/zshrc')
     link(REPO / 'shell/env.sh', ROOT / 'config/shell/env.sh')
-    # Stable environment entry for Bash, Zsh, launchers and build scripts.
-    import shlex
-    write(ROOT / 'env.sh', 'export SOFTWARE_HOME=' + shlex.quote(str(ROOT)) + '\n. ' + shlex.quote(str(REPO / 'shell/env.sh')) + '\n. ' + shlex.quote(str(REPO / 'shell/modules.sh')) + '\n')
     link(REPO / 'zshrc', HOME / '.zshrc')
     # Preserve existing .zshenv content (e.g. Cargo) and local secrets in it.
     block(HOME / '.zshenv', 'export SOFTWARE_HOME=' + shlex.quote(str(ROOT)) + '\n. ' + shlex.quote(str(REPO / 'shell/env.sh')))

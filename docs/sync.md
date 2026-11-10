@@ -63,6 +63,8 @@ cd ~/Software/config/profile
 
 `apply` 会修复配置链接、补齐新命令、更新 macOS 的 Emacs Client.app、执行现有的配置迁移，并写入服务定义；不停止或重启 Emacs。Linux 写入服务定义后执行 `daemon-reload`，不启动服务；macOS 仅写 plist。首次启动仍使用 `./bootstrap.sh service`。Emacs Client 保留 `Contents/Runtime/Emacs.app` 中用户选择的完整应用或符号链接；首次安装默认链接 `/Applications/Emacs.app`。日后替换该入口后，后台下次启动会自动准备新版运行时，无需重新部署。部署不会强制重启或关闭编辑内容。
 
+`apply --only emacs` 也会准备公共环境入口 `Software/env.sh`，供 launchd 后台找到用户命令和语言服务；无需先执行 Shell 部署，现有 `.zshrc` 不会因此被替换。更新 Emacs Lisp 配置后使用 `M-x my-restart-emacs` 正常重启。首次安装的 ELPA/原生插件仍使用 `bash scripts/install-emacs-packages.sh`，系统 Rime 配置不由 `apply` 修改。
+
 部署状态保存在 `Software/data/profile/deployment.json`，按 Shell、Emacs、Helix 分别记录内容指纹与提交号。因此先手动拉取也不会遗漏待部署变化；本地未提交配置可以 `apply`，状态会标记 dirty。失败时保留上次成功的配置快照及失败步骤，重跑即可继续。缺失依赖会单独记录：仅配置已部署但仍有依赖缺失时退出码为 **2**，执行失败为 **1**，完成为 **0**。日志位于 `Software/logs/profile-*.log`。
 
 重复 `apply` 仍会检查并修复链接，已部署内容保持不变。它不是整个桌面环境的事务回滚；部分步骤失败时，已完成的操作可能已经生效，原配置备份位于 `Software/backups/`。

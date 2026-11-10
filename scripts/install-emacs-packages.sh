@@ -10,9 +10,18 @@ if [[ $PROFILE_PLATFORM == steamdeck ]]; then
  export PKG_CONFIG_PATH="$CONDA_PREFIX/lib/pkgconfig:$CONDA_PREFIX/share/pkgconfig"
  binary="$app/bin/emacs"
 else
- binary=${EMACS_BINARY:-$(command -v emacs || true)}
- [[ ! -x /Applications/Emacs.app/Contents/MacOS/Emacs ]] || binary=/Applications/Emacs.app/Contents/MacOS/Emacs
- [[ ! -x $SOFTWARE_HOME/bin/emacs-real ]] || binary="$SOFTWARE_HOME/bin/emacs-real"
+ binary=${EMACS_BINARY:-}
+ if [[ -z $binary ]]; then
+  if [[ $PROFILE_PLATFORM == macos && -x "$HOME/Applications/Emacs Client.app/Contents/MacOS/Emacs" ]]; then
+   binary="$HOME/Applications/Emacs Client.app/Contents/MacOS/Emacs"
+  elif [[ $PROFILE_PLATFORM == macos && -x /Applications/Emacs.app/Contents/MacOS/Emacs ]]; then
+   binary=/Applications/Emacs.app/Contents/MacOS/Emacs
+  elif [[ -x $SOFTWARE_HOME/bin/emacs-real ]]; then
+   binary="$SOFTWARE_HOME/bin/emacs-real"
+  else
+   binary=$(command -v emacs || true)
+  fi
+ fi
 fi
 [[ -n $binary && -x $binary ]] || { echo 'Native Emacs is not installed' >&2; exit 1; }
 # The installer tells PDF Tools to skip distribution package installation.

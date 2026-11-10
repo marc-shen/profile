@@ -83,6 +83,8 @@ bash scripts/install-emacs-packages.sh
 
 Emacs 包单独安装，之后才启用后台服务。现有配置被替换前会保存到 `Software/backups`；如果原目录和 checkout 中都存在独立的 Emacs 运行数据，部署会停止，需先核对数据。
 
+macOS 部署会自动生成统一的 `~/Applications/Emacs Client.app`，包含 Dock 常驻、新窗口焦点恢复及正常重启所需的组件。运行时入口是包内 `Contents/Runtime/Emacs.app`，首次默认链接 Homebrew 原版，后续部署保留你选择的完整应用或符号链接。插件安装脚本优先使用统一包内的 Emacs；显式设置 `EMACS_BINARY` 时使用指定程序。只部署 Emacs 也会生成后台需要的 `Software/env.sh`，不必先部署 Zsh。系统 Rime/Squirrel 的安装及用户配置仍单独管理。
+
 安装完成后进入 Zsh，再检查入口：
 
 ```sh
