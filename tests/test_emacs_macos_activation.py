@@ -25,7 +25,7 @@ print('nil' if '(let* ((frames' in sys.argv[-1] and os.environ['TEST_EXISTING'] 
             client.chmod(0o755)
             script = root / 'activate'
             script.write_text(SOURCE.read_text().replace(
-                'client=/Applications/Emacs.app/Contents/MacOS/bin/emacsclient',
+                'if [[ ! -x $client ]]; then client=/Applications/Emacs.app/Contents/MacOS/bin/emacsclient; fi',
                 'client="' + str(client) + '"'))
             log = root / 'calls'
             subprocess.run(['/bin/bash', str(script), *arguments], check=True,
@@ -40,7 +40,11 @@ print('nil' if '(let* ((frames' in sys.argv[-1] and os.environ['TEST_EXISTING'] 
             with self.subTest(arguments=arguments, existing=existing):
                 calls = self.request(arguments, existing)
                 evaluations = [c[-1] for c in calls if '--eval' in c]
-                self.assertIn('setActivationPolicy:1', evaluations[-2])
+                self.assertIn('setActivationPolicy:0', evaluations[-1])
+                self.assertFalse(any('setActivationPolicy:1' in e for e in evaluations))
+                self.assertTrue(any('(menu-bar-mode 1)' in e for e in evaluations))
+                self.assertLess(evaluations[-1].index('setActivationPolicy:0'),
+                                evaluations[-1].index('activateIgnoringOtherApps:true'))
                 self.assertIn('activateIgnoringOtherApps:true', evaluations[-1])
                 self.assertIn('select-frame-set-input-focus', evaluations[-1])
                 self.assertFalse(any('select-frame-set-input-focus' in e for e in evaluations[:-1]))

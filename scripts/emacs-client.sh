@@ -2,7 +2,9 @@
 root=${SOFTWARE_HOME:-$HOME/Software}
 [[ ! -r $root/env.sh ]] || source "$root/env.sh"
 source "${PROFILE_HOME:-$root/config/profile}/scripts/emacs-x11-auth.sh"
-if [[ $(uname -s) == Darwin && -x /Applications/Emacs.app/Contents/MacOS/bin/emacsclient ]]; then
+if [[ $(uname -s) == Darwin && -x "$HOME/Applications/Emacs Client.app/Contents/MacOS/bin/emacsclient" ]]; then
+ client="$HOME/Applications/Emacs Client.app/Contents/MacOS/bin/emacsclient"
+elif [[ $(uname -s) == Darwin && -x /Applications/Emacs.app/Contents/MacOS/bin/emacsclient ]]; then
  client=/Applications/Emacs.app/Contents/MacOS/bin/emacsclient
 else
  client=$(command -v emacsclient) || { echo 'emacsclient is missing from PATH' >&2; exit 1; }
@@ -29,12 +31,12 @@ if ! "$client" --timeout=5 --socket-name=server --eval t >/dev/null 2>&1; then
   systemctl --user start emacs.service
  fi
  ready=false
- for ((i=0; i<20; i++)); do
+ for ((i=0; i<240; i++)); do
   if "$client" --timeout=1 --socket-name=server --eval t >/dev/null 2>&1; then
    ready=true
    break
   fi
-  sleep 0.1
+  sleep 0.25
  done
  if ! $ready; then
   echo "Emacs daemon is not responding. Save or recover unsaved buffers before restarting it." >&2

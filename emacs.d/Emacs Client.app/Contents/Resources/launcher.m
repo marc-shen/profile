@@ -1,6 +1,6 @@
 #import <Cocoa/Cocoa.h>
 
-// This process owns the Dock tile; Emacs itself remains a separate daemon.
+// A transient accessory launcher; the bundled native daemon owns the Dock tile.
 @interface EmacsClientDelegate : NSObject <NSApplicationDelegate>
 @property(nonatomic, strong) NSOperationQueue *requests;
 @property(atomic, strong) NSTask *activeTask;
@@ -40,14 +40,18 @@
         @synchronized (self) {
             if (self.activeTask == task) self.activeTask = nil;
         }
+        if (started && task.terminationStatus == 0) {
+            dispatch_async(dispatch_get_main_queue(), ^{ [NSApp terminate:nil]; });
+        }
         if (!started || task.terminationStatus != 0) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 if (generation != self.generation) return;
                 NSAlert *alert = [[NSAlert alloc] init];
                 alert.messageText = @"Unable to open Emacs";
                 alert.informativeText = error.localizedDescription ?: 
-                    @"Check that /Applications/Emacs.app is installed and the org.gnu.emacs.daemon launch agent is running.";
+                    @"Check Contents/Runtime/Emacs.app in Emacs Client.app and the org.gnu.emacs.daemon launch agent. You can run ~/Software/bin/emacs-daemon in Terminal to inspect startup errors.";
                 [alert runModal];
+                [NSApp terminate:nil];
             });
         }
     }];
@@ -68,7 +72,11 @@
          NSMakeRange(1, [NSProcessInfo processInfo].arguments.count - 1)]) {
         if (![argument hasPrefix:@"-psn_"]) [arguments addObject:argument];
     }
-    [self activateEmacsWithArguments:arguments];
+    if ([arguments containsObject:@"--restart"]) {
+        [self forceRestartEmacs:nil];
+    } else {
+        [self activateEmacsWithArguments:arguments];
+    }
 }
 
 - (void)newWindow:(id)sender {
@@ -83,7 +91,11 @@
     confirmation.informativeText = @"此后台中的所有 Emacs 窗口会关闭，未保存的修改将丢失。随后会启动新的后台并打开一个窗口。磁盘上的文件和配置不会删除。";
     [confirmation addButtonWithTitle:@"取消"];
     [confirmation addButtonWithTitle:@"强制重启"];
-    if ([confirmation runModal] != NSAlertSecondButtonReturn) return;
+    [NSApp activateIgnoringOtherApps:YES];
+    if ([confirmation runModal] != NSAlertSecondButtonReturn) {
+        [NSApp terminate:nil];
+        return;
+    }
 
     @synchronized (self) {
         self.restarting = YES;
@@ -109,6 +121,7 @@
                 alert.informativeText = error.localizedDescription ?: @"请检查 org.gnu.emacs.daemon 服务及 ~/Library/LaunchAgents/org.gnu.emacs.daemon.plist。";
                 [alert runModal];
             }
+            [NSApp terminate:nil];
         });
     });
 }
@@ -149,7 +162,7 @@ int main(int argc, const char *argv[]) {
         NSApplication *app = [NSApplication sharedApplication];
         EmacsClientDelegate *delegate = [[EmacsClientDelegate alloc] init];
         app.delegate = delegate;
-        [app setActivationPolicy:NSApplicationActivationPolicyRegular];
+        [app setActivationPolicy:NSApplicationActivationPolicyAccessory];
         [app run];
     }
     return 0;

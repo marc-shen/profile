@@ -102,9 +102,6 @@ def emacs_config():
     for command in ['em', 'ec', 'ediff']:
         link(source / command, ROOT / 'bin' / command)
     link(REPO / 'scripts/emacs-daemon', ROOT / 'bin/emacs-daemon')
-    mac_emacs = Path('/Applications/Emacs.app/Contents/MacOS/Emacs')
-    if sys.platform == 'darwin' and mac_emacs.is_file():
-        link(mac_emacs, ROOT / 'bin/emacs')
     os_release = Path('/etc/os-release')
     if os_release.exists() and any(line.startswith('ID=') and line.split('=', 1)[1].strip('"\'') == 'steamos' for line in os_release.read_text().splitlines()):
         for command in ['emacs', 'emacs-steam', 'deck-build']:
@@ -119,6 +116,15 @@ def emacs_config():
                 link(candidate, ROOT / 'bin/emacsclient'); break
     if sys.platform == 'darwin':
         mac_client()
+        # Follow the selected runtime for managed CLI entrypoints too.
+        for command, relative in [('emacs', 'Emacs'), ('emacsclient', 'bin/emacsclient')]:
+            dest = ROOT / 'bin' / command
+            upstream = Path('/Applications/Emacs.app/Contents/MacOS') / relative
+            bundled = HOME / 'Applications/Emacs Client.app/Contents/MacOS' / relative
+            if bundled.is_file() and (not exists(dest) or
+                                     (dest.is_symlink() and dest.resolve() in
+                                      (upstream.resolve(), bundled.resolve()))):
+                link(bundled, dest)
 
 def bundle_digest(path):
     digest = hashlib.sha256()
@@ -134,7 +140,11 @@ def mac_client():
     source = REPO / 'emacs.d/Emacs Client.app'
     if not source.is_dir(): return
     target = HOME / 'Applications/Emacs Client.app'
-    if target.is_dir() and bundle_digest(source) == bundle_digest(target): return
+    from emacs_client_bundle import build_bundle, runtime_marker, selected_runtime
+    runtime = selected_runtime(target)
+    expected = runtime_marker(runtime, bundle_digest(source))
+    marker = target / 'Contents/Resources/profile-runtime.json'
+    if marker.is_file() and json.loads(marker.read_text()) == expected: return
     print('deploy Dock application:', target)
     if DRY: return
     sp.run(['codesign', '--verify', '--deep', '--strict', str(source)], check=True)
@@ -142,12 +152,12 @@ def mac_client():
     import tempfile
     staging = Path(tempfile.mkdtemp(prefix='.emacs-client-', dir=target.parent))
     try:
-        shutil.copytree(source, staging / target.name, symlinks=True)
+        build_bundle(source, runtime, staging / target.name, expected['overlay'])
         save(target)
         (staging / target.name).rename(target)
     finally:
         shutil.rmtree(staging)
-    print('Dock launcher updated. Quit/reopen Emacs Client to load its new binary; the daemon is kept running.')
+    print('Unified Emacs Client installed. A running daemon keeps its current executable until restarted.')
 
 def helix_config():
     link(REPO / 'helix', HOME / '.config/helix')

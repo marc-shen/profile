@@ -23,4 +23,19 @@ codesign --force --sign - "$module_build_directory/dock-policy.dylib"
 # A running daemon may have the old module mapped. Replace its inode rather
 # than overwriting mapped code; the new module is used on the next daemon start.
 mv -f "$module_build_directory/dock-policy.dylib" "$bundle/Contents/Resources/dock-policy.dylib"
+xcrun clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter -O2 -dynamiclib \
+  -arch arm64 -arch x86_64 -mmacosx-version-min=12.0 \
+  -I /Applications/Emacs.app/Contents/Resources/include \
+  -framework Cocoa "$bundle/Contents/Resources/client-menu.m" \
+  -o "$module_build_directory/client-menu.dylib"
+codesign --force --sign - "$module_build_directory/client-menu.dylib"
+mv -f "$module_build_directory/client-menu.dylib" "$bundle/Contents/Resources/client-menu.dylib"
+xcrun clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter -O2 -dynamiclib \
+  -arch arm64 -arch x86_64 -mmacosx-version-min=12.0 \
+  -I /Applications/Emacs.app/Contents/Resources/include \
+  -framework Cocoa "$bundle/Contents/Resources/dock-resident.m" \
+  -o "$module_build_directory/dock-resident.dylib"
+codesign --force --sign - "$module_build_directory/dock-resident.dylib"
+mv -f "$module_build_directory/dock-resident.dylib" "$bundle/Contents/Resources/dock-resident.dylib"
+cp "$source_directory/../scripts/emacs_client_bundle.py" "$bundle/Contents/Resources/prepare-runtime.py"
 codesign --force --sign - "$bundle"

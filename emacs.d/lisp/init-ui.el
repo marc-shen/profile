@@ -2,7 +2,7 @@
 
 (defvar display-line-numbers-type)
 
-;; Keep the daemon's Dock policy stable while creating completion child frames.
+;; Keep the native menu bar enabled and the application's Dock policy stable.
 (require 'init-macos-dock)
 
 ;; Keep Latin/code glyphs monospaced and choose one deterministic Chinese font

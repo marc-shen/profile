@@ -102,11 +102,23 @@ journalctl --user -u emacs -n 80 --no-pager
 
 后台卡住时，可以右键 Dock 中的 **Emacs Client → 强制重启 Emacs 后台…**。确认后会强制终止当前用户的 `org.gnu.emacs.daemon`，清除等待中的打开请求，再启动后台并打开新窗口；未保存的修改会丢失，磁盘上的文件和配置保留。恢复操作独立于普通打开队列，避免被卡住的 emacsclient 阻塞。
 
-macOS 使用 Emacs Client 时，Dock 只保留启动器的图标。Emacs 31 每创建一个 NS 窗口（包括 Corfu 补全子窗口）都会请求 regular 策略；创建后再隐藏图标会发生 regular → accessory 切换，可能导致首次补全时丢失焦点。`init-ui.el` 加载 `init-macos-dock.el` 和原生 `dock-policy.dylib`，仅在 daemon 中提前拦截本体进入 Dock 的请求，使其保持 accessory，避免显隐切换。无需事后激活窗口、定时抢回焦点或关闭补全，也覆盖 Corfu 禁用普通窗口创建钩子的路径。
+macOS 使用统一的 `~/Applications/Emacs Client.app`：原生 Emacs 后台和 Client 启动器共用同一个应用包与标识，Dock 只保留 Client 一个入口。后台保持普通应用模式，提供原生菜单栏；启动器作为 accessory 辅助进程打开窗口后退出。无需隐藏编辑器的 Dock 图标，也不在补全时切换应用策略。
 
-原生模块只覆盖当前 Emacs 进程的 `EmacsApp` 策略方法，不修改系统 AppKit 或 Emacs 安装文件；独立启动的 Emacs 和 Linux 不加载它。模块支持无图形窗口的 daemon 启动，以及关闭全部图形窗口后重新创建窗口。运行 `(profile-macos-dock-guard-status)` 可查看状态；正常补全只增加 `:blocked-promotions`，不增加 `:policy-changes`。模块缺失时会警告并允许本体图标出现，不恢复有焦点问题的旧隐藏钩子。
+关闭最后一个编辑窗口后，后台继续运行，Dock 图标保持运行状态；再次点击图标会打开客户端窗口。`dock-resident.dylib` 阻止原生 Emacs 在关闭最后一个图形终端时切换到禁止显示应用的状态，并避免重复设置策略影响补全焦点。此行为只用于统一版后台；真正退出后台时会解除限制。
 
-运行 `bash emacs.d/build-emacs-client.sh` 会重新构建并签名原生组件；需要已安装 Emacs 的 `emacs-module.h`。模块更新通过替换文件完成，避免覆盖运行中后台映射的代码；已加载的模块更新需要下次后台启动才生效。`tests/test-emacs-macos-dock.el` 覆盖无普通钩子的子窗口创建、Corfu 首次创建/复用，以及 scratch 模式输入 `pr` 自动弹窗后继续输入 `i`，同时检查策略变化计数和真实前台 PID。
+运行时升级入口固定为 `~/Applications/Emacs Client.app/Contents/Runtime/Emacs.app`。初次部署在这里建立指向 `/Applications/Emacs.app` 的符号链接；以后 Homebrew 更新原版后，保存工作并重启 Emacs 后台即可自动同步。也可以在 Finder 中显示 Client 的包内容，进入 `Contents/Runtime`，先移除旧链接或旧应用，再放入新版完整的 `Emacs.app`（名称必须保持一致）。支持真正的符号链接，不支持 Finder 替身；替换链接时不要进入其目标目录覆盖 Homebrew 原版。
+
+`scripts/emacs-daemon` 在后台启动前比较内嵌入口的签名信息。有变化时先在临时目录校验、组装并签名，再切换整个统一包；准备失败保留原运行文件并报告错误，不偷偷启动其他版本。旧包保存在 `~/Software/backups/emacs-runtime-*`。输入的上游应用不会被修改；复制的应用继续保存在包内，链接继续指向外部应用。后台运行期间替换入口不会重启会话；保存工作后使用 `M-x save-buffers-kill-emacs` 退出后台，launchd 会启动新版，再点击 Client 打开窗口。首次准备可能需要几十秒。
+
+为保持单一应用身份，执行文件仍位于外层统一包；内嵌 `Emacs.app` 是升级来源。外层会保存约 500 MB 的运行副本；直接放入完整应用会再占用一份空间，符号链接则不需要这一份。运行文件及升级备份不进入 Git。上游应用采用严格签名校验，外层采用普通深度校验（严格模式不允许指向包外的符号链接）。准备工具使用本机 `/usr/bin/python3`、`ditto` 和 `codesign`，不需要每次运行仓库部署或编译启动器。配置重新部署会保留用户选择的升级来源。
+
+Dock 和 `em`、`ec` 使用统一后台；受部署管理的 `emacs`、`emacsclient` 链接也改为指向统一包内的对应程序，因此不再固定调用 Homebrew 原版。`emacs` 仍是直接启动程序，不是客户端命令。自定义 `EMACS_BINARY` 仍优先于统一包，并绕过这一自动更新逻辑。
+
+统一 Dock 右键菜单的 `New Frame` 通过 `activate-emacs --new-window` 创建客户端窗口，并明确激活应用、选中新窗口及提升窗口层次；没有现存窗口或正在使用其他应用时也走同一流程。菜单还提供“强制重启 Emacs 后台…”；恢复确认在独立辅助进程中运行。若后台完全卡住，无法打开其 Dock 菜单，可从终端执行 `open -n "$HOME/Applications/Emacs Client.app" --args --restart` 打开同一恢复确认。关闭全部编辑窗口后，再点 Client 图标会重新打开客户端窗口。
+
+`init-macos-dock.el` 移除旧的隐藏图标钩子、关闭 accessory guard，并安装统一的恢复菜单。Rime 为 `local.marcshen.emacs-client` 保留与原 `org.gnu.Emacs` 相同的英文默认和非内嵌预编辑设置。
+
+`tests/test-emacs-macos-dock.el` 覆盖原生菜单栏和补全焦点；`tests/test-emacs-client-bundle.el` 验证统一应用身份与恢复菜单；`tests/test_emacs_client_bundle.py` 验证打包时原生运行时、元数据和辅助程序都被保留。
 
 点击 Dock 返回 Emacs 会恢复上次选中的编辑窗口，不再自动轮换；新窗口仍从右键菜单创建。新建和恢复窗口都会先完成 Dock 策略设置，再统一激活目标窗口。
 

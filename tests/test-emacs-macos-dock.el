@@ -19,7 +19,9 @@
            "frontmostApplication()'s processIdentifier()")))
 
 (defun profile-test-dock-changes ()
-  (plist-get (profile-macos-dock-guard-status) :policy-changes))
+  (if (fboundp 'profile-macos-dock-guard-status)
+      (plist-get (profile-macos-dock-guard-status) :policy-changes)
+    0))
 
 (defun profile-test-dock-policy ()
   (ns-do-applescript
@@ -29,8 +31,7 @@
 
 (defun profile-test-dock-parent ()
   (unless (and (eq system-type 'darwin) (daemonp) (featurep 'ns)
-               (fboundp 'profile-macos-dock-guard-status)
-               (plist-get (profile-macos-dock-guard-status) :enabled))
+               (featurep 'init-macos-dock))
     (ert-skip "Requires a configured macOS daemon"))
   (let ((parent (seq-find (lambda (frame)
                             (and (eq (framep frame) 'ns)
@@ -53,7 +54,7 @@
                            (width . 10) (height . 2)))))
           (should (frame-live-p child))
           (should (eq (frame-parent child) parent))
-          (should (= (profile-test-dock-policy) 1))
+          (should (= (profile-test-dock-policy) 0))
           (sit-for 0.1)
           ;; Checking only the final policy missed the Regular->Accessory
           ;; transition. There must be NO native policy changes at all.
@@ -73,7 +74,7 @@
             (dotimes (_ 3)
               (setq child (corfu--make-frame child 0 0 160 40))
               (should (frame-live-p child))
-              (should (= (profile-test-dock-policy) 1))
+              (should (= (profile-test-dock-policy) 0))
               (sit-for 0.1)
               (should (= (profile-test-dock-changes) changes))
               (should (= (profile-test-dock-frontmost-pid) foreground))
@@ -117,3 +118,14 @@
                 (corfu-quit)))))
       (dolist (child (list corfu-popupinfo--frame corfu--frame))
         (when (frame-live-p child) (delete-frame child t))))))
+
+(ert-deftest profile-macos-dock-native-menu-enabled ()
+  (let ((parent (profile-test-dock-parent)))
+    (should menu-bar-mode)
+    (should (= (frame-parameter parent 'menu-bar-lines) 1))
+    (should (= (profile-test-dock-policy) 0))
+    (should (> (ns-do-applescript
+                (concat "use framework \"AppKit\"\n"
+                        "return current application's NSApplication's sharedApplication()'s "
+                        "mainMenu()'s numberOfItems()"))
+               1))))

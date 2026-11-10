@@ -8,8 +8,9 @@
 
   <key>ProgramArguments</key>
   <array>
-    <string>/Applications/Emacs.app/Contents/MacOS/Emacs</string>
-    <string>--fg-daemon</string>
+    <string>/bin/bash</string>
+    <string>-c</string>
+    <string>exec "$HOME/Software/bin/emacs-daemon"</string>
   </array>
 
   <!-- launchd must track the foreground Emacs process.  --daemon forks and

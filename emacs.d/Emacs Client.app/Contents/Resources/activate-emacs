@@ -2,7 +2,10 @@
 
 set -euo pipefail
 
-client=/Applications/Emacs.app/Contents/MacOS/bin/emacsclient
+contents=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)
+client="$contents/MacOS/bin/emacsclient"
+# The repository's thin launcher has no runtime until it is deployed.
+if [[ ! -x $client ]]; then client=/Applications/Emacs.app/Contents/MacOS/bin/emacsclient; fi
 
 # LaunchServices may append a process serial number on older macOS versions;
 # it is not an Emacs argument.
@@ -34,7 +37,7 @@ if ! "$client" --timeout=5 --eval t >/dev/null 2>&1; then
   # No -k: never kill a running daemon or its unsaved buffers.
   launchctl kickstart "$service" >/dev/null
   ready=false
-  for _ in {1..20}; do
+  for _ in {1..240}; do
     if "$client" --timeout=1 --eval t >/dev/null 2>&1; then
       ready=true
       break
@@ -47,12 +50,10 @@ if ! "$client" --timeout=5 --eval t >/dev/null 2>&1; then
   fi
 fi
 
-# The Dock associates the frame with the daemon's Emacs.app process rather
-# than with this launcher.  Make that process an AppKit accessory so the
-# pinned Emacs Client tile is the only Emacs icon in the Dock.  Accessory apps
-# can still own normal windows; they simply have no separate Dock tile.
-hide_emacs_dock_icon="(when (and (featurep 'ns) (fboundp 'ns-do-applescript)) (ns-do-applescript \"use framework \\\"AppKit\\\"\\ncurrent application's NSApplication's sharedApplication()'s setActivationPolicy:1\"))"
-"$client" --timeout=5 --eval "$hide_emacs_dock_icon" >/dev/null 2>&1 || true
+# Emacs owns the native menu bar and remains a regular Dock application.
+# Also disable the old accessory guard if this daemon predates the migration.
+restore_emacs_menu="(progn (when (fboundp 'profile-macos-dock-guard) (profile-macos-dock-guard nil)) (menu-bar-mode 1))"
+"$client" --timeout=5 --eval "$restore_emacs_menu" >/dev/null
 
 # Tag the frame so activation targets this request's window, even if
 # another client changes the selected frame while this helper is running.
@@ -73,7 +74,7 @@ else
   # Returning from another app should resume the selected editing frame,
   # not cycle to an unrelated window. Include minimized windows, but skip
   # the daemon terminal and child frames (completion popups, tooltips, etc.).
-  # Only choose/tag here: activate after the final Dock policy change below.
+  # Only choose/tag here; activate the chosen frame below.
   activated=$("$client" --timeout=5 --eval "(let* ((frames (seq-filter
                                    (lambda (frame)
                                      (and (display-graphic-p frame)
@@ -94,13 +95,7 @@ else
   fi
 fi
 
-# Creating the first GUI frame can promote a daemon back to a regular AppKit
-# application.  Apply the accessory policy again after Emacs has finished
-# creating the frame.
-"$client" --timeout=5 --eval "$hide_emacs_dock_icon" >/dev/null 2>&1 || true
-
-# Set the final Dock policy before activating: changing application policy
-# after focusing a window can leave the launcher (or another app) in front.
+# Activate only on an explicit launcher request, after fixing any legacy policy.
 "$client" --timeout=5 --eval "(let ((frame (seq-find
       (lambda (frame)
         (equal (frame-parameter frame 'emacs-client-launch-id)
@@ -110,7 +105,7 @@ fi
       (make-frame-visible frame)
       (when (and (featurep 'ns) (fboundp 'ns-do-applescript))
         (ns-do-applescript
-          \"use framework \\\"AppKit\\\"\\ncurrent application's NSApplication's sharedApplication()'s activateIgnoringOtherApps:true\"))
+          \"use framework \\\"AppKit\\\"\\ncurrent application's NSApplication's sharedApplication()'s setActivationPolicy:0\\ncurrent application's NSApplication's sharedApplication()'s activateIgnoringOtherApps:true\"))
       (select-frame-set-input-focus frame)
       (raise-frame frame)
       (set-frame-parameter frame 'emacs-client-launch-id nil)))" >/dev/null

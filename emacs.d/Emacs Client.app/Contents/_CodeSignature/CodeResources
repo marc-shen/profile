@@ -10,15 +10,31 @@
 		</data>
 		<key>Resources/activate-emacs</key>
 		<data>
-		lg4rvhC7ittQYJ3hWb0HqhLAjpQ=
+		Pv0cOdXQa3OGKtyTQnpJY1juZN4=
+		</data>
+		<key>Resources/client-menu.dylib</key>
+		<data>
+		1soCNxo4k/yjQxpTNGXzuaIRiXk=
+		</data>
+		<key>Resources/client-menu.m</key>
+		<data>
+		enoyWiEJAZ39IwhF+3xToUgHjto=
 		</data>
 		<key>Resources/dock-policy.dylib</key>
 		<data>
-		AlziJd43mncGuuyJh0ldQWtIYYQ=
+		RfYzfpKcZm2eE0oOWDgpHZbzOTQ=
 		</data>
 		<key>Resources/dock-policy.m</key>
 		<data>
 		oblfOp+Bqq1QjoQjU1mDhmpD31g=
+		</data>
+		<key>Resources/dock-resident.dylib</key>
+		<data>
+		AcuEmEKYo7ltNtkaiY5v9qBUxp4=
+		</data>
+		<key>Resources/dock-resident.m</key>
+		<data>
+		AHG96hZiap36yvISjOcKpX9B8ek=
 		</data>
 		<key>Resources/input-source</key>
 		<data>
@@ -30,7 +46,11 @@
 		</data>
 		<key>Resources/launcher.m</key>
 		<data>
-		2cZZ0rAYG021THl/06wMP1utVsw=
+		xfJ4O3RRbmAF5vtk4uFg0V+g3X4=
+		</data>
+		<key>Resources/prepare-runtime.py</key>
+		<data>
+		kK8Vsw74wHMx/8rsYXx9EKTOMzg=
 		</data>
 		<key>Resources/restart-emacs</key>
 		<data>
@@ -50,14 +70,28 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			StgaFcn0dKXqhykTxyG4LxLaTc0WOzxxTA1heDRvMuA=
+			UOPuPxl6go6mc6IgPeh/17zuKGWFUeYGglSkGUF/E44=
+			</data>
+		</dict>
+		<key>Resources/client-menu.dylib</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			DeQdsDTF0xCFn8nz36Q9HJgzE36Ck3u8VJWmSTeQkfE=
+			</data>
+		</dict>
+		<key>Resources/client-menu.m</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			feuBjeYaJQgnx74en+djM6UGem0IRd8tAgfGY+J50b4=
 			</data>
 		</dict>
 		<key>Resources/dock-policy.dylib</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			RLNtnI8S84Jt1yOUmQnSW5gEc/yc75RpGwgCBv3rKc8=
+			JNchD5Ypd4oxYtRFBULweWj0KfTK+5w1FPB7wCupsBc=
 			</data>
 		</dict>
 		<key>Resources/dock-policy.m</key>
@@ -65,6 +99,20 @@
 			<key>hash2</key>
 			<data>
 			NJNXkcAhiHcrPzNIDDgkwKQSkC/VGI4uOhvZDA4jpEo=
+			</data>
+		</dict>
+		<key>Resources/dock-resident.dylib</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			zMacjAgsc8sLUqjhZ1E8MHgu5N3oOkCezyzOskDBJ+Q=
+			</data>
+		</dict>
+		<key>Resources/dock-resident.m</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			gotzTLP/+kocEiiNcWWqKxmPhu05YskqXJtpuWsovlQ=
 			</data>
 		</dict>
 		<key>Resources/input-source</key>
@@ -85,7 +133,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			D2QaVcPtwrIFLPd8Pf9uCxAgyd6J6e8U2OIWJ72gKi8=
+			zev5Z7zt0mezc+xZUnUcpaSc6JI6TE0i/VYBlS5IcCw=
+			</data>
+		</dict>
+		<key>Resources/prepare-runtime.py</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			OhovljQC70R3vo0L0lOBWK5R/kvdPz+Z8uHu1z7W4Q4=
 			</data>
 		</dict>
 		<key>Resources/restart-emacs</key>
