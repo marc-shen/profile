@@ -109,6 +109,26 @@
   :config
   (corfu-popupinfo-mode 1))
 
+(defun my-toggle-buffer-auto-completion ()
+  "Toggle automatic Corfu completion in this buffer, keeping manual completion."
+  (interactive)
+  (require 'corfu)
+  (let ((enable (not (and corfu-mode corfu-auto))))
+    (when (bound-and-true-p completion-in-region-mode)
+      (corfu-quit))
+    ;; Cancel an already scheduled popup as well as removing the local hook.
+    (when (and (boundp 'corfu-auto--timer) (timerp corfu-auto--timer))
+      (cancel-timer corfu-auto--timer))
+    (corfu-mode -1)
+    (setq-local corfu-auto enable)
+    ;; Corfu installs its automatic completion hook when the mode is enabled.
+    ;; Merely setting corfu-auto to nil leaves that hook active in this version.
+    (corfu-mode 1)
+    (message "Auto completion %s in %s"
+             (if enable "enabled" "disabled") (buffer-name))))
+
+(keymap-global-set "C-c t" #'my-toggle-buffer-auto-completion)
+
 (defun init-completion-enable-programming-triggers ()
   "Make member-access completion immediate in programming buffers."
   ;; In recent Corfu releases a trigger bypasses both `corfu-auto-prefix' and
