@@ -129,6 +129,18 @@ if '--fail' in sys.argv: raise SystemExit(7)
         result=self.ctl('private','check');self.assertEqual(result.returncode,0,result.stderr)
         self.assertIn('migrated check',result.stdout)
 
+    def test_rename_retires_only_the_managed_old_command(self):
+        binary=self.root/'bin/profilectl';binary.parent.mkdir(parents=True)
+        binary.write_text('#!/bin/sh\n# Managed by profile bootstrap\necho old\n')
+        result=self.bootstrap('--offline')
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertFalse(binary.exists())
+        self.assertTrue((self.root/'bin/workbench').is_file())
+        self.assertTrue(list((self.root/'backups').glob('bootstrap-*/profilectl')))
+        binary.write_text('#!/bin/sh\necho independent command\n')
+        self.assertEqual(self.bootstrap('--offline').returncode,0)
+        self.assertTrue(binary.exists())
+
     def test_discovery_help_completion_and_plan_never_execute_handlers(self):
         self.extension()
         for args in [('list',),('custom','--help'),('custom','install','--help'),('--complete','modules'),('--complete','actions','custom'),('custom','install','--plan')]:

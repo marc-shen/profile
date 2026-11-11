@@ -43,10 +43,11 @@ def install(root, repo):
     write(entry, '#!/bin/sh\n' + MARKER + '\nexport SOFTWARE_HOME=' + shlex.quote(str(root)) + '\n'
           'exec ' + shlex.quote(sys.executable) + ' ' + shlex.quote(str(root / 'config/workbench/bin/workbench')) + ' "$@"\n', root, 0o755)
     # Retire only the wrapper we created; never remove an unrelated command.
-    legacy = root / 'bin/manage'
-    if legacy.is_file() and MARKER in legacy.read_text(errors='replace'):
-        backup(legacy, root)
-        legacy.unlink()
+    for name in ('manage', 'profilectl'):
+        legacy = root / 'bin' / name
+        if legacy.is_file() and MARKER in legacy.read_text(errors='replace'):
+            backup(legacy, root)
+            legacy.unlink()
     migrate_extensions(root)
     environment = root / 'env.sh'
     if environment.is_file():
