@@ -1,4 +1,4 @@
-"""Native platform integration, kept separate from reusable module scheduling."""
+"""Native platform integration, kept separate from reusable component scheduling."""
 import hashlib
 import json
 import os

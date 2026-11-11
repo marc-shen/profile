@@ -12,23 +12,23 @@
 
 ```sh
 cd ~/Software/config/workbench
-deck-network mihomo prepare
+workbench network install mihomo
 # 在 Deck 本机 Konsole 执行一次，输入 sudo 密码：
-deck-network mihomo activate
+workbench network apply mihomo
 ```
 
-`deck-network mihomo prepare` 下载客户端和网页、合并本机覆盖、运行核心配置检查、写入用户服务，
+`workbench network install mihomo` 下载客户端和网页、合并本机覆盖、运行核心配置检查、写入用户服务，
 不会重启正在运行的代理服务。缺少 PyYAML 时用 uv 创建独立的 Python 辅助环境。
-`deck-network mihomo activate` 设置核心 capabilities、只针对 `mihomo-tun` 的 resolved DNS 授权，
+`workbench network apply mihomo` 设置核心 capabilities、只针对 `mihomo-tun` 的 resolved DNS 授权，
 以及只允许 loopback/Tailscale 接口访问 TCP 9090 的独立 nftables 规则。
 完成后启动 Mihomo 并检查控制接口及 TUN 网卡，然后启用开机自启。
 
 启动后访问 `http://本机TailscaleIPv4:9090/ui/`，无需密码/API 密钥。
-推荐用 `deck-network mihomo open` 或桌面的 Mihomo 入口打开，入口会自动带入正确的后端地址。
+推荐用 `workbench network open mihomo` 或桌面的 Mihomo 入口打开，入口会自动带入正确的后端地址。
 Deck 本机也可访问 `http://127.0.0.1:9090/ui/`。网页默认连接同源后端。
 其他设备用 `http://本机TailscaleIPv4:9090` 作为后端地址，密钥留空；
 后端地址不包含 `/ui/`，其他设备的 `127.0.0.1` 不代表 Deck。
-端口迁移后需在 Deck 本机执行一次 `deck-network mihomo activate` 更新 root 管理的
+端口迁移后需在 Deck 本机执行一次 `workbench network apply mihomo` 更新 root 管理的
 防火墙规则并重启服务；新服务会拒绝在旧端口防火墙配置下启动。
 HTTP 位于 Tailscale 加密网络内；所有能通过 tailnet ACL 访问该端口的设备
 都能管理代理，也可能读取节点信息。Wi-Fi 来源被专用防火墙拒绝。
@@ -39,13 +39,13 @@ MetaCubeXD 用于选择策略组/节点、查看规则与连接，不是订阅 Y
 
 ```sh
 # 下载订阅、校验并应用变化；没有变化时不重启：
-deck-network mihomo update
-deck-network all check
+workbench network update mihomo
+workbench network check all
 ```
 
 ## 每日订阅更新
 
-`deck-network mihomo prepare` 部署并启用用户级 `mihomo-subscription-update.timer`，每天按 Deck
+`workbench network install mihomo` 部署并启用用户级 `mihomo-subscription-update.timer`，每天按 Deck
 本地时区在 04:00–04:10 执行。设备关机或休眠错过时，在恢复运行后补执行，
 不会主动唤醒设备。无需 sudo，SteamOS 仍保持只读。
 
@@ -55,15 +55,15 @@ deck-network all check
 
 ```sh
 # 下次执行时间
-deck-network mihomo status
+workbench network status mihomo
 # 手动执行一次相同的自动更新流程
-deck-network mihomo update
+workbench network update mihomo
 # 查看后台和订阅更新日志（更新任务不输出订阅链接）
-deck-network mihomo logs
+workbench network logs mihomo
 ```
 
-Mihomo 是默认且唯一代理后端。新机器需先执行 `deck-network mihomo prepare` / `deck-network mihomo activate` 完成配置。
-更新更换 Mihomo 二进制后重新执行 `deck-network mihomo activate`，恢复文件 capabilities。
+Mihomo 是默认且唯一代理后端。新机器需先执行 `workbench network install mihomo` / `workbench network apply mihomo` 完成配置。
+更新更换 Mihomo 二进制后重新执行 `workbench network apply mihomo`，恢复文件 capabilities。
 SteamOS 保持只读；防火墙及专用授权文件由 `/etc/atomic-update.conf.d` 保留。
 Tailscale 的登录、exit node 和 302 状态不更改。
 

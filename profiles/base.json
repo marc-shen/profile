@@ -10,22 +10,22 @@
   ],
   "install": [
     {
-      "module": "managers",
+      "component": "managers",
       "action": "install",
       "args": []
     },
     {
-      "module": "tools",
+      "component": "tools",
       "action": "install",
       "args": []
     },
     {
-      "module": "plugins",
+      "component": "plugins",
       "action": "install",
       "args": []
     },
     {
-      "module": "profile",
+      "component": "profile",
       "action": "link",
       "args": [
         "--only",
@@ -35,17 +35,17 @@
   ],
   "check": [
     {
-      "module": "managers",
+      "component": "managers",
       "action": "check",
       "args": []
     },
     {
-      "module": "tools",
+      "component": "tools",
       "action": "check",
       "args": []
     },
     {
-      "module": "plugins",
+      "component": "plugins",
       "action": "check",
       "args": []
     }

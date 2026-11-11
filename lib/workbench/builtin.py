@@ -1,4 +1,4 @@
-"""Adapters for existing installers; modules declare the public contract."""
+"""Adapters for existing installers; components declare the public contract."""
 import json
 import os
 from pathlib import Path
@@ -29,7 +29,7 @@ def main(name, argv):
     action, args = argv[0], argv[1:]
     platform = detect()
     if name in ('tools', 'managers', 'wezterm') and action in ('list', 'check'):
-        return backend('module_inventory.py', name, action, *args)
+        return backend('component_inventory.py', name, action, *args)
     if name == 'plugins':
         return backend('plugins.py', action, *args)
     if name == 'languages':
@@ -73,7 +73,7 @@ def main(name, argv):
         targets = args or ['all']
         if set(targets) - {'all', 'sc302', 'mihomo', 'tailscale'}:
             raise RuntimeError('Network targets: all sc302 mihomo tailscale')
-        if action in ('apply', 'activate'):
+        if action == 'apply':
             sys.path.insert(0, str(REPO / 'libexec'))
             import deck_network
             services = deck_network.SERVICES if 'all' in targets else targets
@@ -88,9 +88,9 @@ def main(name, argv):
         if platform == 'macos':
             return run('brew', 'upgrade' if action == 'update' else 'install', '--cask', 'wezterm')
         return backend('install-wezterm.py', *args)
-    if name == 'modules':
-        from .scaffold import module_action
-        return module_action(action, args, REPO, ROOT)
+    if name == 'components':
+        from .scaffold import component_action
+        return component_action(action, args, REPO, ROOT)
     if name == 'system':
         for path in sorted((REPO / 'profiles').glob('*.json')):
             spec = json.loads(path.read_text())

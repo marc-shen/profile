@@ -12,34 +12,34 @@
   ],
   "install": [
     {
-      "module": "toolchains",
+      "component": "toolchains",
       "action": "install",
       "args": []
     },
     {
-      "module": "tex",
+      "component": "tex",
       "action": "install",
       "args": []
     },
     {
-      "module": "python-tools",
+      "component": "python-tools",
       "action": "install",
       "args": []
     }
   ],
   "check": [
     {
-      "module": "toolchains",
+      "component": "toolchains",
       "action": "check",
       "args": []
     },
     {
-      "module": "tex",
+      "component": "tex",
       "action": "check",
       "args": []
     },
     {
-      "module": "python-tools",
+      "component": "python-tools",
       "action": "check",
       "args": []
     }

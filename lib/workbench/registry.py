@@ -1,8 +1,9 @@
-"""Declarative module discovery. Listing and completion never import module code."""
+"""Declarative component discovery. Listing and completion never import component code."""
 import json
 from pathlib import Path
 import re
 
+RESERVED = {'list', 'help'}
 NAME = re.compile(r'[a-z][a-z0-9-]*\Z')
 
 
@@ -11,17 +12,17 @@ def read(path):
 
 
 def discover(repo, root):
-    modules = {}
-    for directory in (repo / 'modules', root / 'extensions'):
+    components = {}
+    for directory in (repo / 'components', root / 'extensions'):
         if not directory.exists():
             continue
-        for path in sorted(directory.glob('*/module.json')):
+        for path in sorted(directory.glob('*/component.json')):
             spec = read(path)
             name = spec.get('name', '')
-            if spec.get('schema') != 1 or not NAME.fullmatch(name) or name != path.parent.name or name in ('list', 'help'):
-                raise RuntimeError('Invalid module identity/schema: ' + str(path))
-            if name in modules:
-                raise RuntimeError('Duplicate module ' + name + ': ' + str(path))
+            if spec.get('schema') != 1 or not NAME.fullmatch(name) or name != path.parent.name or name in RESERVED:
+                raise RuntimeError('Invalid component identity/schema: ' + str(path))
+            if name in components:
+                raise RuntimeError('Duplicate component ' + name + ': ' + str(path))
             actions = spec.get('actions', {})
             if not isinstance(actions, dict) or not actions or any(not NAME.fullmatch(a) for a in actions):
                 raise RuntimeError('Invalid actions: ' + str(path))
@@ -34,17 +35,17 @@ def discover(repo, root):
             if not isinstance(spec.get('platforms'), list) or not spec['platforms']:
                 raise RuntimeError('platforms required: ' + str(path))
             spec['_directory'] = path.parent
-            modules[name] = spec
-    for name, spec in modules.items():
+            components[name] = spec
+    for name, spec in components.items():
         for dependency in spec.get('requires', []):
-            if dependency not in modules:
+            if dependency not in components:
                 raise RuntimeError(name + ': unknown dependency ' + dependency)
     # Validate cycles even when only displaying help.
-    order(modules, list(modules))
-    return modules
+    order(components, list(components))
+    return components
 
 
-def order(modules, names):
+def order(components, names):
     result, visiting = [], set()
     def visit(name):
         if name in visiting:
@@ -52,7 +53,7 @@ def order(modules, names):
         if name in result:
             return
         visiting.add(name)
-        for dependency in modules[name].get('requires', []):
+        for dependency in components[name].get('requires', []):
             visit(dependency)
         visiting.remove(name)
         result.append(name)

@@ -165,18 +165,19 @@ class UnifiedCommandTests(unittest.TestCase):
                 network.deploy(root)
                 mihomo.install_update_timer(root)
             desktop = Path(tmp) / '.local/share/applications'
-            self.assertIn('deck-network" mihomo open', (desktop / 'mihomo-web.desktop').read_text())
-            self.assertIn('deck-network" sc302 open', (desktop / 'Steamcommunity_302.desktop').read_text())
+            self.assertIn('workbench" network open mihomo', (desktop / 'mihomo-web.desktop').read_text())
+            self.assertIn('workbench" network open sc302', (desktop / 'Steamcommunity_302.desktop').read_text())
             unit = Path(tmp) / '.config/systemd/user/mihomo-subscription-update.service'
-            self.assertIn('deck-network" mihomo update', unit.read_text())
+            self.assertIn('workbench" network update mihomo', unit.read_text())
             self.assertFalse((root / 'config/network-launchers/steamcommunity302').exists())
-            for name in ('mihomo-deck', 'steamcommunity302'):
+            for name in ('mihomo-deck', 'steamcommunity302', 'deck-network'):
                 p = root / 'bin' / name
                 p.parent.mkdir(exist_ok=True)
                 p.write_text('legacy')
             network.retire_legacy(root, network.SERVICES)
             self.assertFalse((root / 'bin/mihomo-deck').exists())
             self.assertFalse((root / 'bin/steamcommunity302').exists())
+            self.assertFalse((root / 'bin/deck-network').exists())
 
 
 if __name__ == '__main__':

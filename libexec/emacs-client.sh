@@ -16,7 +16,7 @@ if ! "$client" --timeout=5 --socket-name=server --eval t >/dev/null 2>&1; then
   plist="$HOME/Library/LaunchAgents/org.gnu.emacs.daemon.plist"
   if ! launchctl print "$service" >/dev/null 2>&1; then
    if [[ ! -r $plist ]]; then
-    echo "Missing $plist; run workbench profile service from the profile checkout." >&2
+    echo "Missing $plist; run workbench emacs apply service from the profile checkout." >&2
     exit 1
    fi
    # A stopped/unloaded service needs bootstrap, not just kickstart.

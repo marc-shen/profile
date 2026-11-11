@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "name": "toolchains",
+  "description": "隔离的 GCC/G++/Fortran 编译器",
+  "platforms": [
+    "steamdeck",
+    "fedora",
+    "ubuntu",
+    "debian"
+  ],
+  "requires": [
+    "managers"
+  ],
+  "entrypoint": [
+    "{python}",
+    "{component}/run.py"
+  ],
+  "actions": {
+    "list": {
+      "description": "列出安装状态",
+      "platforms": [
+        "macos",
+        "steamdeck",
+        "fedora",
+        "ubuntu",
+        "debian"
+      ]
+    },
+    "check": {
+      "description": "验证命令可运行"
+    },
+    "install": {
+      "description": "补齐缺失安装"
+    },
+    "update": {
+      "description": "显式更新版本"
+    }
+  }
+}

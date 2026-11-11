@@ -35,7 +35,7 @@ def snapshot():
     if (REPO / '.git').exists():
         paths = sp.check_output(['git', '-C', str(REPO), 'ls-files', '-co', '--exclude-standard', '-z']).split(b'\0')
     else:
-        source_roots = {'bin','lib','libexec','modules','profiles','platforms','config','catalog','examples','docs','tests','bootstrap.sh','install.sh','README.md'}
+        source_roots = {'bin','lib','libexec','components','profiles','platforms','config','catalog','examples','docs','tests','bootstrap.sh','install.sh','README.md'}
         paths = [os.fsencode(str(path.relative_to(REPO))) for path in REPO.rglob('*')
                  if path.relative_to(REPO).parts[0] in source_roots and not path.is_symlink() and '__pycache__' not in path.parts]
 
@@ -59,7 +59,7 @@ def scope_files(files, scope):
         'helix': ('config/helix/', 'catalog/language-servers'),
         'network': ('platforms/steamdeck/network/', 'catalog/deck-network', 'catalog/mihomo', 'docs/steamdeck-network', 'docs/steamdeck-mihomo'),
     }
-    return {k: v for k, v in files.items() if k.startswith(('bin/', 'lib/', 'libexec/', 'modules/', 'profiles/', 'platforms/', 'bootstrap.sh') + prefixes[scope])}
+    return {k: v for k, v in files.items() if k.startswith(('bin/', 'lib/', 'libexec/', 'components/', 'profiles/', 'platforms/', 'bootstrap.sh') + prefixes[scope])}
 
 def changed_files(old, new):
     return sorted(k for k in old.keys() | new.keys() if old.get(k) != new.get(k))
@@ -237,45 +237,14 @@ def apply(args, root):
         return apply_unlocked(args, root)
 
 
-def upgrade(args, root):
-    if args.tool and args.component not in ('tools', 'languages'):
-        raise RuntimeError('--tool is only supported for tools/languages upgrades.')
-    component = args.component
-    if args.tool:
-        manifest = 'tools.json' if component == 'tools' else 'language-servers.json'
-        unknown = set(args.tool) - read_json(REPO / 'catalog' / manifest, {}).keys()
-        if unknown: raise RuntimeError('Unknown upgrade selection: ' + ', '.join(sorted(unknown)))
-    commands = []
-    if component == 'all': commands.append(('upgrade platform and Emacs', ['bash', REPO / 'libexec/install-platform.sh', 'update']))
-    if component == 'tools': commands.append(('upgrade tools', [sys.executable, REPO / 'libexec/software.py', 'tools', *args.tool]))
-    if component == 'managers': commands.append(('upgrade managers', [sys.executable, REPO / 'libexec/software.py', 'managers']))
-    if component == 'plugins': commands.append(('upgrade plugins', [sys.executable, REPO / 'libexec/plugins.py']))
-    if component in ('all', 'languages'): commands.append(('upgrade language servers', [sys.executable, REPO / 'libexec/language-servers.py', 'upgrade', *args.tool]))
-    if component == 'emacs':
-        if sys.platform == 'darwin': commands.append(('upgrade Emacs', ['brew', 'upgrade', '--cask', 'emacs-app']))
-        else:
-            deck = Path('/etc/os-release').exists() and any(line.startswith('ID=') and line.split('=', 1)[1].strip('"\'') == 'steamos' for line in Path('/etc/os-release').read_text().splitlines())
-            commands.append(('build Emacs', [sys.executable, REPO / 'libexec/build-emacs.py', '--deps', 'pixi' if deck else 'system']))
-    if args.plan:
-        for label, command in commands: print('PLAN:', label, list(map(str, command)))
-        return 0
-    with deployment_lock(root):
-        attempt = {'started_at': datetime.datetime.now().astimezone().isoformat(timespec='microseconds'), 'steps': []}
-        runner = Runner(root, attempt)
-        for label, command in commands: runner.run(label, command)
-    print('Upgrade complete. Run workbench profile apply for configuration deployment.')
-    return 0
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['apply', 'sync', 'upgrade'])
+    parser.add_argument('action', choices=['apply', 'sync'])
     parser.add_argument('--prefix', type=Path, required=True)
     parser.add_argument('--only', choices=['all', *SCOPES], default='all')
     parser.add_argument('--plan', action='store_true')
     parser.add_argument('--config-only', dest='install_missing', action='store_false')
     parser.set_defaults(install_missing=True)
-    parser.add_argument('--component', choices=['tools', 'managers', 'plugins', 'languages', 'emacs', 'all'], default='tools')
-    parser.add_argument('--tool', action='append', default=[])
     args = parser.parse_args()
     root = args.prefix.expanduser().absolute()
     os.environ['SOFTWARE_HOME'] = str(root)
@@ -294,7 +263,7 @@ def main():
         command = [sys.executable, str(REPO / 'libexec/profile_commands.py'), 'apply', '--prefix', str(root), '--only', args.only]
         if not args.install_missing: command.append('--config-only')
         os.execv(sys.executable, command)
-    return upgrade(args, root) if args.action == 'upgrade' else apply(args, root)
+    return apply(args, root)
 
 if __name__ == '__main__':
     try: sys.exit(main())

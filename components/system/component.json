@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "name": "system",
+  "description": "整机部署方案",
+  "platforms": [
+    "macos",
+    "steamdeck",
+    "fedora",
+    "ubuntu",
+    "debian"
+  ],
+  "requires": [],
+  "entrypoint": [
+    "{python}",
+    "{component}/run.py"
+  ],
+  "actions": {
+    "list": {
+      "description": "列出可用安装方案"
+    },
+    "install": {
+      "description": "按依赖顺序部署完整方案"
+    },
+    "update": {
+      "description": "显式升级方案包含的软件并部署配置"
+    },
+    "check": {
+      "description": "检查方案中的所有组件"
+    }
+  },
+  "targets": {
+    "directory": "profiles"
+  }
+}

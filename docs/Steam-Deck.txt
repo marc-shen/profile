@@ -21,7 +21,7 @@ SteamOS 的系统分区更新不会替换这些用户文件；不需要关闭系
   . ~/Software/env.sh
   workbench system install
   bash libexec/install-emacs-packages.sh
-  workbench profile service
+  workbench emacs apply service
 
 Emacs 从当前 GNU 稳定版源码构建 GTK3/X11，启用 modules、Tree-sitter，
 禁用 PGTK/native Lisp compilation。构建依赖由应用内独立 Pixi 环境提供。

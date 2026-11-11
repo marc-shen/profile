@@ -85,7 +85,7 @@ cd ~/Software/src/workbench
 . ~/Software/env.sh
 workbench profile install
 bash libexec/install-emacs-packages.sh
-workbench profile service
+workbench emacs apply service
 ```
 
 `bootstrap.sh` 只创建 Software 目录、安装 `workbench`、接入 PATH，并补齐缺少的 uv/Pixi；不部署应用、编辑器或网络服务。`--plan` 只预览，`--offline` 跳过管理器下载。之后用 `workbench profile install` 安装基础工具、平台依赖、Emacs、Modules 和 Zsh 插件，再部署配置链接。Linux 源码编译可能较久；Fedora / Ubuntu / Debian 安装系统依赖需要 sudo。个人部署应由本人运行，不要给整条个人安装命令加 sudo。
@@ -195,7 +195,7 @@ workbench profile update   # 拉取、部署、补齐缺失依赖并检查
 
 部署会更新链接、命令入口、Mac Dock 应用及服务定义，记录本机上次部署状态并验证链接；不会重启正在编辑的 Emacs。默认补装缺失工具、插件和语言服务；只部署配置可用 `--config-only`。剩余缺失依赖（例如 Emacs 本体）退出码为 2。重新加载方式、备份和日志见[完整同步流程](docs/sync.md)。
 
-软件升级独立执行，例如 `workbench profile upgrade --component languages` 或 `workbench profile upgrade --component tools --tool fd`。`workbench profile update` 只做 Git 快进同步和配置部署；完整环境升级须显式执行 `workbench profile upgrade --component all`，在 Linux 会编译 Emacs。
+软件升级独立执行，例如 `workbench languages update` 或 `workbench tools update fd`。`workbench profile update` 只做 Git 快进同步和配置部署；完整环境升级须显式执行 `workbench system update`，在 Linux 会编译 Emacs。
 
 ## 共享安装与限制
 

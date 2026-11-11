@@ -82,7 +82,7 @@ workbench emacs update runtime
 workbench system update      # 包含 Linux Emacs 源码构建
 ```
 
-单独更新软件后执行 `profile apply`，再按提示重新加载应用。`system update` 已包含配置部署和末尾检查。旧 `profile upgrade --component ...` 保留兼容，日常使用上面的模块入口。新版框架面向个人安装；管理员 `/opt/Software` 不属于整机方案。
+单独更新软件后执行 `profile apply`，再按提示重新加载应用。`system update` 已包含配置部署和末尾检查。软件更新统一使用上面的组件入口。新版框架面向个人安装；管理员 `/opt/Software` 不属于整机方案。
 
 ## 拉取后怎样生效
 
@@ -96,11 +96,11 @@ workbench system update      # 包含 Linux Emacs 源码构建
 | Emacs 包清单新增依赖 | `bash libexec/install-emacs-packages.sh`，再重启 Emacs |
 | `catalog/tools.json` 新增或调整工具 | `software-app install 工具名`；多个工具名可一起传入 |
 | Zsh 插件来源 | `python3 libexec/plugins.py`，再重开终端 |
-| `catalog/language-servers.json` / 默认 Python 工具 | `python3 libexec/language-servers.py install`；升级用 `upgrade --component languages` |
+| `catalog/language-servers.json` / 默认 Python 工具 | `python3 libexec/language-servers.py install`；升级用 `workbench languages update` |
 | 新增配置链接、部署脚本变化 | `workbench profile apply` |
-| Emacs 服务定义变化 | `workbench profile service`，保存工作后按维护指南重启/重载服务 |
+| Emacs 服务定义变化 | `workbench emacs apply service`，保存工作后按维护指南重启/重载服务 |
 
-Neovim 配置现归档于 `archieve/nvim/`。拉取后运行 `workbench profile link --only shell`，会备份并移走指向此 checkout 的旧 `~/.config/nvim` 链接；独立配置目录和其他来源的链接不受影响。新开终端后，profile 不再设置 Neovim 编辑器或 `vim` / `vimdiff` 别名。已安装的 Neovim 程序及插件数据保留，不会自动删除。
+Neovim 配置现归档于 `archive/nvim/`。拉取后运行 `workbench profile link --only shell`，会备份并移走指向此 checkout 的旧 `~/.config/nvim` 链接；独立配置目录和其他来源的链接不受影响。新开终端后，profile 不再设置 Neovim 编辑器或 `vim` / `vimdiff` 别名。已安装的 Neovim 程序及插件数据保留，不会自动删除。
 
 清单是期望配置，不会自动卸载已移除的工具。`uv-tools-mcp.txt` 是可选项目列表，不由默认 uv 安装命令自动遍历；需要的包作为参数传给安装脚本。
 

@@ -95,7 +95,7 @@ ConditionPathExists={root / 'config/mihomo/subscription.url'}
 [Service]
 Type=oneshot
 UMask=0077
-ExecStart="{root / 'bin/deck-network'}" mihomo update
+ExecStart="{root / 'bin/workbench'}" network update mihomo
 TimeoutStartSec=8min
 ''')
     write(units/'mihomo-subscription-update.timer','''[Unit]
@@ -173,7 +173,7 @@ def prepare(root):
     folder=root/'config/mihomo';folder.mkdir(parents=True,exist_ok=True);folder.chmod(0o700)
     if not (folder/'provider.yaml').exists() and not (folder/'subscription.url').exists():
         install_update_timer(root)
-        print('Clients installed. Put your subscription URL in config/mihomo/subscription.url (mode 600), then run deck-network mihomo prepare.')
+        print('Clients installed. Put your subscription URL in config/mihomo/subscription.url (mode 600), then run workbench network install mihomo.')
         return
     refresh_config(root)
     unit=f'''[Unit]
@@ -194,7 +194,7 @@ WantedBy=default.target
     write(Path.home()/'.config/systemd/user/mihomo.service',unit)
     install_update_timer(root)
     if sp.run(['systemctl','--user','is-active','--quiet','mihomo']).returncode:
-        print('Run deck-network mihomo activate in local Konsole for one-time administrator setup.')
+        print('Run workbench network apply mihomo in local Konsole for one-time administrator setup.')
     else:
         print('Running service preserved; restart mihomo when ready to apply configuration changes.')
 

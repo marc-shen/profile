@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "name": "profile",
+  "description": "配置部署与 Git 同步",
+  "platforms": [
+    "macos",
+    "steamdeck",
+    "fedora",
+    "ubuntu",
+    "debian"
+  ],
+  "requires": [],
+  "entrypoint": [
+    "{python}",
+    "{component}/run.py"
+  ],
+  "actions": {
+    "list": {
+      "description": "列出配置范围"
+    },
+    "check": {
+      "description": "检查配置与命令"
+    },
+    "install": {
+      "description": "部署配置并补齐缺失依赖"
+    },
+    "apply": {
+      "description": "部署当前工作树；--config-only 跳过依赖安装"
+    },
+    "update": {
+      "description": "Git 快进拉取并部署"
+    },
+    "plan": {
+      "description": "查看配置变化"
+    },
+    "link": {
+      "description": "仅部署配置链接"
+    }
+  }
+}

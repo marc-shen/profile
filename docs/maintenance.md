@@ -5,7 +5,7 @@
 本文命令默认使用个人安装 `~/Software`，并在 `~/Software/config/workbench` 内执行。源码编译、软件升级和 Git 拉取是独立操作。
 
 Steam Deck 网络组件用 `workbench profile apply --only network` 部署，检查用
-`deck-network all check`；本机 sudo 授权用 `deck-network all activate`。
+`workbench network check all`；本机 sudo 授权用 `workbench network apply all`。
 完整流程及不保存订阅的边界见 [网络客户端说明](steamdeck-network.md)。
 
 Zsh 的自定义补全由 `shell/completions/` 管理，随 profile 部署加载。
@@ -55,7 +55,7 @@ python3 libexec/inventory.py --system --output ~/Software/docs/installed.json
 
 ## Emacs 后台
 
-`em`、`ec` 使用当前用户的默认 `server`。客户端在连接失败时尝试启动已有的用户服务；首次使用前应执行 `workbench profile service` 创建服务定义。此命令不会为了配置更新终止已运行的 daemon。
+`em`、`ec` 使用当前用户的默认 `server`。客户端在连接失败时尝试启动已有的用户服务；首次使用前应执行 `workbench emacs apply service` 创建服务定义。此命令不会为了配置更新终止已运行的 daemon。
 
 **重启前先保存所有需要保留的缓冲区。** `ec` 的 `C-x #` 结束客户端编辑等待，并不会关闭后台。
 
@@ -106,7 +106,7 @@ emacsclient --eval '(list emacs-version (daemonp) init-file-had-error)'
 journalctl --user -u emacs -n 80 --no-pager
 ```
 
-如果服务定义有变化，先运行 `workbench profile service` 更新定义，再重启。
+如果服务定义有变化，先运行 `workbench emacs apply service` 更新定义，再重启。
 
 ### macOS
 
@@ -154,7 +154,7 @@ launchctl print "gui/$(id -u)/org.gnu.emacs.daemon"
 launchctl kickstart -k "gui/$(id -u)/org.gnu.emacs.daemon"
 ```
 
-修改了 LaunchAgent 定义时，先运行 `workbench profile service` 写入配置。保存工作后重新登录 macOS，可以重新加载定义；无需为一次普通 Lisp 修改重载整个 LaunchAgent。
+修改了 LaunchAgent 定义时，先运行 `workbench emacs apply service` 写入配置。保存工作后重新登录 macOS，可以重新加载定义；无需为一次普通 Lisp 修改重载整个 LaunchAgent。
 
 ### Emacs 本体和包
 

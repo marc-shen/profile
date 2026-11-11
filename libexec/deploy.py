@@ -310,4 +310,4 @@ else:
     if args.only in ['all', 'shell', 'helix']: helix_config()
     print('Review local settings in', ROOT / 'config/local/zshrc')
     print('Existing files are saved under', BACKUP)
-    print('Service setup is separate: workbench profile service')
+    print('Service setup is separate: workbench emacs apply service')

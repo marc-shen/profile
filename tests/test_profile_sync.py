@@ -19,7 +19,7 @@ class SyncTests(unittest.TestCase):
         self.home = base / 'home'; self.home.mkdir()
         self.repo = base / 'repo'; self.repo.mkdir()
         self.root = self.home / 'Software'
-        for name in ['libexec', 'lib', 'bin', 'modules', 'docs', 'config/helix', 'config/shell']:
+        for name in ['libexec', 'lib', 'bin', 'components', 'docs', 'config/helix', 'config/shell']:
             shutil.copytree(SOURCE / name, self.repo / name)
         shutil.copy2(SOURCE / 'bootstrap.sh', self.repo / 'bootstrap.sh')
         self.env = dict(os.environ, HOME=str(self.home), SOFTWARE_HOME=str(self.root),

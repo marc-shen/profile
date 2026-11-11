@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "name": "wezterm",
+  "description": "跨平台 WezTerm 客户端",
+  "platforms": [
+    "macos",
+    "steamdeck",
+    "fedora",
+    "ubuntu",
+    "debian"
+  ],
+  "requires": [
+    "platform"
+  ],
+  "entrypoint": [
+    "{python}",
+    "{component}/run.py"
+  ],
+  "actions": {
+    "list": {
+      "description": "列出对象与本机状态"
+    },
+    "check": {
+      "description": "检查配置和安装状态"
+    },
+    "install": {
+      "description": "补齐缺失项目，保留已有安装"
+    },
+    "update": {
+      "description": "显式更新已选择的项目"
+    }
+  }
+}

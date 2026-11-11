@@ -10,41 +10,41 @@
   ],
   "install": [
     {
-      "module": "platform",
+      "component": "platform",
       "action": "install",
       "args": []
     },
     {
-      "module": "managers",
+      "component": "managers",
       "action": "install",
       "args": []
     },
     {
-      "module": "tools",
+      "component": "tools",
       "action": "install",
       "args": []
     },
     {
-      "module": "plugins",
+      "component": "plugins",
       "action": "install",
       "args": []
     },
     {
-      "module": "emacs",
+      "component": "emacs",
       "action": "install",
       "args": [
         "runtime"
       ]
     },
     {
-      "module": "languages",
+      "component": "languages",
       "action": "install",
       "args": [
         "--probe"
       ]
     },
     {
-      "module": "profile",
+      "component": "profile",
       "action": "apply",
       "args": [
         "--only",
@@ -53,7 +53,7 @@
       ]
     },
     {
-      "module": "profile",
+      "component": "profile",
       "action": "apply",
       "args": [
         "--only",
@@ -62,19 +62,19 @@
       ]
     },
     {
-      "module": "emacs",
+      "component": "emacs",
       "action": "install",
       "args": [
         "packages"
       ]
     },
     {
-      "module": "wezterm",
+      "component": "wezterm",
       "action": "install",
       "args": []
     },
     {
-      "module": "emacs",
+      "component": "emacs",
       "action": "start",
       "args": [
         "service"
@@ -83,56 +83,56 @@
   ],
   "check": [
     {
-      "module": "platform",
+      "component": "platform",
       "action": "check",
       "args": []
     },
     {
-      "module": "managers",
+      "component": "managers",
       "action": "check",
       "args": []
     },
     {
-      "module": "tools",
+      "component": "tools",
       "action": "check",
       "args": []
     },
     {
-      "module": "plugins",
+      "component": "plugins",
       "action": "check",
       "args": []
     },
     {
-      "module": "languages",
+      "component": "languages",
       "action": "check",
       "args": []
     },
     {
-      "module": "profile",
+      "component": "profile",
       "action": "check",
       "args": []
     },
     {
-      "module": "wezterm",
+      "component": "wezterm",
       "action": "check",
       "args": []
     },
     {
-      "module": "emacs",
+      "component": "emacs",
       "action": "check",
       "args": [
         "runtime"
       ]
     },
     {
-      "module": "emacs",
+      "component": "emacs",
       "action": "check",
       "args": [
         "packages"
       ]
     },
     {
-      "module": "emacs",
+      "component": "emacs",
       "action": "check",
       "args": [
         "service"

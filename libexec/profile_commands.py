@@ -8,7 +8,7 @@ p=argparse.ArgumentParser(prog='workbench profile',description=__doc__)
 if simple:
  p.add_argument('action',choices=[sys.argv[1]])
 else:
- p.add_argument('action',choices=['list','plan','install','link','check','service','apply','update','upgrade'],nargs='?',default='plan')
+ p.add_argument('action',choices=['list','plan','install','link','check','service','apply','update'],nargs='?',default='plan')
 if simple:
  p.description='Update pulls Git then applies; apply deploys the current checkout. Both install missing dependencies and verify language servers by default.'
 p.add_argument('--scope',choices=['user','system'],default='user',help=argparse.SUPPRESS if simple else 'Installation scope')
@@ -19,8 +19,6 @@ p.add_argument('--reinstall',action='store_true',help=argparse.SUPPRESS if simpl
 p.add_argument('--plan',action='store_true',help='Preview without network or writes')
 p.add_argument('--config-only',dest='install_missing',action='store_false',help='Deploy configuration only; skip dependency installation and LSP probes')
 p.set_defaults(install_missing=True)
-p.add_argument('--component',choices=['tools','managers','plugins','languages','emacs','all'],default='tools',help=argparse.SUPPRESS if simple else 'Upgrade component (default: tools)')
-p.add_argument('--tool',action='append',default=[],help=argparse.SUPPRESS if simple else 'Select a tool/language-server for upgrade; repeatable')
 a=p.parse_args();root=(a.prefix or Path('/opt/Software' if a.scope=='system' else os.environ.get('SOFTWARE_HOME',str(Path.home()/'Software')))).expanduser().absolute()
 os.environ['SOFTWARE_HOME']=str(root)
 if a.action=='list':
@@ -28,13 +26,12 @@ if a.action=='list':
   print(name + ': ' + description)
  sys.exit(0)
 def run(args):sp.run(list(map(str,args)),check=True)
-if a.action in ['apply','update','upgrade']:
- if a.scope!='user':sys.exit('apply/update/upgrade currently support per-user deployments only; shared /opt provisioning remains separate.')
+if a.action in ['apply','update']:
+ if a.scope!='user':sys.exit('apply/update currently support per-user deployments only; shared /opt provisioning remains separate.')
  if os.geteuid()==0:sys.exit('Run personal deployment as the target user, not root.')
- command=[sys.executable,'-B',str(repo/'libexec/profile-sync.py'),'sync' if a.action=='update' else a.action,'--prefix',str(root),'--only',a.only,'--component',a.component]
+ command=[sys.executable,'-B',str(repo/'libexec/profile-sync.py'),'sync' if a.action=='update' else a.action,'--prefix',str(root),'--only',a.only]
  if a.plan or a.dry_run:command+=['--plan']
  if not a.install_missing:command+=['--config-only']
- for name in a.tool:command+=['--tool',name]
  os.execv(sys.executable,command)
 if a.plan:a.dry_run=True
 if a.only=='network' and a.action not in ['apply','update']:

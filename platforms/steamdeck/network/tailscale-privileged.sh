@@ -1,5 +1,5 @@
 #!/bin/bash
-# Invoked explicitly by deck-network tailscale activate in a local Konsole.
+# Invoked explicitly by workbench network apply tailscale in a local Konsole.
 set -euo pipefail
 root=$1
 upstream=$2

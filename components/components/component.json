@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "name": "components",
+  "description": "组件发现、校验和脚手架",
+  "platforms": [
+    "macos",
+    "steamdeck",
+    "fedora",
+    "ubuntu",
+    "debian"
+  ],
+  "requires": [],
+  "entrypoint": [
+    "{python}",
+    "{component}/run.py"
+  ],
+  "actions": {
+    "list": {
+      "description": "列出组件及来源目录"
+    },
+    "check": {
+      "description": "校验全部组件及依赖图"
+    },
+    "create": {
+      "description": "创建独立组件：NAME [--shared]"
+    }
+  }
+}

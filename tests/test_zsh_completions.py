@@ -30,7 +30,7 @@ class CompletionTests(unittest.TestCase):
             plugin = root / 'extensions/extra'
             plugin.mkdir(parents=True)
             import json
-            (plugin / 'module.json').write_text(json.dumps(dict(schema=1,name='extra',description='Test extension',platforms=['macos','steamdeck','fedora','ubuntu'],entrypoint=['/bin/false'],actions={name:{'description':name} for name in ['list','install','update','check']})))
+            (plugin / 'component.json').write_text(json.dumps(dict(schema=1,name='extra',description='Test extension',platforms=['macos','steamdeck','fedora','ubuntu'],entrypoint=['/bin/false'],actions={name:{'description':name} for name in ['list','install','update','check']})))
             output = home / 'matches'
             (home / '.zshrc').write_text('''
 fpath=("$WORKBENCH_HOME/config/shell/completions" $fpath)
@@ -83,22 +83,12 @@ bindkey '^I' capture-complete
                     proc.wait()
                 os.close(master)
 
-    def test_network_services_match_parser(self):
-        self.assertTrue(set(('all',) + network.SERVICES) <= self.complete('deck-network '))
-
-    def test_network_actions_match_parser(self):
-        self.assertTrue(set(network.ACTIONS) <= self.complete('deck-network mihomo '))
-
-    def test_network_prefix_does_not_shift_action_completion(self):
-        self.assertTrue(set(network.ACTIONS) <= self.complete('deck-network --prefix /tmp/Software tailscale '))
-
     def test_workbench_plugins_actions_and_names(self):
         self.assertTrue({'list', 'check', 'install', 'update'} <= self.complete('workbench plugins '))
         self.assertTrue({'fzf-tab', 'zsh-autosuggestions'} <= self.complete('workbench plugins update '))
 
     def test_lists_at_profile_and_network_entry(self):
         self.assertIn('list', self.complete('workbench profile '))
-        self.assertIn('list', self.complete('deck-network '))
 
     def test_manage_profile_scope(self):
         self.assertTrue({'all', 'shell', 'emacs', 'helix', 'network'} <= self.complete('workbench profile apply --only '))
@@ -108,8 +98,12 @@ bindkey '^I' capture-complete
         self.assertTrue({'--plan', '--offline', '--prefix'} <= matches)
         self.assertNotIn('--only', matches)
 
-    def test_manage_profile_component(self):
-        self.assertTrue({'tools', 'managers', 'plugins', 'languages', 'emacs', 'all'} <= self.complete('workbench profile upgrade --component '))
+    def test_components_actions_and_canonical_names(self):
+        names = self.complete('workbench ')
+        self.assertIn('components', names)
+        self.assertNotIn('modules', names)
+        self.assertTrue({'list', 'check', 'create'} <= self.complete('workbench components '))
+        self.assertNotIn('upgrade', self.complete('workbench profile '))
 
     def test_manage_discovers_new_modules(self):
         self.assertTrue({'profile', 'tools', 'network', 'extra'} <= self.complete('workbench '))

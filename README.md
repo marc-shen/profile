@@ -2,7 +2,7 @@
 
 一套用于 macOS、Steam Deck、Fedora、Ubuntu 的个人工作站管理工具。
 配置共享，安装与服务操作按平台实现；软件和数据默认保存在 `~/Software`。
-框架仅依赖 Python 3.9+ 标准库，模块可用任意可执行语言编写。
+框架仅依赖 Python 3.9+ 标准库，组件可用任意可执行语言编写。
 
 ## 从零安装
 
@@ -36,10 +36,10 @@ workbench system install   # 后续再安装完整方案
 
 ## 统一命令
 
-所有模块采用 `workbench <模块> <操作> [对象…]`。
+所有组件采用 `workbench <组件> <操作> [对象…]`。
 `list` 查看对象，`check` 检查本机，`install` 补齐，`update` 更新，`apply` 应用配置。
-服务模块额外声明 `start/stop/restart/status/logs`，不支持的能力会明确拒绝。
-帮助、平台支持、补全和依赖计划来自同一份 `module.json`。
+服务组件额外声明 `start/stop/restart/status/logs`，不支持的能力会明确拒绝。
+帮助、平台支持、补全和依赖计划来自同一份 `component.json`。
 
 ```sh
 workbench list
@@ -59,7 +59,7 @@ workbench profile apply              # 部署当前 checkout
 workbench profile update             # Git 快进拉取，再部署
 ```
 
-任何操作可加 `--plan` 查看其 argv 计划；此时不执行模块、不下载、不写入。
+任何操作可加 `--plan` 查看其 argv 计划；此时不执行组件、不下载、不写入。
 `--platform` 可用于在 Mac 上检查 Linux 安装计划，但不能伪装成另一平台执行安装。
 
 ```sh
@@ -69,40 +69,43 @@ workbench tools update --help
 ```
 
 `profile update` 会拒绝有未提交修改的仓库。`profile apply` 可以部署当前工作树。
-现有终端运行 `source ~/.zshrc` 或新开终端后启用新版补全。Bash 也提供模块/操作/对象补全。
+现有终端运行 `source ~/.zshrc` 或新开终端后启用新版补全。Bash 也提供组件/操作/对象补全。
+
+这里的 **component（组件）** 指 Workbench 的功能单元；
+Environment Modules 的 `module list/load/unload` 专门用于切换编译环境，两者分别命名。
 
 ## 目录与扩展
 
 ```text
 bin/workbench             唯一公共总入口
 lib/workbench/            发现、校验、依赖图、计划、执行与状态记录
-modules/<名称>/            module.json + 独立实现
+components/<名称>/         component.json + 独立实现
 platforms/<平台>/          OS 依赖清单与平台资源
-profiles/                  整机安装方案（有序模块操作组合）
+profiles/                  整机安装方案（有序组件操作组合）
 config/                    Shell、Emacs、Helix、WezTerm 等共享配置
 catalog/                   工具、语言服务器、插件与版本来源清单
 libexec/                   可复用的安装/部署后端（内部实现）
-examples/modules/          可运行的扩展示例
+examples/components/       可运行的扩展示例
 install.sh                 完整初始化
 bootstrap.sh               最小引导
 ```
 
 ```sh
-workbench modules create my-app          # 创建 ~/Software/extensions/my-app
-workbench modules create my-app --shared # 创建仓库 modules/my-app（两者二选一）
+workbench components create my-app          # 创建 ~/Software/extensions/my-app
+workbench components create my-app --shared # 创建仓库 components/my-app（两者二选一）
 workbench my-app list
 workbench my-app install
 workbench my-app check
 ```
 
 生成的示例实际管理一个用户目录中的演示文件；将其 run.py 替换为你的安装逻辑即可。
-不需要修改核心注册表。平台专用入口、依赖、可选操作和模块协议见
+不需要修改核心注册表。平台专用入口、依赖、可选操作和组件协议见
 [架构与扩展](docs/architecture.md)，日常操作见 [使用说明](docs/workbench.md)。
 
 运行数据位于 `Software/data`，日志位于 `Software/logs`，备份位于 `Software/backups`，
 私人配置位于 `Software/config/local`。Emacs 包与缓存迁至 `Software/data/emacs`，
-通过本机链接接入配置。订阅和密钥不放入模块、配置仓库或安装方案。
-旧版本升级保留本机兼容链接，避免已有进程、服务和启动器立即失效；新架构不再扫描 manage.d。
+通过本机链接接入配置。订阅和密钥不放入组件、配置仓库或安装方案。
+正式版仅使用上述目录、组件协议与命令结构，不保留旧版兼容入口。
 
 源码包可用 `python3 libexec/export-source.py /path/workbench-source.tar.gz` 生成，
 只包含安装代码与共享配置，不包含运行数据和私人设置。源码包支持 apply/install；Git update 需要 Git checkout。

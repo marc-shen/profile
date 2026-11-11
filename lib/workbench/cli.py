@@ -1,4 +1,4 @@
-"""One grammar for built-in and local modules: MODULE ACTION [TARGET ...]."""
+"""One grammar for built-in and local components: COMPONENT ACTION [TARGET ...]."""
 import argparse
 import json
 import os
@@ -28,7 +28,7 @@ def load_profile(repo, name, seen=()):
     return result
 
 
-def workflow(modules, action, args, repo, root, platform):
+def workflow(components, action, args, repo, root, platform):
     profile = args[0] if args and not args[0].startswith('-') else ('steamdeck' if platform == 'steamdeck' else 'workstation')
     rest = args[1:] if args and args[0] == profile else args
     if rest:
@@ -39,12 +39,14 @@ def workflow(modules, action, args, repo, root, platform):
     steps, installed = [], set()
     entries = spec['check'] if action == 'check' else spec['install'] + spec['check']
     for item in entries:
+        if not item.get('component') or 'module' in item:
+            raise RuntimeError('Installation profile requires component fields: ' + profile)
         operation = item['action']
         if action == 'update' and operation == 'install':
             operation = 'update'
-        planned = engine.plan(modules, item['module'], operation, item.get('args', []), repo, root, platform)
+        planned = engine.plan(components, item['component'], operation, item.get('args', []), repo, root, platform)
         for step in planned:
-            key = (step['module'], step['action'], tuple(step['command']))
+            key = (step['component'], step['action'], tuple(step['command']))
             if key in installed:
                 continue
             steps.append(step); installed.add(key)
@@ -55,35 +57,35 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog='workbench', description=__doc__)
     parser.add_argument('--prefix', type=Path, default=Path(os.environ.get('SOFTWARE_HOME', str(Path.home() / 'Software'))))
     parser.add_argument('--platform', choices=SUPPORTED, help='Preview another platform; execution on a different host is refused')
-    parser.add_argument('--complete', choices=['modules', 'actions', 'targets'], help=argparse.SUPPRESS)
+    parser.add_argument('--complete', choices=['components', 'actions', 'targets'], help=argparse.SUPPRESS)
     parser.add_argument('--version', action='version', version=__version__)
     parser.add_argument('--json', action='store_true', help='Structured list/plan output')
     parser.add_argument('--plan', action='store_true', help='Resolve commands without executing or writing')
-    parser.add_argument('module', nargs='?')
+    parser.add_argument('component', nargs='?')
     parser.add_argument('args', nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
     try:
         root = args.prefix.expanduser().resolve()
         host = detect()
         platform = args.platform or host
-        modules = registry.discover(REPO, root)
+        components = registry.discover(REPO, root)
         rest = args.args
         plan_only = args.plan or '--plan' in rest
         as_json = args.json or '--json' in rest
         rest = [a for a in rest if a not in ('--plan', '--json')]
         if args.complete:
-            if args.complete == 'modules':
-                print('\n'.join(name + ':' + spec['description'] for name, spec in modules.items()))
-            elif args.module in modules:
-                spec = modules[args.module]
+            if args.complete == 'components':
+                print('\n'.join(name + ':' + spec['description'] for name, spec in components.items()))
+            elif args.component in components:
+                spec = components[args.component]
                 if args.complete == 'actions':
                     print('\n'.join(spec['actions']))
                 elif rest and rest[0] in spec['actions']:
                     print('\n'.join(registry.targets(spec, rest[0], REPO)))
             return 0
-        if args.module in (None, 'list'):
+        if args.component in (None, 'list'):
             data = [dict(name=name, description=spec['description'], platforms=spec['platforms'],
-                         actions=list(spec['actions']), available=platform in spec['platforms']) for name, spec in modules.items()]
+                         actions=list(spec['actions']), available=platform in spec['platforms']) for name, spec in components.items()]
             if as_json:
                 print(json.dumps(data, ensure_ascii=False, indent=2))
             else:
@@ -92,22 +94,19 @@ def main(argv=None):
                     print(f'{item["name"]:16} {item["description"]}' + ('' if item['available'] else ' [not available on this platform]'))
                     print('                 ' + ' '.join(item['actions']))
             return 0
-        if args.module not in modules:
-            raise RuntimeError('Unknown module: ' + args.module + '; run workbench list')
-        spec = modules[args.module]
+        if args.component not in components:
+            raise RuntimeError('Unknown component: ' + args.component + '; run workbench list')
+        spec = components[args.component]
         if not rest or rest[0] in ('help', '-h', '--help'):
-            print(f'workbench {args.module} ACTION [TARGET ...] [--plan]\n{spec["description"]}\nPlatforms: ' + ', '.join(spec['platforms']))
+            print(f'workbench {args.component} ACTION [TARGET ...] [--plan]\n{spec["description"]}\nPlatforms: ' + ', '.join(spec['platforms']))
             for action, info in spec['actions'].items():
                 print(f'  {action:12} {info["description"]}')
             return 0
         action, tail = rest[0], rest[1:]
-        # Network's old service-first syntax is accepted during migration only.
-        if args.module == 'network' and action in ('all', 'mihomo', 'tailscale', 'sc302') and tail:
-            action, tail = tail[0], [action, *tail[1:]]
         if action not in spec['actions']:
             raise RuntimeError('Unsupported action: ' + action + '; choose ' + ', '.join(spec['actions']))
         if any(a in ('-h', '--help') for a in tail):
-            print(f'workbench {args.module} {action} [TARGET ...] [--plan]\n' + spec['actions'][action]['description'])
+            print(f'workbench {args.component} {action} [TARGET ...] [--plan]\n' + spec['actions'][action]['description'])
             choices = registry.targets(spec, action, REPO)
             if choices:
                 print('Targets: ' + ' '.join(choices))
@@ -117,17 +116,17 @@ def main(argv=None):
         positional = tail[:next((i for i, arg in enumerate(tail) if arg.startswith('-')), len(tail))]
         if choices and any(value not in choices for value in positional):
             raise RuntimeError('Unknown target; choose: ' + ' '.join(choices))
-        if args.module == 'system' and action in ('install', 'update', 'check'):
-            steps = workflow(modules, action, tail, REPO, root, platform)
+        if args.component == 'system' and action in ('install', 'update', 'check'):
+            steps = workflow(components, action, tail, REPO, root, platform)
         else:
-            steps = engine.plan(modules, args.module, action, tail, REPO, root, platform)
+            steps = engine.plan(components, args.component, action, tail, REPO, root, platform)
         if plan_only:
             if as_json:
                 print(json.dumps(dict(platform=platform, prefix=str(root), steps=steps), ensure_ascii=False, indent=2))
             else:
                 import shlex
                 for step in steps:
-                    print(f'{step["module"]:16} {step["action"]:10} ' + shlex.join(step['command']))
+                    print(f'{step["component"]:16} {step["action"]:10} ' + shlex.join(step['command']))
             return 0
         if platform != host:
             raise RuntimeError('--platform may only target another OS with --plan; actual host is ' + host)

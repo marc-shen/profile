@@ -71,7 +71,6 @@ def install(root, repo):
         if legacy.is_file() and MARKER in legacy.read_text(errors='replace'):
             backup(legacy, root)
             legacy.unlink()
-    migrate_extensions(root)
     environment = root / 'env.sh'
     if environment.is_file():
         old = environment.read_text()
@@ -104,33 +103,3 @@ def install_missing_managers(root):
     for name in ('pixi', 'uv'):
         if not os.access(root / 'bin' / name, os.X_OK):
             manager(root, name)
-
-
-def migrate_extensions(root):
-    """Import old local scripts without changing their argv or executable content."""
-    import json
-    old = root / 'config/manage.d'
-    if not old.is_dir(): return
-    for path in sorted(old.iterdir()):
-        if not path.is_file() or not os.access(path, os.X_OK): continue
-        name = path.stem if path.suffix in ('.py', '.sh') else path.name
-        import re
-        if not re.fullmatch('[a-z][a-z0-9-]*', name): continue
-        destination = root / 'extensions' / name
-        if destination.exists():
-            raise RuntimeError('Extension migration collision: ' + str(destination))
-        description, actions = 'Migrated local extension', []
-        for line in path.read_text().splitlines()[:40]:
-            if line.startswith('# manage-description:'): description = line.split(':', 1)[1].strip()
-            if line.startswith('# manage-actions:'): actions = line.split(':', 1)[1].split()
-        if not actions:
-            raise RuntimeError('Declare manage-actions before migrating: ' + str(path))
-        destination.mkdir(parents=True)
-        shutil.copy2(path, destination / path.name)
-        spec = dict(schema=1, name=name, description=description,
-                    platforms=['macos','steamdeck','fedora','ubuntu','debian'],
-                    entrypoint=['{module}/' + path.name],
-                    actions={a:dict(description='Migrated ' + a) for a in actions})
-        (destination / 'module.json').write_text(json.dumps(spec, ensure_ascii=False, indent=2) + '\n')
-        backup(path, root); path.unlink()
-    if not list(old.iterdir()): old.rmdir()

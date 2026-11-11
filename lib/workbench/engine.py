@@ -13,28 +13,28 @@ READ_ONLY = {'list', 'check', 'status', 'logs', 'plan', 'show'}
 
 
 def command(spec, action, args, repo, root, platform):
-    values = {'python': sys.executable, 'repo': str(repo), 'module': str(spec['_directory']),
+    values = {'python': sys.executable, 'repo': str(repo), 'component': str(spec['_directory']),
               'root': str(root), 'platform': platform}
     entry = spec.get('entrypoints', {}).get(platform, spec['entrypoint'])
     return [part.format(**values) for part in entry] + [action, *args]
 
 
-def plan(modules, name, action, args, repo, root, platform, dependencies=True):
-    if name not in modules:
-        raise RuntimeError('Unknown module: ' + name)
-    spec = modules[name]
+def plan(components, name, action, args, repo, root, platform, dependencies=True):
+    if name not in components:
+        raise RuntimeError('Unknown component: ' + name)
+    spec = components[name]
     if action not in spec['actions']:
         raise RuntimeError(name + ': unsupported action ' + action)
-    names = order(modules, [name]) if dependencies and action in ('install', 'update') else [name]
+    names = order(components, [name]) if dependencies and action in ('install', 'update') else [name]
     steps = []
     for item in names:
         operation = action if item == name else 'install'
-        module = modules[item]
-        if operation not in module['actions'] or not supported(module, operation, platform):
+        component = components[item]
+        if operation not in component['actions'] or not supported(component, operation, platform):
             raise RuntimeError(f'{item} {operation} is not supported on {platform}')
         arguments = args if item == name else []
-        steps.append(dict(module=item, action=operation,
-                          command=command(module, operation, arguments, repo, root, platform)))
+        steps.append(dict(component=item, action=operation,
+                          command=command(component, operation, arguments, repo, root, platform)))
     return steps
 
 
@@ -79,9 +79,9 @@ def execute(steps, repo, root, platform):
             with log.open('w') as stream:
                 log.chmod(0o600)
                 for step in steps:
-                    print(f'-> {step["module"]} {step["action"]}', flush=True)
+                    print(f'-> {step["component"]} {step["action"]}', flush=True)
                     # Do not store arbitrary arguments: they may contain private URLs/tokens.
-                    progress = dict(module=step['module'], action=step['action'], status='running')
+                    progress = dict(component=step['component'], action=step['action'], status='running')
                     record['steps'].append(progress); save()
                     process = subprocess.Popen(step['command'], env=env, stdout=subprocess.PIPE,
                                                stderr=subprocess.STDOUT, text=True)

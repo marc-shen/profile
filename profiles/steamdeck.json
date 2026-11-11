@@ -6,24 +6,24 @@
   ],
   "install": [
     {
-      "module": "network",
+      "component": "network",
       "action": "install",
       "args": []
     },
     {
-      "module": "network",
+      "component": "network",
       "action": "apply",
       "args": []
     },
     {
-      "module": "network",
+      "component": "network",
       "action": "check",
       "args": []
     }
   ],
   "check": [
     {
-      "module": "network",
+      "component": "network",
       "action": "check",
       "args": []
     }

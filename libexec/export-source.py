@@ -8,7 +8,7 @@ REPO = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('output', type=Path)
 args = parser.parse_args()
-allowed = {'bin','lib','libexec','modules','profiles','platforms','config','catalog','examples','docs','tests','archive','README.md','README.txt','bootstrap.sh','install.sh','.gitignore','modulefile.md'}
+allowed = {'bin','lib','libexec','components','profiles','platforms','config','catalog','examples','docs','tests','archive','README.md','README.txt','bootstrap.sh','install.sh','.gitignore','modulefile.md'}
 files = set(subprocess.check_output(['git','-C',str(REPO),'ls-files','-co','--exclude-standard','-z']).decode().split('\0'))
 selected=[]
 for name in sorted(files):
