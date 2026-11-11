@@ -5,7 +5,7 @@ import sys
 import time
 import unittest
 
-spec = importlib.util.spec_from_file_location('lsp_probe', Path(__file__).resolve().parents[1] / 'scripts/lsp_probe.py')
+spec = importlib.util.spec_from_file_location('lsp_probe', Path(__file__).resolve().parents[1] / 'libexec/lsp_probe.py')
 probe_module = importlib.util.module_from_spec(spec); spec.loader.exec_module(probe_module)
 
 SERVER = r'''

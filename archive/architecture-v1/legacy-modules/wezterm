@@ -1,0 +1,7 @@
+#!/bin/sh
+# manage-description: Linux WezTerm AppImage 客户端
+# manage-actions: list check install update
+set -eu
+action=$1; shift
+case "$action" in list|check) exec "$PROFILE_PYTHON" "$WORKBENCH_HOME/libexec/module_inventory.py" wezterm "$action" "$@";; esac
+exec "$PROFILE_PYTHON" "$WORKBENCH_HOME/libexec/install-wezterm.py" "$@"

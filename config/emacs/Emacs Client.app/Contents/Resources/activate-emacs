@@ -1,0 +1,130 @@
+#!/bin/bash
+
+set -euo pipefail
+
+contents=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)
+client="$contents/MacOS/bin/emacsclient"
+# The repository's thin launcher has no runtime until it is deployed.
+if [[ ! -x $client ]]; then client=/Applications/Emacs.app/Contents/MacOS/bin/emacsclient; fi
+
+# LaunchServices may append a process serial number on older macOS versions;
+# it is not an Emacs argument.
+new_window=false
+after_pid=
+arguments=()
+for argument in "$@"; do
+  case "$argument" in
+    -psn_*) ;;
+    --new-window) new_window=true ;;
+    --after-pid=*) after_pid=${argument#--after-pid=}
+      if [[ ! $after_pid =~ ^[1-9][0-9]*$ ]]; then
+        echo "Invalid restart process ID: $after_pid" >&2
+        exit 1
+      fi ;;
+    *) arguments+=("$argument") ;;
+  esac
+done
+
+# Graceful restart uses a separate LaunchServices process. Do not reconnect to
+# the old server while its shutdown hooks are still running, and never kill it.
+if [[ -n $after_pid ]]; then
+  for _ in {1..300}; do
+    kill -0 "$after_pid" 2>/dev/null || break
+    sleep 0.1
+  done
+  if kill -0 "$after_pid" 2>/dev/null; then
+    echo "Emacs $after_pid has not exited; restart canceled without killing it." >&2
+    exit 1
+  fi
+fi
+
+if ! "$client" --timeout=5 --eval t >/dev/null 2>&1; then
+  domain="gui/$(id -u)"
+  service="$domain/org.gnu.emacs.daemon"
+  plist="$HOME/Library/LaunchAgents/org.gnu.emacs.daemon.plist"
+  if ! launchctl print "$service" >/dev/null 2>&1; then
+   if [[ ! -r $plist ]]; then
+    echo "Missing $plist; run workbench profile service from the profile checkout." >&2
+    exit 1
+   fi
+   # A stopped/unloaded service needs bootstrap, not just kickstart.
+   # Another launcher may win the race to load it; verify before failing.
+   if ! launchctl bootstrap "$domain" "$plist"; then
+    launchctl print "$service" >/dev/null 2>&1 || exit 1
+   fi
+  fi
+  # No -k: never kill a running daemon or its unsaved buffers.
+  launchctl kickstart "$service" >/dev/null
+  ready=false
+  for _ in {1..240}; do
+    if "$client" --timeout=1 --eval t >/dev/null 2>&1; then
+      ready=true
+      break
+    fi
+    sleep 0.25
+  done
+  if ! $ready; then
+    echo "Emacs daemon is not responding. Save or recover unsaved buffers before restarting it." >&2
+    exit 1
+  fi
+fi
+
+# Emacs owns the native menu bar and remains a regular Dock application.
+# Also disable the old accessory guard if this daemon predates the migration.
+restore_emacs_menu="(progn (when (fboundp 'profile-macos-dock-guard) (profile-macos-dock-guard nil)) (menu-bar-mode 1))"
+"$client" --timeout=5 --eval "$restore_emacs_menu" >/dev/null
+
+# Tag the frame so activation targets this request's window, even if
+# another client changes the selected frame while this helper is running.
+target_frame_id="dock-$$-$RANDOM"
+create_window() {
+  local parameters="((emacs-client-launch-id . \"$target_frame_id\"))"
+  # Bash 3.2 treats an empty array as unset under nounset.
+  if [ "${#arguments[@]}" -gt 0 ]; then
+    "$client" --timeout=10 --no-wait --create-frame --frame-parameters "$parameters" "${arguments[@]}"
+  else
+    "$client" --timeout=10 --no-wait --create-frame --frame-parameters "$parameters"
+  fi
+}
+
+if $new_window || [ "${#arguments[@]}" -gt 0 ]; then
+  create_window
+else
+  # Returning from another app should resume the selected editing frame,
+  # not cycle to an unrelated window. Include minimized windows, but skip
+  # the daemon terminal and child frames (completion popups, tooltips, etc.).
+  # Only choose/tag here; activate the chosen frame below.
+  activated=$("$client" --timeout=5 --eval "(let* ((frames (seq-filter
+                                   (lambda (frame)
+                                     (and (display-graphic-p frame)
+                                          (not (frame-parent frame))))
+                                   (frame-list)))
+                           (selected (or (frame-parent (selected-frame))
+                                         (selected-frame)))
+                           (frame (or (car (memq selected frames))
+                                      (car frames))))
+    (when frame
+      (set-frame-parameter frame 'emacs-client-launch-id \"$target_frame_id\")
+      t))")
+  # With no GUI frames, --eval runs in the daemon's terminal context.
+  # A plain (make-frame) then fails with "Unknown terminal type". Let
+  # emacsclient establish the graphical display and create the first frame.
+  if [ "$activated" = nil ]; then
+    create_window
+  fi
+fi
+
+# Activate only on an explicit launcher request, after fixing any legacy policy.
+"$client" --timeout=5 --eval "(let ((frame (seq-find
+      (lambda (frame)
+        (equal (frame-parameter frame 'emacs-client-launch-id)
+               \"$target_frame_id\"))
+      (frame-list))))
+    (when frame
+      (make-frame-visible frame)
+      (when (and (featurep 'ns) (fboundp 'ns-do-applescript))
+        (ns-do-applescript
+          \"use framework \\\"AppKit\\\"\\ncurrent application's NSApplication's sharedApplication()'s setActivationPolicy:0\\ncurrent application's NSApplication's sharedApplication()'s activateIgnoringOtherApps:true\"))
+      (select-frame-set-input-focus frame)
+      (raise-frame frame)
+      (set-frame-parameter frame 'emacs-client-launch-id nil)))" >/dev/null

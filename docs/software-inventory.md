@@ -19,7 +19,7 @@
 
 | 机器 | 系统与架构 | 实际软件来源 | 当前配置落点 |
 | --- | --- | --- | --- |
-| Mac | macOS 15.7.4，arm64 | Homebrew + Apple 工具链 + 独立 PKG/App/二进制 + 源码 + 既有 Pixi 环境 | 仓库 `/Users/marcshen/program/GitHub/profile`；实际 `~/.zshrc` 仍是本机文件 |
+| Mac | macOS 15.7.4，arm64 | Homebrew + Apple 工具链 + 独立 PKG/App/二进制 + 源码 + 既有 Pixi 环境 | 仓库 `/Users/marcshen/program/GitHub/workbench`；实际 `~/.zshrc` 仍是本机文件 |
 | Fedora | Fedora 44 KDE，x86_64 | Fedora RPM + Intel RPM + 源码 + uv/pixi 独立二进制 | `~/projects/profile`；共享 Zsh 已生效；`~/.emacs.d` 完整链接仓库 |
 | Steam Deck | SteamOS 3.8.28，x86_64 | 官方二进制 + conda-forge 预编译包 + 源码 | `~/Software`；仍用 Deck 专用 Shell/启动器；共享配置尚未整套切换 |
 
@@ -183,7 +183,7 @@ Mac 的两个 Software 项目和全局 Pixi 环境的实际 Conda 包明细收�
 | 部分 | Mac | Fedora | Steam Deck | 依赖/管理方式 |
 | --- | --- | --- | --- | --- |
 | Emacs 程序 | Homebrew Cask 31.1 | 源码 31.1，GTK3/X11，native compilation=aot | 源码 31.1，GTK3/X11；无 Lisp native compilation | 安装来源独立于 Lisp 配置 |
-| Lisp 配置 | 仓库仍通过旧的逐项链接生效；尚未整套部署新链接 | ~/.emacs.d 完整指向 ~/projects/profile/emacs.d | ~/.emacs.d 完整指向 Software/src/profile/emacs.d | 不要把现状和新 deploy.py 的“完整目录链接”目标混为一谈 |
+| Lisp 配置 | 仓库仍通过旧的逐项链接生效；尚未整套部署新链接 | ~/.emacs.d 完整指向 ~/projects/profile/emacs.d | ~/.emacs.d 完整指向 Software/src/workbench/emacs.d | 不要把现状和新 deploy.py 的“完整目录链接”目标混为一谈 |
 | 后台 | launchd org.gnu.emacs.daemon | systemd --user emacs.service | systemd --user emacs.service；一个 X11 daemon | 启动器与服务定义不同，不应全部放到通用 Zsh 中 |
 | Steam 启动器 | 不适用 | 不适用 | emacs-steam 只是客户端启动器 | 等待客户端窗口关闭并设置 Steam 窗口属性，不启动第二个后台 |
 | vterm | 本机原生模块 | 本机原生模块 | 在 Emacs 私有依赖环境编译 | CMake、C 编译器、libvterm；.so/.dylib 不能跨平台同步 |

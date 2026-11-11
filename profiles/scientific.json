@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "description": "Linux 科研工作站：开发环境 + GCC/Fortran、TeX 和 Python CLI",
+  "platforms": [
+    "steamdeck",
+    "fedora",
+    "ubuntu",
+    "debian"
+  ],
+  "extends": [
+    "workstation"
+  ],
+  "install": [
+    {
+      "module": "toolchains",
+      "action": "install",
+      "args": []
+    },
+    {
+      "module": "tex",
+      "action": "install",
+      "args": []
+    },
+    {
+      "module": "python-tools",
+      "action": "install",
+      "args": []
+    }
+  ],
+  "check": [
+    {
+      "module": "toolchains",
+      "action": "check",
+      "args": []
+    },
+    {
+      "module": "tex",
+      "action": "check",
+      "args": []
+    },
+    {
+      "module": "python-tools",
+      "action": "check",
+      "args": []
+    }
+  ]
+}

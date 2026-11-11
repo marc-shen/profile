@@ -1,22 +1,35 @@
 # Emacs package installations and native-compilation output are local caches.
-emacs.d/elpa/
-emacs.d/eln-cache/
-emacs.d/var/
+config/emacs/elpa
+config/emacs/eln-cache
+config/emacs/var
 # Written by the Customize interface, so its contents describe one machine.
-emacs.d/custom.el
+config/emacs/custom.el
 
 # Local Emacs runtime when ~/.emacs.d links to the whole checkout.
-emacs.d/tree-sitter/
-emacs.d/projects.eld
-emacs.d/projects
-emacs.d/tramp
-emacs.d/auto-save-list/
-emacs.d/eshell/
-emacs.d/transient/
-emacs.d/log/
-emacs.d/agent/
-emacs.d/tramp-rpc/
+config/emacs/tree-sitter
+config/emacs/projects.eld
+config/emacs/projects
+config/emacs/tramp
+config/emacs/auto-save-list
+config/emacs/eshell
+config/emacs/transient
+config/emacs/log
+config/emacs/agent
+config/emacs/tramp-rpc
 **/__pycache__/
 .DS_Store
 
-emacs.d/.cache/
+config/emacs/.cache
+
+# Local migration aliases keep running processes and old launchers alive.
+/scripts
+/platform
+/manifests
+/shell
+/emacs.d
+/helix
+/modulefiles
+/zshrc
+/wezterm.lua
+/starship.toml
+/archieve

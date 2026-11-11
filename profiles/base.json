@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "description": "基础命令行、Shell 和配置",
+  "platforms": [
+    "macos",
+    "steamdeck",
+    "fedora",
+    "ubuntu",
+    "debian"
+  ],
+  "install": [
+    {
+      "module": "managers",
+      "action": "install",
+      "args": []
+    },
+    {
+      "module": "tools",
+      "action": "install",
+      "args": []
+    },
+    {
+      "module": "plugins",
+      "action": "install",
+      "args": []
+    },
+    {
+      "module": "profile",
+      "action": "link",
+      "args": [
+        "--only",
+        "shell"
+      ]
+    }
+  ],
+  "check": [
+    {
+      "module": "managers",
+      "action": "check",
+      "args": []
+    },
+    {
+      "module": "tools",
+      "action": "check",
+      "args": []
+    },
+    {
+      "module": "plugins",
+      "action": "check",
+      "args": []
+    }
+  ]
+}

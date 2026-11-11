@@ -1,0 +1,52 @@
+#compdef software-app
+
+local context state state_descr line
+typeset -A opt_args
+local root=${SOFTWARE_HOME:-$HOME/Software}
+local -a actions names versions app_commands
+actions=(
+  'install:安装清单中的工具'
+  'update:更新清单中的工具'
+  'list:列出本机应用版本'
+  'create:创建独立 Pixi 应用环境'
+  'run:在指定应用环境中执行命令'
+  'shell:进入指定应用环境'
+  'select:将应用命令加入 Software/bin'
+  'module:生成环境模块'
+  'help:显示帮助'
+)
+
+_arguments -C \
+  '(-h --help)'{-h,--help}'[显示帮助]' \
+  '1:操作:->action' \
+  '*::参数:->args'
+case $state in
+  action) _describe -t actions '操作' actions ;;
+  args)
+    case $line[1] in
+      install|update)
+        _arguments \
+          '--prefix=[Software 安装目录]:安装目录:_directories' \
+          '--reinstall[重新安装工具]' \
+          '*:工具:_profile_tool_names'
+        ;;
+      list|help) ;;
+      *)
+        names=("$root"/apps/*(/N:t))
+        versions=("$root/apps/${words[2]}"/*(/N:t))
+        app_commands=("$root/apps/${words[2]}/${words[3]}/bin"/*(N:t))
+        case $CURRENT in
+          2) compadd -a names ;;
+          3) compadd -a versions ;;
+          *)
+            case $line[1] in
+              run) if (( CURRENT == 4 )); then compadd -a app_commands; else _files; fi ;;
+              select) compadd -a app_commands ;;
+              create) _message '输入 Conda 包名（不在线查询）' ;;
+            esac
+            ;;
+        esac
+        ;;
+    esac
+    ;;
+esac

@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ -n ${SteamAppId:-}${SteamGameId:-} && -x ${SOFTWARE_HOME:-$HOME/Software}/bin/emacs-steam ]]; then
+ exec "${SOFTWARE_HOME:-$HOME/Software}/bin/emacs-steam" "$@"
+fi
+script=${BASH_SOURCE[0]}
+while [[ -L $script ]]; do
+ dir=$(cd -P "$(dirname "$script")" && pwd)
+ script=$(readlink "$script")
+ [[ $script == /* ]] || script=$dir/$script
+done
+repo=$(cd "$(dirname "$script")/../.." && pwd -P)
+source "$repo/libexec/emacs-client.sh"
+profile_emacs_stdin em "$@"
+[[ $# -gt 0 ]] || set -- "$PWD"
+# Terminal clients must stay attached; GUI em is asynchronous.
+if [[ ${frame[0]} == --tty ]]; then
+ exec "$client" --socket-name=server "${frame[@]}" "$@"
+fi
+exec "$client" --socket-name=server --no-wait "${frame[@]}" "$@"

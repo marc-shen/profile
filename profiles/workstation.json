@@ -1,0 +1,142 @@
+{
+  "schema": 1,
+  "description": "完整开发工作站：编辑器、语言服务、终端与后台",
+  "platforms": [
+    "macos",
+    "steamdeck",
+    "fedora",
+    "ubuntu",
+    "debian"
+  ],
+  "install": [
+    {
+      "module": "platform",
+      "action": "install",
+      "args": []
+    },
+    {
+      "module": "managers",
+      "action": "install",
+      "args": []
+    },
+    {
+      "module": "tools",
+      "action": "install",
+      "args": []
+    },
+    {
+      "module": "plugins",
+      "action": "install",
+      "args": []
+    },
+    {
+      "module": "emacs",
+      "action": "install",
+      "args": [
+        "runtime"
+      ]
+    },
+    {
+      "module": "languages",
+      "action": "install",
+      "args": [
+        "--probe"
+      ]
+    },
+    {
+      "module": "profile",
+      "action": "apply",
+      "args": [
+        "--only",
+        "shell",
+        "--config-only"
+      ]
+    },
+    {
+      "module": "profile",
+      "action": "apply",
+      "args": [
+        "--only",
+        "emacs",
+        "--config-only"
+      ]
+    },
+    {
+      "module": "emacs",
+      "action": "install",
+      "args": [
+        "packages"
+      ]
+    },
+    {
+      "module": "wezterm",
+      "action": "install",
+      "args": []
+    },
+    {
+      "module": "emacs",
+      "action": "start",
+      "args": [
+        "service"
+      ]
+    }
+  ],
+  "check": [
+    {
+      "module": "platform",
+      "action": "check",
+      "args": []
+    },
+    {
+      "module": "managers",
+      "action": "check",
+      "args": []
+    },
+    {
+      "module": "tools",
+      "action": "check",
+      "args": []
+    },
+    {
+      "module": "plugins",
+      "action": "check",
+      "args": []
+    },
+    {
+      "module": "languages",
+      "action": "check",
+      "args": []
+    },
+    {
+      "module": "profile",
+      "action": "check",
+      "args": []
+    },
+    {
+      "module": "wezterm",
+      "action": "check",
+      "args": []
+    },
+    {
+      "module": "emacs",
+      "action": "check",
+      "args": [
+        "runtime"
+      ]
+    },
+    {
+      "module": "emacs",
+      "action": "check",
+      "args": [
+        "packages"
+      ]
+    },
+    {
+      "module": "emacs",
+      "action": "check",
+      "args": [
+        "service"
+      ]
+    }
+  ]
+}

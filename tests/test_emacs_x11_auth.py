@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 import unittest
 
-HELPER = Path(__file__).resolve().parents[1]/'scripts/emacs-x11-auth.sh'
+HELPER = Path(__file__).resolve().parents[1]/'libexec/emacs-x11-auth.sh'
 
 @unittest.skipUnless(platform.system() == 'Linux' and shutil.which('xauth'), 'requires Linux xauth')
 class XauthorityTests(unittest.TestCase):

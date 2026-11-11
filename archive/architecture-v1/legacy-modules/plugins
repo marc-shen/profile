@@ -1,0 +1,4 @@
+#!/bin/sh
+# manage-description: Zsh 插件与上游命令补全
+# manage-actions: list check install update
+exec "$PROFILE_PYTHON" "$WORKBENCH_HOME/libexec/plugins.py" "$@"

@@ -30,10 +30,10 @@ class RuntimeStartupTests(unittest.TestCase):
                 uname.chmod(0o755)
                 log = home / 'calls'
                 env = dict(os.environ, HOME=str(home), SOFTWARE_HOME=str(home / 'Software'),
-                           PROFILE_HOME=str(REPO), TEST_LOG=str(log),
+                           WORKBENCH_HOME=str(REPO), TEST_LOG=str(log),
                            PATH=str(fake_bin) + os.pathsep + os.defpath)
                 env.pop('EMACS_BINARY', None)
-                result = subprocess.run(['/bin/bash', str(REPO / 'scripts/emacs-daemon')],
+                result = subprocess.run(['/bin/bash', str(REPO / 'libexec/emacs-daemon')],
                                         env=env, capture_output=True, text=True, timeout=10)
                 self.assertEqual(result.returncode, int(fail), result.stderr)
                 self.assertEqual(log.read_text(), 'prepare\n' + ('' if fail else 'exec --fg-daemon\n'))

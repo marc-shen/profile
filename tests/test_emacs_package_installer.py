@@ -29,11 +29,11 @@ class PackageInstallerTests(unittest.TestCase):
             env.pop('EMACS_BINARY', None)
             for chosen in (unified, override):
                 if chosen == override: env['EMACS_BINARY'] = str(override)
-                subprocess.run(['/bin/bash', str(SOURCE / 'scripts/install-emacs-packages.sh')],
+                subprocess.run(['/bin/bash', str(SOURCE / 'libexec/install-emacs-packages.sh')],
                                env=env, check=True, capture_output=True, timeout=10)
                 args = log.read_text().splitlines()
                 self.assertEqual(args[0], str(chosen))
                 self.assertEqual(args[1:4], ['--batch', '-Q', '-l'])
-                self.assertEqual(args[4], str(SOURCE / 'platform/steamdeck/scripts/install-packages.el'))
+                self.assertEqual(args[4], str(SOURCE / 'libexec/install-emacs-packages.el'))
 
 if __name__ == '__main__': unittest.main()

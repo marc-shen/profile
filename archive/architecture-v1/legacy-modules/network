@@ -1,0 +1,4 @@
+#!/bin/sh
+# manage-description: Steam Deck 网络服务（复用 deck-network）
+# manage-actions: list all sc302 mihomo tailscale
+exec "$PROFILE_PYTHON" "$WORKBENCH_HOME/libexec/deck_network.py" "$@"

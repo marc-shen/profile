@@ -1,0 +1,16 @@
+#!/bin/sh
+# manage-description: uv 和 Pixi 基础包管理器
+# manage-actions: list check install update
+set -eu
+action=$1; shift
+case "$action" in list|check) exec "$PROFILE_PYTHON" "$WORKBENCH_HOME/libexec/module_inventory.py" managers "$action" "$@";; esac
+case "${1-}" in -h|--help) echo 'workbench managers install|update [pixi|uv ...]'; exit 0;; esac
+[ "$#" -gt 0 ] || set -- pixi uv
+for manager in "$@"; do
+  case "$manager" in pixi|uv) ;; *) echo "Unknown manager: $manager" >&2; exit 2;; esac
+done
+for manager in "$@"; do
+  if [ "$action" = update ] || [ ! -x "$SOFTWARE_HOME/bin/$manager" ]; then
+    "$PROFILE_PYTHON" "$WORKBENCH_HOME/libexec/software.py" managers "$manager"
+  fi
+done

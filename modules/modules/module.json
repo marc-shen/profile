@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "name": "modules",
+  "description": "模块发现、校验和脚手架",
+  "platforms": [
+    "macos",
+    "steamdeck",
+    "fedora",
+    "ubuntu",
+    "debian"
+  ],
+  "requires": [],
+  "entrypoint": [
+    "{python}",
+    "{module}/run.py"
+  ],
+  "actions": {
+    "list": {
+      "description": "列出模块及来源目录"
+    },
+    "check": {
+      "description": "校验全部模块及依赖图"
+    },
+    "create": {
+      "description": "创建独立模块：NAME [--shared]"
+    }
+  }
+}

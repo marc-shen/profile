@@ -1,6 +1,6 @@
 # 三平台环境迁移记录
 
-核验日期：2026-10-21。配置源为本机 `/Users/marcshen/program/GitHub/profile` 工作树；已同步到 Fedora `~/projects/profile` 和 Deck `~/Software/src/profile`。修改尚未 commit/push，因此远端 GitHub 仓库暂不包含本轮更新。
+核验日期：2026-10-21。配置源为本机 `/Users/marcshen/program/GitHub/workbench` 工作树；已同步到 Fedora `~/projects/profile` 和 Deck `~/Software/src/workbench`。修改尚未 commit/push，因此远端 GitHub 仓库暂不包含本轮更新。
 
 ## 布局和安装规则
 
@@ -66,7 +66,7 @@ Mac 使用 `org.gnu.emacs.daemon`，Linux 使用用户级 `emacs.service`；每�
 
 已有科研软件没有盲目升级：Mac 的 HDF5、OpenMPI、MPICH、PyOMP、unrpa、oh-my-rime-cli 整理到 `apps`；已有科学 Python 3.12.12 和 openpyxl/Python 3.14.6 环境整理到 `apps/scientific-python`、`apps/openpyxl`，通过 `module load scientific-python/current` 等按需启用。原安装前缀保留兼容链接，以免破坏二进制 RPATH、Python shebang 或项目依赖。Fedora 的 FFTW、HDF5、Intel/MPI 科研环境保留。
 
-Mac 的个人 Python CLI 用 uv 独立工具环境重新安装到 `Software/data/uv/tools`，统一入口为 `Software/bin`。清单及可复用命令在 `manifests/uv-tools*.txt` 和 `scripts/install-uv-tools.sh`。本次 Python CLI 版本：fortls 3.2.2、pyright 1.1.414、arxiv-mcp-server 0.8.2、markitdown-mcp 0.0.1a7、zotero-mcp-server 0.15.1。旧工具环境已删除，旧命令路径改为兼容链接。
+Mac 的个人 Python CLI 用 uv 独立工具环境重新安装到 `Software/data/uv/tools`，统一入口为 `Software/bin`。清单及可复用命令在 `catalog/uv-tools*.txt` 和 `libexec/install-uv-tools.sh`。本次 Python CLI 版本：fortls 3.2.2、pyright 1.1.414、arxiv-mcp-server 0.8.2、markitdown-mcp 0.0.1a7、zotero-mcp-server 0.15.1。旧工具环境已删除，旧命令路径改为兼容链接。
 
 科研环境与 Python CLI 是不同用途，不将科研环境的 Python 强制设为全局 Python。
 
@@ -83,13 +83,13 @@ Ubuntu/Debian 的系统依赖适配和管理员 `--scope system --prefix /opt/So
 每台机器的 `~/Software/docs/installed.json` 保存实际应用收据、传递依赖、Git 插件提交、uv 工具收据及系统包版本；`verification.json` 保存命令与 Emacs 检查结果。Mac 的 Brew 清单查询提示残留的 codexbar Cask 记录不完整，快照保留了这个警告；本轮没有处理无关 GUI 应用。系统包清单是只读审计，列出不代表本次重新安装。项目 `.venv`、`node_modules` 和游戏内容不在此清单范围内。
 
 ```sh
-cd "$PROFILE_HOME"
-python3 scripts/inventory.py --system --output ~/Software/docs/installed.json
+cd "$WORKBENCH_HOME"
+python3 libexec/inventory.py --system --output ~/Software/docs/installed.json
 ./bootstrap.sh check
 ./bootstrap.sh update
 software-app update fd ripgrep
-python3 scripts/software.py managers
-bash scripts/install-uv-tools.sh
+python3 libexec/software.py managers
+bash libexec/install-uv-tools.sh
 ```
 
 升级 Emacs 后，先保存缓冲区再重启服务；更新不会自动终止正在编辑的后台。

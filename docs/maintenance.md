@@ -2,32 +2,42 @@
 
 [返回项目说明](../README.md) · [多设备同步](sync.md) · [Software 规范](Software.txt)
 
-本文命令默认使用个人安装 `~/Software`，并在 `~/Software/config/profile` 内执行。源码编译、软件升级和 Git 拉取是独立操作。
+本文命令默认使用个人安装 `~/Software`，并在 `~/Software/config/workbench` 内执行。源码编译、软件升级和 Git 拉取是独立操作。
+
+Steam Deck 网络组件用 `workbench profile apply --only network` 部署，检查用
+`deck-network all check`；本机 sudo 授权用 `deck-network all activate`。
+完整流程及不保存订阅的边界见 [网络客户端说明](steamdeck-network.md)。
+
+Zsh 的自定义补全由 `shell/completions/` 管理，随 profile 部署加载。
+支持 `deck-network` 的服务/操作、`workbench` 的模块/操作及 `./bootstrap.sh` 的基础参数、
+`software-app` 的工具名/本机版本/程序，以及 `deck-build` 后的命令补全。
+Tab 选择时只读取本机清单和目录，不会联网或执行管理操作。
+已有终端更新后运行 `source ~/.zshrc`；新终端自动加载。
 
 ## 选择合适的操作
 
 | 目标 | 命令 | 操作范围 |
 |---|---|---|
-| 查看平台与安装策略 | `./bootstrap.sh plan` | 概览，无安装动作；不是逐包差异报告 |
-| 检查入口和插件目录 | `./bootstrap.sh check` | 只读；不等于完整功能测试 |
-| 快速同步 | `./bootstrap.sh sync` | 快进拉取、部署、补齐缺失依赖并检查 |
-| 部署当前 checkout | `./bootstrap.sh apply` | 部署配置、补齐缺失依赖、验证语言服务；记录状态，不重启后台 |
-| 预览部署 | `./bootstrap.sh apply --plan` | 根据本机上次部署快照报告变化，无网络和写入 |
-| 仅部署配置 | `./bootstrap.sh apply --config-only` | 不安装依赖，不启动 LSP 验证 |
-| 仅执行旧链接流程 | `./bootstrap.sh link` | 链接配置，必要时备份；不记录部署状态 |
-| 只重新部署 Shell 配置 | `./bootstrap.sh link --only shell` | 不部署 Emacs 配置 |
-| 只重新部署 Emacs 配置 | `./bootstrap.sh link --only emacs` | 不替换 Zsh 配置 |
-| 安装或更新指定基础工具 | `software-app install fd ripgrep` | 按当前清单解析版本，验证后切换入口 |
+| 查看整机安装计划 | `workbench system install --plan` | 列出将执行的模块操作；不下载或安装 |
+| 检查入口和插件目录 | `workbench profile check` | 只读；不等于完整功能测试 |
+| 快速同步 | `workbench profile update` | 快进拉取、部署、补齐缺失依赖并检查 |
+| 部署当前 checkout | `workbench profile apply` | 部署配置、补齐缺失依赖、验证语言服务；记录状态，不重启后台 |
+| 预览配置变化 | `workbench profile plan` | 根据本机上次部署快照报告变化，无网络和写入 |
+| 仅部署配置 | `workbench profile apply --config-only` | 不安装依赖，不启动 LSP 验证 |
+| 仅执行旧链接流程 | `workbench profile link` | 链接配置，必要时备份；不记录部署状态 |
+| 只重新部署 Shell 配置 | `workbench profile link --only shell` | 不部署 Emacs 配置 |
+| 只重新部署 Emacs 配置 | `workbench profile link --only emacs` | 不替换 Zsh 配置 |
+| 安装或更新指定基础工具 | `workbench tools update fd ripgrep` | 按当前清单解析版本，验证后切换入口 |
 | 更新管理器及指定基础工具 | `software-app update fd ripgrep` | 先更新 Pixi/uv，再更新指定工具 |
-| 仅更新官方管理器 | `python3 scripts/software.py managers` | Pixi、uv；不更新其他工具 |
-| 更新 Zsh 插件和管理器补全 | `python3 scripts/plugins.py` | 上游 Git HEAD，拒绝覆盖脏插件工作树 |
-| 安装/升级默认 Python CLI | `bash scripts/install-uv-tools.sh` | 默认 fortls、basedpyright、ruff；额外包可通过参数指定 |
-| 升级语言服务 | `./bootstrap.sh upgrade --component languages` | 当前配置支持的 LSP 和 Ruff |
-| 维护完整安装环境 | `./bootstrap.sh update` | 管理器、全部基础 CLI、平台依赖、Emacs、插件，再部署配置 |
+| 仅更新官方管理器 | `workbench managers update` | Pixi、uv；不更新其他工具 |
+| 更新 Zsh 插件和管理器补全 | `workbench plugins update` | 上游 Git HEAD，拒绝覆盖脏插件工作树 |
+| 安装/升级默认 Python CLI | `workbench python-tools update` | 默认 fortls、basedpyright、ruff；额外包可通过参数指定 |
+| 升级语言服务 | `workbench languages update` | 当前配置支持的 LSP 和 Ruff |
+| 维护完整安装环境 | `workbench system update` | 管理器、基础 CLI、平台依赖、Emacs、插件、语言服务、配置与末尾检查 |
 
-`bootstrap.sh update` 在 Linux 会源码重编译 Emacs，在 Deck 还会构建 Modules；它不只是刷新配置，也不自动升级 ELPA、所有 uv 工具或个人科研环境。`--reinstall` 可让 Pixi 基础工具重装。
+`workbench system update` 在 Linux 会源码重编译 Emacs，在 Deck 还会构建 Modules；它也会重新安装/检查声明的 Emacs 包，但不保证升级所有已有 ELPA 包。可选科研环境由 scientific 方案管理。需要强制重装 Pixi 基础工具时使用 `workbench tools update --reinstall`。
 
-`--only` 控制配置部署范围，**不是 install/update 的软件过滤器**；不要用 `./bootstrap.sh update --only shell` 来期待跳过 Emacs 编译。
+`--only` 控制配置部署范围，**不是 install/upgrade 的软件过滤器**；不要用 `workbench system update --only shell` 来期待跳过 Emacs 编译。
 
 ## 版本、依赖和目录
 
@@ -35,8 +45,8 @@
 
 ```sh
 software-app list
-python3 scripts/software.py list
-python3 scripts/inventory.py --system --output ~/Software/docs/installed.json
+python3 libexec/software.py list
+python3 libexec/inventory.py --system --output ~/Software/docs/installed.json
 ```
 
 第一条列出应用目录，第二条列出具有 current 收据的应用，第三条导出应用来源、依赖、插件提交、uv 收据和系统包列表。快照覆盖安装器可识别的内容，不枚举所有项目环境、游戏或手工安装文件。
@@ -45,7 +55,7 @@ python3 scripts/inventory.py --system --output ~/Software/docs/installed.json
 
 ## Emacs 后台
 
-`em`、`ec` 使用当前用户的默认 `server`。客户端在连接失败时尝试启动已有的用户服务；首次使用前应执行 `./bootstrap.sh service` 创建服务定义。此命令不会为了配置更新终止已运行的 daemon。
+`em`、`ec` 使用当前用户的默认 `server`。客户端在连接失败时尝试启动已有的用户服务；首次使用前应执行 `workbench profile service` 创建服务定义。此命令不会为了配置更新终止已运行的 daemon。
 
 **重启前先保存所有需要保留的缓冲区。** `ec` 的 `C-x #` 结束客户端编辑等待，并不会关闭后台。
 
@@ -60,7 +70,7 @@ ediff "旧文件.txt" "目录/新 文件.txt"
 
 也可以在 Emacs 中执行 `M-x ediff-files` 选择文件，或用 `M-x ediff-buffers` 比较已打开的缓冲区。在 Ediff 控制面板中，`n` / `p` 切换差异，`a` 将当前差异从 A 复制到 B，`b` 从 B 复制到 A，`w a` / `w b` 保存，`?` 查看帮助，`q` 退出比较。修改文件缓冲区后需要保存才会写入磁盘；终端客户端比较结束后可用 `C-x 5 0` 关闭客户端 frame，返回 shell。
 
-新增命令的设备同步：更新 profile 后运行 `./bootstrap.sh link --only emacs`。已有 daemon 可执行 `M-:` 输入 `(setq ediff-window-setup-function 'ediff-setup-windows-plain ediff-split-window-function 'split-window-horizontally)`，让后续比较立即使用新布局，无需重启。
+新增命令的设备同步：更新 profile 后运行 `workbench profile link --only emacs`。已有 daemon 可执行 `M-:` 输入 `(setq ediff-window-setup-function 'ediff-setup-windows-plain ediff-split-window-function 'split-window-horizontally)`，让后续比较立即使用新布局，无需重启。
 
 ### Emacs 终端输入
 
@@ -96,7 +106,7 @@ emacsclient --eval '(list emacs-version (daemonp) init-file-had-error)'
 journalctl --user -u emacs -n 80 --no-pager
 ```
 
-如果服务定义有变化，先运行 `./bootstrap.sh service` 更新定义，再重启。
+如果服务定义有变化，先运行 `workbench profile service` 更新定义，再重启。
 
 ### macOS
 
@@ -110,7 +120,7 @@ macOS 使用统一的 `~/Applications/Emacs Client.app`：原生 Emacs 后台和
 
 运行时升级入口固定为 `~/Applications/Emacs Client.app/Contents/Runtime/Emacs.app`。初次部署在这里建立指向 `/Applications/Emacs.app` 的符号链接；以后 Homebrew 更新原版后，保存工作并重启 Emacs 后台即可自动同步。也可以在 Finder 中显示 Client 的包内容，进入 `Contents/Runtime`，先移除旧链接或旧应用，再放入新版完整的 `Emacs.app`（名称必须保持一致）。支持真正的符号链接，不支持 Finder 替身；替换链接时不要进入其目标目录覆盖 Homebrew 原版。
 
-`scripts/emacs-daemon` 在后台启动前比较内嵌入口的签名信息。有变化时先在临时目录校验、组装并签名，再切换整个统一包；准备失败保留原运行文件并报告错误，不偷偷启动其他版本。旧包保存在 `~/Software/backups/emacs-runtime-*`。输入的上游应用不会被修改；复制的应用继续保存在包内，链接继续指向外部应用。后台运行期间替换入口不会重启会话；保存工作后使用 `M-x save-buffers-kill-emacs` 退出后台，launchd 会启动新版，再点击 Client 打开窗口。首次准备可能需要几十秒。
+`libexec/emacs-daemon` 在后台启动前比较内嵌入口的签名信息。有变化时先在临时目录校验、组装并签名，再切换整个统一包；准备失败保留原运行文件并报告错误，不偷偷启动其他版本。旧包保存在 `~/Software/backups/emacs-runtime-*`。输入的上游应用不会被修改；复制的应用继续保存在包内，链接继续指向外部应用。后台运行期间替换入口不会重启会话；保存工作后使用 `M-x save-buffers-kill-emacs` 退出后台，launchd 会启动新版，再点击 Client 打开窗口。首次准备可能需要几十秒。
 
 为保持单一应用身份，执行文件仍位于外层统一包；内嵌 `Emacs.app` 是升级来源。外层会保存约 500 MB 的运行副本；直接放入完整应用会再占用一份空间，符号链接则不需要这一份。运行文件及升级备份不进入 Git。上游应用采用严格签名校验，外层采用普通深度校验（严格模式不允许指向包外的符号链接）。准备工具使用本机 `/usr/bin/python3`、`ditto` 和 `codesign`，不需要每次运行仓库部署或编译启动器。配置重新部署会保留用户选择的升级来源。
 
@@ -144,22 +154,82 @@ launchctl print "gui/$(id -u)/org.gnu.emacs.daemon"
 launchctl kickstart -k "gui/$(id -u)/org.gnu.emacs.daemon"
 ```
 
-修改了 LaunchAgent 定义时，先运行 `./bootstrap.sh service` 写入配置。保存工作后重新登录 macOS，可以重新加载定义；无需为一次普通 Lisp 修改重载整个 LaunchAgent。
+修改了 LaunchAgent 定义时，先运行 `workbench profile service` 写入配置。保存工作后重新登录 macOS，可以重新加载定义；无需为一次普通 Lisp 修改重载整个 LaunchAgent。
 
 ### Emacs 本体和包
 
 - Mac 的 Emacs 本体由 Homebrew 管理。
-- Fedora / Ubuntu / Debian：`python3 scripts/build-emacs.py --deps system`。
-- Deck：`python3 scripts/build-emacs.py --deps pixi`，依赖在应用内部。
-- 安装缺少的配置包：`bash scripts/install-emacs-packages.sh`。包安装和本体升级分开维护。
+- Fedora / Ubuntu / Debian：`python3 libexec/build-emacs.py --deps system`。
+- Deck：`python3 libexec/build-emacs.py --deps pixi`，依赖在应用内部。
+- 安装缺少的配置包：`bash libexec/install-emacs-packages.sh`。包安装和本体升级分开维护。
 
 Deck 更新 Emacs 或 vterm/PDF Tools 后，需要按新前缀重建 native 模块：
 
 ```sh
-bash platform/steamdeck/scripts/rebuild-native.sh
+bash platforms/steamdeck/libexec/rebuild-native.sh
 ```
 
 共享完整 `emacs.d` 的源码配置，保留各机自己的 `.so`、`.eln` 和插件安装数据。Steam 游戏模式入口与会话切换限制见 [Steam Deck 说明](Steam-Deck.txt)。
+
+## Markdown 渲染依赖
+
+Markdown 的自定义标题、表格和公式渲染依赖 `markdown-ts-appear` 的
+MathJax overlay 接口。目前 `init-package.el` 将该包固定在兼容提交
+`0a760125ddf273e52941d43974beef42422656e8`（0.2.1），安装时使用该提交，
+配置提供的 VC 升级流程跳过它。上游 0.3.1 已切换为 latex-to-svg，不能
+在未迁移 `init-markdown.el` 的情况下直接升级。手动使用 package.el 更新
+仍可能绕过这一限制。
+
+公式预览还需要 Node 和 SVG 支持。Node 已加入基础工具清单，已有设备运行
+`workbench profile apply` 可补装或从旧 Pixi 安装迁移到 nvm 官方二进制；
+Emacs 通过 `Software/bin/node` 使用它。`C-c C-x r` 可切换
+live、source 和只读 preview。渲染异常时检查 `*Messages*`，尤其是
+`markdown-ts-appear-math--objects` / `--refresh` 缺失和 Node 路径。
+
+代码块高亮不会自动安装可选 Tree-sitter 语法库，避免打开 Markdown 时
+被 TOML 等语言的安装对话框阻塞。需要时手动运行
+`M-x treesit-install-language-grammar`；已安装语法库仍用于高亮。
+
+`tests/test-emacs-markdown.el` 在已加载本配置的 Emacs 中验证三种模式、
+源文本不变、实际 MathJax SVG 输出以及兼容包不被自动升级。
+
+## Node.js、nvm 和 npm
+
+`catalog/tools.json` 固定 Node.js **26.13.0 LTS** 和 nvm **0.41.0**。
+nvm 从其官方 Git 仓库安装，再从 `https://nodejs.org/dist` 下载 Node
+官方二进制并校验下载校验和；不回退到源码构建或 conda-forge。
+npm 和 npx 使用 Node 随附版本（npm 11.20.0），不额外运行 npm 自升级。
+
+```sh
+workbench profile apply
+# 只安装/修复这组工具：
+python3 libexec/software.py tools node
+
+# 新终端自动加载 nvm；当前 Bash/Zsh 也可手动加载：
+. ~/Software/env.sh
+. "$NVM_DIR/nvm.sh"
+nvm --version
+nvm use 26.13.0
+node --version
+npm --version
+npm install --save-dev <包名>  # 在对应项目目录运行
+```
+
+安装位置：
+- nvm 源码：`~/Software/apps/nvm/0.41.0`
+- nvm 数据和各 Node 版本：`~/Software/data/nvm/versions/node/`
+- 固定入口：`~/Software/bin/node`、`npm`、`npx`
+- Node 安装记录：`~/Software/apps/node/current/receipt.json`
+
+Zsh 自动加载 nvm；Bash 可用上述两条 source 命令。`nvm use` 只切换当前
+终端，`nvm alias default <版本>` 改变新终端默认值；后台 Emacs 的稳定
+入口仍由 profile 清单管理。更改清单后运行安装命令会重新设置默认版本。
+已有正确安装的 `apply` 不重新下载。升级 Node 时修改清单中的版本，
+再运行 `workbench tools update node`。
+
+全局 npm 包安装在对应 nvm 版本下，不需要 sudo，不设置 npm 的 `prefix`。
+各版本的全局包不自动迁移。旧 Pixi Node 保留供回退，但命令入口已切到 nvm。
+这些文件都在用户目录内，Steam Deck 不需要解除系统只读。
 
 ## 编译器和复杂环境
 
@@ -173,7 +243,7 @@ module list
 可选的 Linux GCC/G++/GFortran 配方：
 
 ```sh
-python3 scripts/install-gcc.py
+python3 libexec/install-gcc.py
 module load gcc/current
 gcc --version
 gfortran --version
@@ -212,23 +282,23 @@ module unload experiment-tools
 ## 管理员共享安装（待验证）
 
 ```sh
-./bootstrap.sh plan --scope system --prefix /opt/Software
-sudo ./bootstrap.sh install --scope system --prefix /opt/Software
+workbench profile plan --scope system --prefix /opt/Software
+sudo ~/Software/bin/workbench system install --scope system --prefix /opt/Software
 ```
 
 `--scope system` 安装公共程序和配置副本，配置系统 Shell 入口；不替换所有用户的 `.zshrc` / `.emacs.d`，也不创建公用 Emacs daemon。共享目录由管理员维护，用户数据仍应保存在各自 Home。
 
 此路径尚未完成端到端验证。个人部署脚本、插件目录和 daemon 默认按个人 Software 前缀查找；接入共享安装时需逐项确认，而非简单复制共享目录。Linux 个人服务使用共享 Emacs 时，原生程序入口可通过本机 `EMACS_BINARY` 指定，例如 `/opt/Software/bin/emacs-real`，但插件与完整用户部署仍需单独核验。
 
-Mac 应由 Homebrew 拥有者先运行 `brew bundle install --file=manifests/Brewfile`；管理员流程不会以 root 安装 Homebrew。SteamOS 共享部署被拒绝，继续使用 `~/Software`。
+Mac 应由 Homebrew 拥有者先运行 `brew bundle install --file=catalog/Brewfile`；管理员流程不会以 root 安装 Homebrew。SteamOS 共享部署被拒绝，继续使用 `~/Software`。
 
 ## 检查、失败和恢复
 
 ```sh
-cd ~/Software/config/profile
-./bootstrap.sh check
+cd ~/Software/config/workbench
+workbench profile check
 command -v git zsh pixi uv fd rg emacsclient
-ls -ld ~/.zshrc ~/.emacs.d ~/Software/config/profile
+ls -ld ~/.zshrc ~/.emacs.d ~/Software/config/workbench
 ```
 
 | 现象 | 先检查什么 |

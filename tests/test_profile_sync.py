@@ -8,6 +8,7 @@ import subprocess as sp
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 SOURCE = Path(__file__).resolve().parents[1]
 
@@ -18,11 +19,11 @@ class SyncTests(unittest.TestCase):
         self.home = base / 'home'; self.home.mkdir()
         self.repo = base / 'repo'; self.repo.mkdir()
         self.root = self.home / 'Software'
-        for name in ['scripts', 'shell', 'docs', 'helix']:
+        for name in ['libexec', 'lib', 'bin', 'modules', 'docs', 'config/helix', 'config/shell']:
             shutil.copytree(SOURCE / name, self.repo / name)
         shutil.copy2(SOURCE / 'bootstrap.sh', self.repo / 'bootstrap.sh')
         self.env = dict(os.environ, HOME=str(self.home), SOFTWARE_HOME=str(self.root),
-                        SOFTWARE_USER_HOME=str(self.root), PROFILE_HOME=str(self.repo),
+                        SOFTWARE_USER_HOME=str(self.root), WORKBENCH_HOME=str(self.repo),
                         PYTHONDONTWRITEBYTECODE='1')
         self.git('init', '-b', 'main')
         self.git('config', 'user.email', 'test@example.invalid')
@@ -34,7 +35,7 @@ class SyncTests(unittest.TestCase):
     def git(self, *args):
         return sp.check_output(['git', '-C', str(self.repo), *args], env=self.env, stderr=sp.DEVNULL, text=True).strip()
     def run_sync(self, action='apply', *args):
-        return sp.run([sys.executable, '-B', str(self.repo / 'scripts/profile-sync.py'), action,
+        return sp.run([sys.executable, '-B', str(self.repo / 'libexec/profile-sync.py'), action,
                        '--prefix', str(self.root), '--only', 'helix', *args], env=self.env,
                       capture_output=True, text=True)
     def state(self): return json.loads((self.root / 'data/profile/deployment.json').read_text())
@@ -44,6 +45,16 @@ class SyncTests(unittest.TestCase):
             path = self.root / 'bin' / command
             path.write_text('#!/bin/sh\nexit 0\n'); path.chmod(0o755)
 
+    def test_source_archive_deploys_without_git_metadata(self):
+        shutil.rmtree(self.repo / '.git')
+        self.install_stubs()
+        result = self.run_sync('apply', '--config-only')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.state()['last_attempt']['commit'], 'source-archive')
+        result = self.run_sync('sync')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Git checkout', result.stderr)
+
     def test_plan_does_not_write_or_install(self):
         result = self.run_sync('apply', '--plan')
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -52,7 +63,7 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(list(self.home.iterdir()), [])
 
     def test_default_apply_installs_missing_managers(self):
-        (self.repo / 'scripts/software.py').write_text('''import os,sys
+        (self.repo / 'libexec/software.py').write_text('''import os,sys
 from pathlib import Path
 assert sys.argv[1] == 'managers'
 target = Path(os.environ['SOFTWARE_HOME']) / 'bin' / sys.argv[2]
@@ -67,14 +78,14 @@ target.chmod(0o755)
         self.assertEqual(self.state()['last_attempt']['status'], 'ok')
 
     def test_config_only_reports_missing_without_installing(self):
-        (self.repo / 'scripts/software.py').write_text('raise AssertionError("must not install")\n')
+        (self.repo / 'libexec/software.py').write_text('raise AssertionError("must not install")\n')
         result = self.run_sync('apply', '--config-only')
         self.assertEqual(result.returncode, 2, result.stderr)
         self.assertFalse((self.root / 'bin/uv').exists())
         self.assertEqual(self.state()['last_attempt']['status'], 'pending')
 
     def test_public_sync_help_exposes_only_daily_options(self):
-        result = sp.run([sys.executable, '-B', str(self.repo / 'scripts/bootstrap.py'), 'sync', '--help'],
+        result = sp.run([sys.executable, '-B', str(self.repo / 'libexec/profile_commands.py'), 'update', '--help'],
                         env=self.env, capture_output=True, text=True, check=True)
         for option in ['--plan', '--config-only', '--only']:
             self.assertIn(option, result.stdout)
@@ -83,8 +94,8 @@ target.chmod(0o755)
 
     def test_removed_install_missing_option_is_rejected(self):
         for action in ['apply', 'sync']:
-            result = sp.run([sys.executable, '-B', str(self.repo / 'scripts/bootstrap.py'),
-                             action, '--install-missing'], env=self.env,
+            result = sp.run([sys.executable, '-B', str(self.repo / 'libexec/profile_commands.py'),
+                             'update' if action == 'sync' else action, '--install-missing'], env=self.env,
                             capture_output=True, text=True)
             self.assertEqual(result.returncode, 2)
             self.assertIn('unrecognized arguments: --install-missing', result.stderr)
@@ -98,7 +109,7 @@ target.chmod(0o755)
         result = self.run_sync()
         self.assertEqual(result.returncode, 0, result.stderr)
         previous = self.state()['scopes']['helix']
-        config = self.repo / 'helix/config.toml'
+        config = self.repo / 'config/helix/config.toml'
         config.write_text(config.read_text() + '\n# changed on another device\n')
         self.git('add', '.'); self.git('commit', '-m', 'updated configuration')
         preview = self.run_sync('apply', '--plan')
@@ -111,7 +122,7 @@ target.chmod(0o755)
     def test_failed_apply_retains_successful_scope_and_records_failure(self):
         self.install_stubs(); self.assertEqual(self.run_sync().returncode, 0)
         previous = self.state()['scopes']['helix']
-        (self.repo / 'scripts/deploy.py').write_text('raise SystemExit(3)\n')
+        (self.repo / 'libexec/deploy.py').write_text('raise SystemExit(3)\n')
         self.assertNotEqual(self.run_sync().returncode, 0)
         self.assertEqual(self.state()['scopes']['helix'], previous)
         self.assertEqual(self.state()['last_attempt']['status'], 'failed')
@@ -124,7 +135,7 @@ target.chmod(0o755)
         self.assertEqual(path.read_text(), 'keep me')
         self.assertEqual(self.git('stash', 'list'), '')
 
-    def test_sync_executes_newly_pulled_bootstrap(self):
+    def test_sync_executes_newly_pulled_manage(self):
         upstream = self.repo.parent / 'upstream'
         sp.run(['git', 'clone', '--bare', str(self.repo), str(upstream)], check=True, capture_output=True)
         self.git('remote', 'add', 'origin', str(upstream))
@@ -132,13 +143,40 @@ target.chmod(0o755)
         self.git('branch', '--set-upstream-to=origin/main')
         writer = self.repo.parent / 'writer'
         sp.run(['git', 'clone', str(upstream), str(writer)], check=True, capture_output=True)
-        (writer / 'bootstrap.sh').write_text('#!/bin/sh\nprintf "UPDATED_ENTRY:%s\\n" "$*"\n')
+        (writer / 'libexec/profile_commands.py').write_text('import sys\nprint("UPDATED_ENTRY:" + " ".join(sys.argv[1:]))\n')
         for args in [('config', 'user.email', 'test@example.invalid'), ('config', 'user.name', 'Test'),
                      ('add', '.'), ('commit', '-m', 'new entry'), ('push', 'origin', 'main')]:
             sp.run(['git', '-C', str(writer), *args], check=True, capture_output=True)
         result = self.run_sync('sync', '--config-only')
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('UPDATED_ENTRY:apply', result.stdout)
+        self.assertIn('UPDATED_ENTRY:', result.stdout)
+        self.assertIn('UPDATED_ENTRY:apply --prefix', result.stdout)
         self.assertIn('--config-only', result.stdout)
+
+class NodeDependencyTests(unittest.TestCase):
+    def test_pixi_and_unmanaged_node_do_not_satisfy_nvm_requirement(self):
+        spec = importlib.util.spec_from_file_location('profile_sync', SOURCE / 'libexec/profile-sync.py')
+        sync = importlib.util.module_from_spec(spec); spec.loader.exec_module(sync)
+        node = json.loads((SOURCE / 'catalog/tools.json').read_text())['node']
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            current = root / 'apps/node/current'; current.mkdir(parents=True)
+            record = current / 'receipt.json'
+            # A system/Pixi node in PATH must still trigger migration, including
+            # when applying only Emacs (MathJax needs this runtime).
+            with patch.object(sync, 'executable', return_value='/unmanaged/node'):
+                record.write_text(json.dumps(dict(node, backend='pixi')))
+                self.assertIn('node', sync.missing_dependencies(root, ['emacs'])['tools'])
+                record.write_text(json.dumps(node))
+                (root / 'data/nvm').mkdir(parents=True)
+                (root / 'data/nvm/nvm.sh').touch()
+                (current / 'bin').mkdir(); (root / 'bin').mkdir()
+                for command in node['commands']:
+                    binary = current / 'bin' / command
+                    binary.write_text('#!/bin/sh\nexit 0\n'); binary.chmod(0o755)
+                    (root / 'bin' / command).symlink_to(binary)
+                self.assertNotIn('node', sync.missing_dependencies(root, ['emacs'])['tools'])
+                (root / 'bin/npm').unlink()
+                self.assertIn('node', sync.missing_dependencies(root, ['emacs'])['tools'])
 
 if __name__ == '__main__': unittest.main()

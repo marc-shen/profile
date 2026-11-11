@@ -9,7 +9,7 @@ import tempfile
 import threading
 import unittest
 
-SOURCE = Path(__file__).resolve().parents[1] / 'emacs.d/Emacs Client.app/Contents/Resources/activate-emacs'
+SOURCE = Path(__file__).resolve().parents[1] / 'config/emacs/Emacs Client.app/Contents/Resources/activate-emacs'
 EMACS = shutil.which('emacs') or '/Applications/Emacs.app/Contents/MacOS/Emacs'
 
 

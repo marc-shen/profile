@@ -1,0 +1,33 @@
+#autoload
+
+local -a actions scopes components
+local context state state_descr line
+typeset -A opt_args
+actions=(
+  'list:列出配置范围'
+  'apply:部署当前 profile 并补齐依赖'
+  'update:拉取 Git 后部署 profile'
+  'upgrade:升级指定组件'
+  'plan:预览部署'
+  'install:安装平台及软件环境'
+  'link:部署配置链接'
+  'check:检查环境'
+  'service:配置 Emacs 后台服务'
+)
+scopes=(all shell emacs helix)
+[[ ${words[2]} != (apply|update) ]] || scopes+=(network)
+components=(tools managers plugins languages emacs all)
+
+_arguments -C \
+  '(-h --help)'{-h,--help}'[显示帮助]' \
+  '--only=[选择配置范围]:范围:($scopes)' \
+  '--component=[选择升级组件]:组件:($components)' \
+  '*--tool=[选择工具，可重复]:工具:_profile_tool_names' \
+  '--prefix=[Software 安装目录]:安装目录:_directories' \
+  '--scope=[安装作用域]:作用域:(user system)' \
+  '--plan[只预览，不执行部署]' \
+  '--dry-run[只预览，不写入]' \
+  '--config-only[只部署配置，不安装依赖]' \
+  '--reinstall[重新安装受管理工具]' \
+  '1:操作:->action'
+[[ $state != action ]] || _describe -t actions '操作' actions

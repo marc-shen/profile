@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "name": "fedora",
+  "package_manager": "dnf",
+  "readonly_root": false,
+  "native_dependencies": "packages.txt"
+}

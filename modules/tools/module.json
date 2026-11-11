@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "name": "tools",
+  "description": "隔离安装的命令行工具",
+  "platforms": [
+    "macos",
+    "steamdeck",
+    "fedora",
+    "ubuntu",
+    "debian"
+  ],
+  "requires": [
+    "managers"
+  ],
+  "entrypoint": [
+    "{python}",
+    "{module}/run.py"
+  ],
+  "actions": {
+    "list": {
+      "description": "列出对象与本机状态"
+    },
+    "check": {
+      "description": "检查配置和安装状态"
+    },
+    "install": {
+      "description": "补齐缺失项目，保留已有安装"
+    },
+    "update": {
+      "description": "显式更新已选择的项目"
+    }
+  },
+  "targets": {
+    "catalog": "catalog/tools.json"
+  }
+}

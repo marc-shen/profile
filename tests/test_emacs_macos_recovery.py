@@ -8,7 +8,7 @@ import tempfile
 import threading
 import unittest
 
-SOURCE = Path(__file__).resolve().parents[1] / 'emacs.d/Emacs Client.app/Contents/Resources/restart-emacs'
+SOURCE = Path(__file__).resolve().parents[1] / 'config/emacs/Emacs Client.app/Contents/Resources/restart-emacs'
 
 class RecoveryTests(unittest.TestCase):
     def exercise(self, state):

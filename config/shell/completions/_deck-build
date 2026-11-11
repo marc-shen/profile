@@ -1,0 +1,4 @@
+#compdef deck-build
+
+# deck-build forwards all arguments to a command in the build environment.
+_precommand

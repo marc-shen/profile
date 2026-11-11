@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "description": "Steam Deck 完整工作站与网络客户端",
+  "platforms": [
+    "steamdeck"
+  ],
+  "install": [
+    {
+      "module": "network",
+      "action": "install",
+      "args": []
+    },
+    {
+      "module": "network",
+      "action": "apply",
+      "args": []
+    },
+    {
+      "module": "network",
+      "action": "check",
+      "args": []
+    }
+  ],
+  "check": [
+    {
+      "module": "network",
+      "action": "check",
+      "args": []
+    }
+  ],
+  "extends": [
+    "workstation"
+  ]
+}

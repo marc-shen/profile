@@ -1,0 +1,7 @@
+#compdef bootstrap.sh
+
+_arguments \
+  '(-h --help)'{-h,--help}'[显示基础引导帮助]' \
+  '--prefix=[Software 安装目录]:安装目录:_directories' \
+  '--offline[只建立目录和 workbench，不下载 uv/Pixi]' \
+  '--plan[预览基础引导，不写入或下载]'

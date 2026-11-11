@@ -1,0 +1,7 @@
+#!/bin/sh
+# manage-description: 语言服务器及相关工具
+# manage-actions: list check install update
+set -eu
+action=$1; shift
+case "$action" in update) action=upgrade;; list) action=plan;; esac
+exec "$PROFILE_PYTHON" "$WORKBENCH_HOME/libexec/language-servers.py" "$action" "$@"

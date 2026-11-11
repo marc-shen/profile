@@ -1,0 +1,41 @@
+#compdef deck-network
+
+local context state state_descr line
+typeset -A opt_args
+local -a services actions
+services=(
+  'list:列出网络服务及操作'
+  'all:全部网络服务'
+  'sc302:Steamcommunity 302'
+  'mihomo:Mihomo、网页和订阅'
+  'tailscale:Tailscale 网络'
+)
+actions=(
+  'prepare:安装客户端并生成配置'
+  'activate:首次授权和启用（本机执行）'
+  'update:更新对应服务的内容'
+  'start:启动后台服务'
+  'stop:停止后台服务'
+  'restart:重启后台服务'
+  'status:查看运行状态'
+  'check:检查配置和权限'
+  'open:打开图形界面或网页'
+  'logs:查看服务日志'
+)
+
+_arguments -C \
+  '(-h --help)'{-h,--help}'[显示帮助]' \
+  '--prefix=[Software 安装目录]:安装目录:_directories' \
+  '1:服务:->service' \
+  '*::服务参数:->args'
+
+case $state in
+  service) _describe -t services '服务' services ;;
+  args)
+    [[ $line[1] != list ]] || return 0
+    _arguments \
+      '(-h --help)'{-h,--help}'[显示帮助]' \
+      '1:操作:->action'
+    [[ $state != action ]] || _describe -t actions '操作' actions
+    ;;
+esac

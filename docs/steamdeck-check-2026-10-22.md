@@ -11,7 +11,7 @@ build **20260922.1**。只记录当前实际版本，不根据用户执行更新
 | TeX Live 2026 | 上游 install-tl，TUNA CTAN 镜像；宏包由 tlmgr 管理 | `~/Software/apps/texlive/2026` | `xelatex`、`pdflatex`、`lualatex`、`latexmk`、`biber`、`tlmgr` |
 
 两个应用均使用 `apps/<name>/current` 和 `Software/bin` 稳定入口，并记录 `receipt.json`。
-安装脚本见 `scripts/install-wezterm.py`、`scripts/install-texlive.py`；
+安装脚本见 `libexec/install-wezterm.py`、`libexec/install-texlive.py`；
 使用和更新方法见 [Steam Deck 维护说明](Steam-Deck.txt)。不加入基础环境的自动安装。
 
 WezTerm 的 AppImage 不需要 FUSE。SteamOS 新的 Compose 表与旧 AppImage 所带
@@ -80,7 +80,7 @@ WezTerm 验证：`~/Software/logs/wezterm-gui-test.log`、`wezterm-shell-test.lo
 后台日志报 `Authorization required, but no authorization protocol specified`；
 仅更新 Lisp 的 `process-environment` 不能修复 Xlib 使用的原生环境。
 
-新增 `scripts/emacs-x11-auth.sh`，在 Linux 图形客户端启动前，用系统 `xauth`
+新增 `libexec/emacs-x11-auth.sh`，在 Linux 图形客户端启动前，用系统 `xauth`
 把当前会话授权合并到 `~/.Xauthority`，权限 0600，保留其他 display 的记录。
 `em/ec`、Steam Deck 的 `emacs` 和 `emacs-steam` 共用该逻辑；后台启动脚本
 固定使用这个稳定路径。macOS 和无 DISPLAY 的普通 SSH 会话跳过此操作。
@@ -102,5 +102,5 @@ Fedora、Ubuntu、Debian 的基础依赖清单补充 xauth；Deck 使用系统�
 再次检查时，原 `AutoSuspendAction=0` 仍在，PowerDevil 当前 profile 为 `AC`，
 硬件电源状态 online=1。本次重新应用配置，并加入用户级 PowerDevil 启动前规则，
 让每次服务启动自动恢复该偏好。规则和独立应用脚本都在 Home 下，不写系统分区。
-安装入口为 `platform/steamdeck/scripts/install-desktop-power.py`，路径和撤销方式见
+安装入口为 `platforms/steamdeck/libexec/install-desktop-power.py`，路径和撤销方式见
 [Steam Deck 维护说明](Steam-Deck.txt)。原配置保存到 `Software/backups/desktop-power-*`。

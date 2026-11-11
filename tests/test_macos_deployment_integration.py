@@ -9,6 +9,7 @@ import plistlib
 import subprocess
 import sys
 import tempfile
+import shutil
 import unittest
 
 SOURCE = Path(__file__).resolve().parents[1]
@@ -20,18 +21,26 @@ class MacDeploymentTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='profile mac install ') as tmp:
             home = Path(tmp).resolve()
             root = home / 'Software'
+            checkout = home / 'checkout'
+            checkout.mkdir()
+            for name in ['bin','lib','libexec','modules','platforms','catalog','profiles','config','docs']:
+                shutil.copytree(SOURCE / name, checkout / name, symlinks=True,
+                                ignore=shutil.ignore_patterns('__pycache__','elpa','eln-cache','var','tree-sitter','custom.el','projects.eld','projects','tramp','auto-save-list','eshell','transient','log','agent','tramp-rpc','.cache'))
+            subprocess.run(['git','init','-q',str(checkout)],check=True)
+            subprocess.run(['git','-C',str(checkout),'-c','user.name=Test','-c','user.email=test@example.invalid','commit','--allow-empty','-qm','test'],check=True)
+
             env = dict(os.environ, HOME=str(home), SOFTWARE_HOME=str(root),
-                       SOFTWARE_USER_HOME=str(root), PROFILE_HOME=str(SOURCE),
+                       SOFTWARE_USER_HOME=str(root), WORKBENCH_HOME=str(checkout),
                        PYTHONDONTWRITEBYTECODE='1')
             def apply():
-                result = subprocess.run(['/bin/bash', str(SOURCE / 'bootstrap.sh'),
-                                         'apply', '--only', 'emacs', '--config-only'],
+                result = subprocess.run([sys.executable, str(checkout / 'bin/workbench'),
+                                         'profile', 'apply', '--only', 'emacs', '--config-only'],
                                         env=env, capture_output=True, text=True, timeout=120)
                 self.assertIn(result.returncode, (0, 2), result.stdout + result.stderr)
                 return result
             apply()
             app = home / 'Applications/Emacs Client.app'
-            self.assertEqual((home / '.emacs.d').resolve(), SOURCE / 'emacs.d')
+            self.assertEqual((home / '.emacs.d').resolve(), checkout / 'config/emacs')
             self.assertTrue((home / '.emacs.d/lisp/init-restart.el').is_file())
             self.assertTrue((root / 'env.sh').is_file())
             self.assertFalse((home / '.zshrc').exists())
@@ -47,7 +56,7 @@ class MacDeploymentTests(unittest.TestCase):
             self.assertEqual(service['ProgramArguments'], [str(root / 'bin/emacs-daemon')])
             self.assertTrue(service['KeepAlive'])
             state = json.loads((root / 'data/profile/deployment.json').read_text())
-            self.assertIn('emacs.d/lisp/init-restart.el', state['scopes']['emacs']['files'])
+            self.assertIn('config/emacs/lisp/init-restart.el', state['scopes']['emacs']['files'])
             service_step = next(step for step in state['last_attempt']['steps']
                                 if 'service' in step['command'])
             self.assertIn('--no-start', service_step['command'])

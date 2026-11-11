@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+script=${BASH_SOURCE[0]}
+while [[ -L $script ]]; do
+ dir=$(cd -P "$(dirname "$script")" && pwd)
+ script=$(readlink "$script")
+ [[ $script == /* ]] || script=$dir/$script
+done
+repo=$(cd "$(dirname "$script")/../.." && pwd -P)
+source "$repo/libexec/emacs-client.sh"
+profile_emacs_stdin ec "$@"
+# Wait until C-x # / server-edit; required by Git and EDITOR.
+exec "$client" --socket-name=server "${frame[@]}" "$@"

@@ -1,0 +1,41 @@
+#compdef workbench
+local context state state_descr line
+local -A opt_args
+local -a choices
+local module action root helper
+root=${SOFTWARE_HOME:-$HOME/Software}
+helper=${WORKBENCH_HOME:-$root/config/workbench}/bin/workbench
+_arguments -C \
+  '(-h --help)'{-h,--help}'[显示帮助]' \
+  '--prefix=[Software 目录]:目录:_directories' \
+  '--platform=[预览目标平台]:平台:(macos steamdeck fedora ubuntu debian)' \
+  '--plan[只显示计划]' '--json[结构化输出]' '--version[版本]' \
+  '1:功能:->module' '*::参数:->args'
+root=${opt_args[--prefix]:-$root}
+case $state in
+  module)
+    choices=("${(@f)$(python3 "$helper" --prefix "$root" --complete modules 2>/dev/null)}")
+    choices+=('list:列出全部功能')
+    _describe '功能' choices ;;
+  args)
+    module=$line[1]
+    [[ $module != list ]] || return 0
+    words[1]=$module
+    _arguments -C \
+      '(-h --help)'{-h,--help}'[显示帮助]' \
+      '--plan[只显示计划]' '--json[结构化输出]' '--shared[在仓库创建模块]' \
+      '--only=[配置范围]:范围:(all shell emacs helix network)' \
+      '--component=[兼容升级组件]:组件:(tools managers plugins languages emacs all)' \
+      '*--tool=[指定工具]:工具:_profile_tool_names' \
+      '--config-only[只部署配置]' '--probe[验证 LSP 协议]' '--reinstall[重新安装]' \
+      '1:操作:->action' '*:对象:->target'
+    case $state in
+      action)
+        choices=("${(@f)$(python3 "$helper" --prefix "$root" --complete actions "$module" 2>/dev/null)}")
+        compadd -a choices ;;
+      target)
+        action=$words[2]
+        choices=("${(@f)$(python3 "$helper" --prefix "$root" --complete targets "$module" "$action" 2>/dev/null)}")
+        if (( $#choices )); then compadd -a choices; else _files; fi ;;
+    esac ;;
+esac

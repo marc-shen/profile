@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'libexec'))
 from emacs_client_bundle import (build_bundle, runtime_signature, ensure_runtime,
                                  selected_runtime, input_link, INPUT, MARKER, OVERLAY)
 

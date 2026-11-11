@@ -11,7 +11,7 @@ Software/
   apps/<name>/current        当前已验证版本
   share/modulefiles/        按需启用的编译器、MPI、科研库
   share/zsh/                插件、补全和已安装提交记录
-  config/profile            本机 profile checkout 的链接
+  config/workbench            本机 profile checkout 的链接
   config/local/             私有设置，不进入 Git
   src/、build/               源码、可重建构建目录
   downloads/                上游发行文件和校验值
@@ -26,8 +26,9 @@ Software/
 uv/Pixi 使用官方独立二进制。Mac 的 Homebrew 保持其默认前缀。
 普通 CLI 优先 Pixi/conda-forge，每个程序一个环境。
 需要替代来源时，按 brew/dnf/apt、上游二进制、源码配方的顺序评估，明确记录选择；
-网络错误或依赖求解失败不会静默切换来源。当前 tools.json 中的工具均有 Pixi 包。
-源码配方在 scripts/build-*.py。新的来源适配应经过验证后加入安装器，不能猜测 URL。
+Node.js 由 nvm 从 nodejs.org 安装官方二进制，随附 npm/npx；版本在 tools.json 固定。
+网络错误或依赖求解失败不会静默切换来源。其余 tools.json 工具使用 Pixi 包。
+源码配方在 libexec/build-*.py。新的来源适配应经过验证后加入安装器，不能猜测 URL。
 Python CLI 使用 uv tool；项目 .venv 和锁文件留在项目中。
 Mac Emacs 用 brew，Linux Emacs 源码编译。Deck 的构建依赖全部在 Software 内。
 SteamOS 不使用系统包管理器，不解除只读，不改动电源/网络设置。
@@ -44,7 +45,7 @@ Git 插件跟随上游分支，提交 SHA 是安装收据而不是永久限制�
   software-app install fd ripgrep
   software-app update fd ripgrep
   software-app list
-  ./bootstrap.sh update
+  workbench system update
 
 独立项目工具环境：
   software-app create experiment-tools 1 python numpy scipy

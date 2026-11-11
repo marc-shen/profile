@@ -1,6 +1,6 @@
 ;;; test-emacs-stdin.el --- Import and waiting-client regression tests -*- lexical-binding: t; -*-
 (require 'ert)
-(load (expand-file-name "../scripts/emacs-stdin.el"
+(load (expand-file-name "../libexec/emacs-stdin.el"
                         (file-name-directory load-file-name)) nil t)
 
 (ert-deftest profile-stdin-is-editable-text-not-code ()

@@ -1,0 +1,14 @@
+#!/bin/sh
+# manage-description: 清单中的独立 CLI 工具
+# manage-actions: list check install update
+set -eu
+action=$1; shift
+case "$action" in
+  install|update)
+    case "${1-}" in -h|--help) exec "$PROFILE_PYTHON" "$WORKBENCH_HOME/libexec/software.py" tools --help;; esac
+    for manager in pixi uv; do
+      [ -x "$SOFTWARE_HOME/bin/$manager" ] || "$PROFILE_PYTHON" "$WORKBENCH_HOME/libexec/software.py" managers "$manager"
+    done
+    exec "$PROFILE_PYTHON" "$WORKBENCH_HOME/libexec/software.py" tools "$@" ;;
+  list|check) exec "$PROFILE_PYTHON" "$WORKBENCH_HOME/libexec/module_inventory.py" tools "$action" "$@" ;;
+esac

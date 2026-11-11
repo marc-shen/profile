@@ -1,0 +1,4 @@
+#!/bin/sh
+# manage-description: Profile 部署、同步、检查和完整安装
+# manage-actions: list apply update plan install link check service upgrade
+exec "$PROFILE_PYTHON" "$WORKBENCH_HOME/libexec/profile_commands.py" "$@"
