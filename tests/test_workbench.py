@@ -141,6 +141,19 @@ if '--fail' in sys.argv: raise SystemExit(7)
         self.assertEqual(self.bootstrap('--offline').returncode,0)
         self.assertTrue(binary.exists())
 
+    def test_rename_replaces_the_owned_bash_completion_block(self):
+        rc=self.home/'.bashrc'
+        rc.write_text('export KEEP_ME=yes\n\n# profilectl completion (Bash only)\n'
+                      '[ -z "${BASH_VERSION:-}" ] || . /old/profile/config/shell/completions/profilectl.bash\n')
+        result=self.bootstrap('--offline')
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertNotIn('/old/profile/',rc.read_text())
+        self.assertIn('KEEP_ME',rc.read_text())
+        self.assertEqual(rc.read_text().count('# workbench completion'),1)
+        before=rc.stat().st_mtime_ns
+        self.assertEqual(self.bootstrap('--offline').returncode,0)
+        self.assertEqual(rc.stat().st_mtime_ns,before)
+
     def test_discovery_help_completion_and_plan_never_execute_handlers(self):
         self.extension()
         for args in [('list',),('custom','--help'),('custom','install','--help'),('--complete','modules'),('--complete','actions','custom'),('custom','install','--plan')]:

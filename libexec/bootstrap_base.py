@@ -32,6 +32,29 @@ def write(path, value, root, mode=None):
     temporary.replace(path)
 
 
+def bash_completion(value, repo):
+    """Replace our old completion block when the command or checkout moves."""
+    lines = value.splitlines(keepends=True)
+    kept, index = [], 0
+    markers = {'# profilectl completion (Bash only)', '# workbench completion (Bash only)'}
+    while index < len(lines):
+        if lines[index].strip() in markers and index + 1 < len(lines):
+            try:
+                words = shlex.split(lines[index + 1])
+            except ValueError:
+                words = []
+            if (len(words) == 7 and words[:6] == ['[', '-z', '${BASH_VERSION:-}', ']', '||', '.']
+                    and words[-1].endswith(('/config/shell/completions/profilectl.bash',
+                                           '/config/shell/completions/workbench.bash'))):
+                index += 2
+                continue
+        kept.append(lines[index])
+        index += 1
+    completion = shlex.quote(str(repo / 'config/shell/completions/workbench.bash'))
+    return (''.join(kept).rstrip() + '\n\n# workbench completion (Bash only)\n'
+            '[ -z "${BASH_VERSION:-}" ] || . ' + completion + '\n')
+
+
 def install(root, repo):
     from software import atomic_link
     entry = root / 'bin/workbench'
@@ -72,8 +95,7 @@ def install(root, repo):
         else:
             value = old.rstrip() + '\n\n' + start + '\n' + content + '\n' + end + '\n'
         if filename == '.bashrc':
-            completion = '. ' + shlex.quote(str(repo / 'config/shell/completions/workbench.bash'))
-            if completion not in value: value += '\n# workbench completion (Bash only)\n[ -z \"${BASH_VERSION:-}\" ] || ' + completion + '\n'
+            value = bash_completion(value, repo)
         write(path, value, root)
 
 
