@@ -33,6 +33,9 @@ def main(name, argv):
     platform = detect()
     spec = discover(REPO, ROOT)[name]
     if spec.get('kind') == 'command':
+        if name == 'mirrors':
+            from .mirrors import mirror_action
+            return mirror_action(action, args, REPO, ROOT, platform)
         if name == 'providers':
             selected = args or ['uv', 'pixi']
             if set(selected) - {'uv', 'pixi'}: raise RuntimeError('Providers: uv pixi')

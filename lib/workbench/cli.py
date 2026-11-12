@@ -40,6 +40,10 @@ def workflow(components, action, args, repo, root, platform):
         raise RuntimeError(profile + ' is not supported on ' + platform)
     steps, installed = [], set()
     entries = spec['check'] if action == 'check' else spec['install'] + spec['check']
+    platform_path = repo / 'platforms' / platform / 'platform.toml'
+    platform_spec = registry.read(platform_path) if platform_path.is_file() else {}
+    if target := platform_spec.get('mirror_target'):
+        entries = [dict(component='mirrors', action=action, args=[target])] + entries
     for item in entries:
         if not item.get('component') or 'module' in item:
             raise RuntimeError('Installation profile requires component fields: ' + profile)

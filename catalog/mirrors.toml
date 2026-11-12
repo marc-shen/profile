@@ -1,0 +1,29 @@
+schema = 1
+priority = ["tuna", "ustc", "sjtu"]
+
+[proxy]
+direct_domains = [
+  "tuna.tsinghua.edu.cn", "mirrors.ustc.edu.cn",
+  "mirror.sjtu.edu.cn", "mirrors.sjtug.sjtu.edu.cn", "s3.jcloud.sjtu.edu.cn",
+  "mirrors.bfsu.edu.cn", "mirror.nju.edu.cn", "mirrors.nju.edu.cn",
+  "mirrors.aliyun.com", "mirrors.cloud.tencent.com", "mirrors.huaweicloud.com",
+  "repo.huaweicloud.com", "mirrors.cernet.edu.cn",
+]
+
+[sites.tuna]
+name = "清华"
+base = "https://mirrors.tuna.tsinghua.edu.cn"
+fedora = "https://mirrors.tuna.tsinghua.edu.cn/fedora"
+# TUNA's published mirror catalog does not include Flathub.
+
+[sites.ustc]
+name = "科大"
+base = "https://mirrors.ustc.edu.cn"
+fedora = "https://mirrors.ustc.edu.cn/fedora"
+flatpak = "https://mirrors.ustc.edu.cn/flathub"
+
+[sites.sjtu]
+name = "交大"
+base = "https://mirror.sjtu.edu.cn"
+fedora = "https://mirror.sjtu.edu.cn/fedora/linux"
+flatpak = "https://mirror.sjtu.edu.cn/flathub"

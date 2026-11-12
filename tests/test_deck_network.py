@@ -49,6 +49,12 @@ class ComposeTests(unittest.TestCase):
         self.assertTrue(result['dns']['use-system-hosts'])
         self.assertEqual(result['dns']['nameserver-policy']['+.ts.net'], '100.100.100.100')
 
+    def test_mirror_domains_bypass_vendor_rules_and_subscription_refresh(self):
+        result = self.compose()
+        for domain in ('tuna.tsinghua.edu.cn', 'mirrors.ustc.edu.cn', 'mirror.sjtu.edu.cn', 's3.jcloud.sjtu.edu.cn'):
+            self.assertIn('DOMAIN-SUFFIX,' + domain + ',DIRECT', result['rules'][:-2])
+        self.assertEqual(result['rules'][-2:], self.provider['rules'])
+
     def test_provider_cannot_open_extra_listeners(self):
         self.provider.update({'listeners': [{'port': 9999}], 'external-controller-tls': ':9998',
                               'external-ui-url': 'https://example.invalid/', 'allow-lan': True,

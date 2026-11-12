@@ -113,3 +113,5 @@ workbench my-app check
 
 更多说明：[架构](docs/architecture.md)、[日常操作](docs/workbench.md)、[配置同步](docs/sync.md)。
 源码导出：`python3 libexec/export-source.py /path/workbench-source.tar.gz`；导出包不含运行数据和私人设置。
+
+软件源配置：见 [镜像源与恢复](docs/mirrors.md)，入口为 `workbench mirrors apply`。

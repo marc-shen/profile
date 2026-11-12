@@ -1,4 +1,5 @@
 schema = 1
+mirror_target = "apt"
 name = "ubuntu"
 package_manager = "apt"
 readonly_root = false
