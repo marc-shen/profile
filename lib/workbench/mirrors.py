@@ -1,4 +1,4 @@
-"""Prioritized mirror selection with native signature checks and reversible changes."""
+"""CERNET mirror dispatch with native signature checks and reversible changes."""
 import datetime
 import json
 from pathlib import Path
@@ -25,9 +25,16 @@ def catalog(repo):
     return read(repo / 'catalog/mirrors.toml')
 
 
+class HTTPSRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        if urllib.parse.urlsplit(newurl).scheme != 'https':
+            raise RuntimeError('Mirror redirected to a non-HTTPS URL')
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 def probe(url, kind):
     """Read bounded metadata, not a mirror home page or a cached HEAD result."""
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), HTTPSRedirectHandler())
     request = urllib.request.Request(url, headers={'User-Agent': 'Workbench-mirrors/1'})
     with opener.open(request, timeout=12) as response:
         data = response.read(262144)
@@ -35,7 +42,9 @@ def probe(url, kind):
             raise RuntimeError('Invalid HTTPS metadata response')
         origin = urllib.parse.urlsplit(url).hostname
         destination = urllib.parse.urlsplit(response.url).hostname
-        same_site = origin == destination or any(
+        # CERNET is a dispatcher: member mirror redirects are its normal API.
+        # Keep the original CERNET URL in configuration, never pin this result.
+        same_site = origin == 'mirrors.cernet.edu.cn' or origin == destination or any(
             origin.endswith('.' + domain) and destination.endswith('.' + domain)
             for domain in ('tsinghua.edu.cn', 'ustc.edu.cn', 'sjtu.edu.cn'))
         if not same_site:
@@ -48,6 +57,7 @@ def probe(url, kind):
         raise RuntimeError('Missing OSTree repository configuration')
     if kind == 'summary' and (not data or b'<html' in data[:512].lower() or b'<!doctype' in data[:512].lower()):
         raise RuntimeError('Invalid OSTree summary')
+    return response.url
 
 
 def candidates(settings, target):
@@ -63,8 +73,11 @@ def apt_path(url, settings):
     parsed = urllib.parse.urlsplit(url)
     host, path = parsed.hostname or '', parsed.path.rstrip('/')
     known = {urllib.parse.urlsplit(site['base']).hostname for site in settings['sites'].values()}
+    known_mirror = host in known or any(host == domain or host.endswith('.' + domain)
+                                      for domain in settings['proxy']['direct_domains'])
+    known_mirror = known_mirror or any(re.fullmatch(pattern, host) for pattern in settings['proxy'].get('direct_regex', []))
     official = host in ('archive.ubuntu.com', 'security.ubuntu.com', 'ports.ubuntu.com') or host.endswith('.archive.ubuntu.com')
-    return path.lstrip('/') if (official or host in known) and path in ('/ubuntu', '/ubuntu-ports') else None
+    return path.lstrip('/') if (official or known_mirror) and path in ('/ubuntu', '/ubuntu-ports') else None
 
 
 def apt_transform(content, site, settings, deb822=False):
@@ -274,7 +287,9 @@ def mirror_action(action, args, repo, root, platform):
         state = json.loads(path.read_text())
         if current_values(target, state['applied']) != state['applied']:
             console.status('CHANGED', target + ' 配置与记录不一致', 'warn'); return 2
-        site = settings['sites'][state['site']]
+        site = settings['sites'].get(state['site'])
+        if not site or state['site'] not in settings['priority']:
+            console.status('PENDING', '镜像策略已更新；运行 workbench mirrors apply ' + target, 'warn'); return 2
         if target == 'flatpak':
             probe(site['flatpak'] + '/config', 'flatpak'); probe(site['flatpak'] + '/summary.idx', 'summary')
         else:

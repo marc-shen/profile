@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 import sys
 import os
+import re
 
 
 import sys
@@ -54,6 +55,15 @@ class ComposeTests(unittest.TestCase):
         for domain in ('tuna.tsinghua.edu.cn', 'mirrors.ustc.edu.cn', 'mirror.sjtu.edu.cn', 's3.jcloud.sjtu.edu.cn'):
             self.assertIn('DOMAIN-SUFFIX,' + domain + ',DIRECT', result['rules'][:-2])
         self.assertEqual(result['rules'][-2:], self.provider['rules'])
+
+    def test_dispatcher_member_hosts_are_direct_without_bypassing_entire_universities(self):
+        rules = self.compose()['rules'][:-2]
+        patterns = [r.split(',')[1] for r in rules if r.startswith('DOMAIN-REGEX,')]
+        self.assertIn('DOMAIN-SUFFIX,mirrors.cernet.edu.cn,DIRECT', rules)
+        for host in ('cernet.mirrors.ustc.edu.cn', 'mirrors.zju.edu.cn', 'mirror.iscas.ac.cn', 'mirrors.bfsu.edu.cn'):
+            self.assertTrue(any(re.fullmatch(pattern, host) for pattern in patterns), host)
+        for host in ('www.tsinghua.edu.cn', 'mail.zju.edu.cn', 'mirrors.zju.edu.cn.example.com'):
+            self.assertFalse(any(re.fullmatch(pattern, host) for pattern in patterns), host)
 
     def test_provider_cannot_open_extra_listeners(self):
         self.provider.update({'listeners': [{'port': 9999}], 'external-controller-tls': ':9998',

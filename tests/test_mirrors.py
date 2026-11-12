@@ -17,11 +17,11 @@ from workbench.cli import workflow
 class MirrorsTests(unittest.TestCase):
     def setUp(self):
         self.settings = mirrors.catalog(REPO)
-        self.site = self.settings['sites']['tuna']
+        self.site = self.settings['sites']['cernet']
 
-    def test_priority_skips_unsupported_flathub(self):
-        self.assertEqual([name for name, _ in mirrors.candidates(self.settings, 'dnf')], ['tuna', 'ustc', 'sjtu'])
-        self.assertEqual([name for name, _ in mirrors.candidates(self.settings, 'flatpak')], ['ustc', 'sjtu'])
+    def test_all_managers_use_cernet_dispatcher(self):
+        self.assertEqual([name for name, _ in mirrors.candidates(self.settings, 'dnf')], ['cernet'])
+        self.assertEqual([name for name, _ in mirrors.candidates(self.settings, 'flatpak')], ['cernet'])
 
     def test_apt_legacy_preserves_options_third_party_and_security(self):
         text = ('deb [arch=amd64 signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] http://archive.ubuntu.com/ubuntu noble main universe\n'
@@ -30,7 +30,7 @@ class MirrorsTests(unittest.TestCase):
         result, urls = mirrors.apt_transform(text, self.site, self.settings)
         self.assertIn('signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg]', result)
         self.assertIn('https://ppa.launchpadcontent.net/example/ubuntu noble main', result)
-        self.assertIn('https://mirrors.tuna.tsinghua.edu.cn/ubuntu/ noble-security', result)
+        self.assertIn('https://mirrors.cernet.edu.cn/ubuntu/ noble-security', result)
         self.assertEqual(len(urls), 2)
         self.assertEqual(mirrors.apt_transform(result, self.site, self.settings)[0], result)
 
@@ -118,6 +118,47 @@ class MirrorsTests(unittest.TestCase):
             opener.return_value.open.return_value = Reply()
             for kind in ('apt', 'dnf', 'flatpak', 'summary'):
                 with self.assertRaises(RuntimeError): mirrors.probe('https://mirrors.example/metadata', kind)
+
+    def test_cernet_accepts_member_redirects_but_rejects_https_downgrades(self):
+        class Reply:
+            status = 200
+            url = 'https://cernet.mirrors.ustc.edu.cn/flathub/config'
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+            def read(self, size): return b'[core]\nrepo_version=1\nmode=archive-z2\n'
+        with patch.object(mirrors.urllib.request, 'build_opener') as opener:
+            opener.return_value.open.return_value = Reply()
+            self.assertEqual(mirrors.probe('https://mirrors.cernet.edu.cn/flathub/config', 'flatpak'), Reply.url)
+            with self.assertRaisesRegex(RuntimeError, 'outside its site'):
+                mirrors.probe('https://mirrors.example/flathub/config', 'flatpak')
+        handler = mirrors.HTTPSRedirectHandler()
+        with self.assertRaisesRegex(RuntimeError, 'non-HTTPS'):
+            handler.redirect_request(mirrors.urllib.request.Request('https://mirrors.cernet.edu.cn/flathub/config'),
+                                     None, 302, 'Found', {}, 'http://mirror.example/config')
+
+    def test_apply_stores_dispatcher_not_resolved_member(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(mirrors, 'flatpak_remotes', return_value={'system': 'https://dl.flathub.org/repo/'}), \
+             patch.object(mirrors, 'probe', return_value='https://cernet.mirrors.ustc.edu.cn/flathub/config'), \
+             patch.object(mirrors, 'write_flatpak') as writer, patch.object(mirrors, 'validate'):
+            root = Path(tmp)
+            self.assertEqual(mirrors.mirror_action('apply', ['flatpak'], REPO, root, 'steamdeck'), 0)
+            writer.assert_called_once_with('system', 'https://mirrors.cernet.edu.cn/flathub')
+            state = json.loads((root/'data/mirrors/flatpak.json').read_text())
+            self.assertEqual(state['site'], 'cernet')
+            self.assertEqual(state['applied']['system'], 'https://mirrors.cernet.edu.cn/flathub')
+
+    def test_existing_individual_apt_mirror_is_changed_to_dispatcher(self):
+        for host in ('mirrors.tuna.tsinghua.edu.cn', 'mirrors.ustc.edu.cn', 'mirror.sjtu.edu.cn'):
+            result, _ = mirrors.apt_transform('deb https://' + host + '/ubuntu noble main\n', self.site, self.settings)
+            self.assertEqual(result, 'deb https://mirrors.cernet.edu.cn/ubuntu/ noble main\n')
+
+    def test_previous_selection_is_reported_as_pending(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            mirrors.save(root/'data/mirrors/flatpak.json', {'site': 'ustc', 'applied': {'system': 'old'}})
+            with patch.object(mirrors, 'flatpak_remotes', return_value={'system': 'old'}):
+                self.assertEqual(mirrors.mirror_action('check', ['flatpak'], REPO, root, 'steamdeck'), 2)
 
     def test_all_candidates_offline_make_no_changes(self):
         with tempfile.TemporaryDirectory() as tmp, patch.object(mirrors, 'flatpak_remotes', return_value={'system': 'official'}), \

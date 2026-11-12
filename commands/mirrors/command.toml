@@ -1,7 +1,7 @@
 schema = 1
 name = "mirrors"
 kind = "command"
-description = "软件镜像源：清华 → 科大 → 交大"
+description = "软件镜像源：CERNET 教育网联合镜像"
 platforms = ["steamdeck", "fedora", "ubuntu"]
 requires = []
 entrypoint = ["{python}", "{repo}/libexec/component.py", "mirrors"]
@@ -9,15 +9,15 @@ arguments = "[auto|dnf|flatpak|apt]"
 targets = ["auto", "dnf", "flatpak", "apt"]
 
 [actions.list]
-description = "列出镜像优先级和当前配置"
+description = "查看联合镜像入口和当前配置"
 platforms = ["macos", "steamdeck", "fedora", "ubuntu", "debian"]
 [actions.check]
 description = "检查当前源及仓库元数据可达性"
 [actions.install]
-description = "按优先级选择并应用可用镜像"
+description = "验证并应用 CERNET 联合镜像"
 [actions.apply]
-description = "按优先级选择并应用可用镜像"
+description = "验证并应用 CERNET 联合镜像"
 [actions.update]
-description = "重新检测镜像优先级并刷新元数据"
+description = "检测 CERNET 联合镜像并刷新元数据"
 [actions.restore]
 description = "恢复首次换源前的配置"

@@ -21,8 +21,9 @@ def compose(provider, root, address):
         raise RuntimeError('Expected a complete Clash configuration with rules and proxy groups')
     # The vendor retains ownership of proxy selection, rule order and groups.
     bypass = [f'PROCESS-NAME,{p},DIRECT' for p in ('tailscaled','tailscale','steamcommunity_302.cli','steamcommunity_302.caddy','caddy')]
-    mirrors = read_toml(REPO / 'catalog/mirrors.toml')['proxy']['direct_domains']
-    bypass += [f'DOMAIN-SUFFIX,{domain},DIRECT' for domain in mirrors]
+    mirrors = read_toml(REPO / 'catalog/mirrors.toml')['proxy']
+    bypass += [f'DOMAIN-SUFFIX,{domain},DIRECT' for domain in mirrors['direct_domains']]
+    bypass += [f'DOMAIN-REGEX,{pattern},DIRECT' for pattern in mirrors.get('direct_regex', [])]
     bypass += ['DOMAIN-SUFFIX,ts.net,DIRECT','DOMAIN-SUFFIX,tailscale.com,DIRECT','DOMAIN-SUFFIX,tailscale.io,DIRECT',
                'IP-CIDR,100.64.0.0/10,DIRECT,no-resolve','IP-CIDR6,fd7a:115c:a1e0::/48,DIRECT,no-resolve',
                'IP-CIDR,127.0.0.0/8,DIRECT,no-resolve','IP-CIDR,10.0.0.0/8,DIRECT,no-resolve',
