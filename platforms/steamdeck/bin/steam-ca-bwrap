@@ -1,0 +1,28 @@
+#!/bin/sh
+# PRESSURE_VESSEL_BWRAP hook for the Steam client, not a replacement runtime.
+# Let Valve's own bubblewrap handle namespaces, inherited FDs and all options.
+set -eu
+steam_root=${STEAMROOT:-"$HOME/.steam/root"}
+runtime=${STEAM_RUNTIME_STEAMRT:-"$steam_root/steamrt64/pv-runtime/steam-runtime-steamrt"}
+real="$runtime/pressure-vessel/libexec/steam-runtime-tools-0/srt-bwrap"
+ca=/etc/ssl/certs/ca-certificates.crt
+
+# Feature probes have ordinary arguments; forward them without changes.
+# The actual container invocation has bundled options followed by pv-adverb.
+if [ "${1-}" = --args ] && [ "$#" -ge 3 ]; then
+    case "$3" in
+        */pv-adverb)
+            descriptor=$2
+            shift 2
+            # Add the mount AFTER the runtime mounts in --args. Never unpack
+            # the FD, log arguments, alter TLS checks or edit Steam's files.
+            # Remove the hook inside the container so game runtimes choose
+            # their own bubblewrap instead of inheriting the client's hook.
+            exec "$real" --args "$descriptor" \
+                --ro-bind "$ca" "$ca" \
+                --setenv SSL_CERT_FILE "$ca" \
+                --unsetenv PRESSURE_VESSEL_BWRAP "$@"
+            ;;
+    esac
+fi
+exec "$real" "$@"

@@ -4,8 +4,9 @@
 `components/mihomo/component.toml` 固定官方二进制、网页版本及 SHA256。
 规则前置 Tailscale、局域网和 302 直连；DNS 保留供应商设置并支持本机 hosts
 及 `.ts.net` MagicDNS。TUN 排除 Tailscale 接口和对应网段。
-302 hosts 模式需避开 Steam 客户端登录 API 和更新域名；具体冲突规则及验证方法见
-[游戏模式连接故障](steamdeck-network.md#游戏模式停在正在连接-steam)。系统 CA 信任不会自动传入 Steam 容器。
+302 hosts 模式需要 Steam 客户端信任其本机证书。`workbench steamcommunity302 install`
+会部署游戏模式的系统 CA 只读挂载；重启 Steam 后运行 `workbench steamcommunity302 check` 验证。
+原理、桌面模式启动方法及回退规则见 [游戏模式连接故障](steamdeck-network.md#游戏模式停在正在连接-steam)。
 
 ## 安装与启用
 
