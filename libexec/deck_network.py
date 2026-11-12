@@ -188,6 +188,31 @@ def service_unit(service):
             'sc302': f's302-{os.getuid()}.service'}[service]
 
 
+def sc302_compatibility_issues(config_path=Path('/var/lib/Steamcommunity_302/config.json')):
+    """Catch TLS interception of Steam's client container during startup.
+
+    The container has its own CA bundle: installing the 302 CA on SteamOS
+    does not make Steam's login API/updater trust it. Keep those two paths
+    on normal HTTPS, while leaving the user's community/other rules alone.
+    """
+    if not config_path.exists():
+        return []  # The service/client checks report an uninstalled backend.
+    try:
+        settings = json.loads(config_path.read_text())['settings']
+        hosts_mode = settings.get('hosts', {}).get('autoModify', False) and not settings.get('dns', {}).get('enabled', False)
+        enabled = settings.get('rules', {}).get('enabled', [])
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return ['302 compatibility: cannot read backend settings']
+    if not hosts_mode:
+        return []
+    return [f'302 hosts TLS conflict: disable {rule} ({label}) in workbench steamcommunity302 open; '
+            'Steam client containers do not inherit the system CA trust'
+            for rule, label in (('Steam_API', 'Steam API'), ('steam_update', 'Steam client updates'),
+                                ('baishan2ali', 'also intercepts the client update CDN'),
+                                ('imgfix', 'also intercepts client-update.akamai.steamstatic.com'))
+            if rule in enabled]
+
+
 def service_pending(root, service):
     issues = []
     def require(command, label):
@@ -211,8 +236,10 @@ def service_pending(root, service):
         if not Path('/opt/tailscale/tailscale').is_file(): issues.append('Tailscale executable')
         if not Path('/etc/atomic-update.conf.d/90-deck-tailscale-persistence.conf').exists():
             issues.append('Tailscale persistence: workbench tailscale apply')
-    elif not (root / 'apps/steamcommunity302/current/Steamcommunity302.AppImage').is_file():
-        issues.append('302 client: workbench steamcommunity302 install')
+    elif service == 'sc302':
+        if not (root / 'apps/steamcommunity302/current/Steamcommunity302.AppImage').is_file():
+            issues.append('302 client: workbench steamcommunity302 install')
+        issues.extend(sc302_compatibility_issues())
     return issues
 
 

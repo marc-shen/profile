@@ -1,4 +1,5 @@
 import copy
+import json
 import importlib.util
 from pathlib import Path
 import unittest
@@ -18,6 +19,41 @@ mihomo = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(mihomo)
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'libexec'))
 import deck_network as network
+
+
+class SteamContainerCompatibilityTests(unittest.TestCase):
+    def issues(self, enabled, hosts=True, dns=False):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'config.json'
+            path.write_text(json.dumps({'settings': {
+                'rules': {'enabled': enabled}, 'hosts': {'autoModify': hosts},
+                'dns': {'enabled': dns},
+            }}))
+            return network.sc302_compatibility_issues(path)
+
+    def test_hosts_login_and_updater_interception_are_reported(self):
+        issues = self.issues(['Steam_API', 'steam_update', 'Steam_community', 'Steam_store'])
+        self.assertEqual(len(issues), 2)
+        self.assertIn('Steam_API', issues[0])
+        self.assertIn('steam_update', issues[1])
+
+    def test_community_hosts_mode_remains_supported(self):
+        self.assertEqual(self.issues(['Steam_community', 'Steam_store']), [])
+        self.assertEqual(self.issues(['Steam_API'], hosts=False), [])
+        self.assertEqual(self.issues(['Steam_API'], dns=True), [])
+
+    def test_overlapping_rules_cannot_hide_updater_interception(self):
+        issues = self.issues(['baishan2ali', 'imgfix', 'imgfix_fastly'])
+        self.assertEqual(len(issues), 2)
+        self.assertIn('baishan2ali', issues[0])
+        self.assertIn('imgfix', issues[1])
+
+    def test_unreadable_settings_are_not_reported_as_healthy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'config.json'
+            self.assertEqual(network.sc302_compatibility_issues(path), [])
+            path.write_text('{')
+            self.assertIn('cannot read', network.sc302_compatibility_issues(path)[0])
 
 
 class ComposeTests(unittest.TestCase):

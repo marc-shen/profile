@@ -94,6 +94,47 @@ Tailscale 使用 [deck-tailscale](https://github.com/tailscale-dev/deck-tailscal
 `/var/lib/Steamcommunity_302`，不因重新部署客户端而删除。
 Mihomo 图标来自 MetaCubeXD 安装目录。两个菜单入口分别调用 `workbench mihomo open` 与 `workbench steamcommunity302 open`。
 
+## 游戏模式停在“正在连接 Steam”
+
+302 的 hosts 模式与 Mihomo TUN 可以同时使用，但系统信任 302 的根证书，并不代表
+Steam 的 pressure-vessel 容器也信任它。2026-11-12 的实机排查中，Steam API
+被 `/etc/hosts` 映射到 `127.0.0.1`；系统 curl 成功，使用 Steam 容器 CA 的同一
+请求则报证书验证失败。Steam 持续重试登录 API，界面停在“正在连接 Steam”。
+
+在 `workbench steamcommunity302 open` 中保持 hosts 模式，关闭下列规则并应用：
+
+| 302 规则 | 原因 |
+| --- | --- |
+| Steam API (`Steam_API`) | 接管客户端登录需要的 `api.steampowered.com` |
+| Steam 客户端更新 (`steam_update`) | 接管客户端更新地址 |
+| Steam 白山云重定向阿里云 (`baishan2ali`) | 同样接管更新入口 `media.st.dl.eccdnx.com` |
+| Steam 网页布局/图片修复 CF+Akamai (`imgfix`) | 同样接管 `client-update.akamai.steamstatic.com` |
+
+这些功能会有域名重叠，仅关闭“客户端更新”并不足够。商店、社区、聊天等其余规则
+无需随之关闭。Workbench 的 `steamcommunity302 check` 会检查上述已知冲突规则，
+只报告问题，不覆盖 GUI 中的用户选择；初次安装 302 后也应完成这一步配置。
+
+在 Mihomo 网页中检查登录 API 实际命中的策略。如果订阅的“游戏平台”使用 `DIRECT`
+而当前网络直连 Steam API 超时，将该组改为跟随“节点选择”。当前 Deck 的订阅先匹配
+`GEOSITE,steam@cn,全球直连`，再匹配 `GEOSITE,steam,游戏平台`，因此国内 Steam
+下载规则保持直连。其他订阅需根据实际规则判断，不应把所有 Steam 下载强制代理。
+策略选择由 Mihomo `profile.store-selected` 保存，日常订阅更新保留该选择（组名不变时）。
+
+```sh
+workbench steamcommunity302 check
+workbench mihomo check
+```
+
+修复后检查 `~/.local/share/Steam/logs/steamui_login.txt` 中的新记录是否出现
+`SetLoginState: Success - OK`。已经卡住的客户端可能保留旧 DNS/hosts 或连接，需要
+退出并重新启动 Steam。不要关闭 TLS 校验，也不要修改 Steam 随更新替换的运行时文件。
+本次修复只改 302 和 Mihomo 的持久配置，未关闭 SteamOS 只读，未修改 Tailscale。
+
+注意：Mihomo 的 `use-system-hosts: false` 不能单独解决这个问题，systemd-resolved
+默认也会读取 `/etc/hosts`，Steam 容器还可能保留启动时的 hosts 文件。
+参考：[systemd-resolved 的 hosts 解析](https://www.freedesktop.org/software/systemd/man/258/systemd-resolved.html)、
+[Steam Runtime 的独立 CA 问题](https://github.com/ValveSoftware/steam-runtime/issues/834)。
+
 所有订阅、节点、密钥和运行数据保存在仓库外。SteamOS 保持只读。
 系统服务及授权文件通过 `/etc/atomic-update.conf.d` 保留；系统重装后仍需
 重新部署。代理细节见 [Mihomo 说明](steamdeck-mihomo.md)。
