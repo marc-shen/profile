@@ -22,14 +22,14 @@ import deck_network as network
 
 
 class SteamContainerCompatibilityTests(unittest.TestCase):
-    def issues(self, enabled, hosts=True, dns=False, trusted=False):
+    def issues(self, enabled, hosts=True, dns=False):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / 'config.json'
             path.write_text(json.dumps({'settings': {
                 'rules': {'enabled': enabled}, 'hosts': {'autoModify': hosts},
                 'dns': {'enabled': dns},
             }}))
-            return network.sc302_compatibility_issues(path, trusted_client=trusted)
+            return network.sc302_compatibility_issues(path)
 
     def test_hosts_login_and_updater_interception_are_reported(self):
         issues = self.issues(['Steam_API', 'steam_update', 'Steam_community', 'Steam_store'])
@@ -47,9 +47,6 @@ class SteamContainerCompatibilityTests(unittest.TestCase):
         self.assertEqual(len(issues), 2)
         self.assertIn('baishan2ali', issues[0])
         self.assertIn('imgfix', issues[1])
-
-    def test_repaired_container_trust_allows_all_original_rules(self):
-        self.assertEqual(self.issues(['Steam_API', 'steam_update', 'baishan2ali', 'imgfix'], trusted=True), [])
 
     def test_unreadable_settings_are_not_reported_as_healthy(self):
         with tempfile.TemporaryDirectory() as tmp:

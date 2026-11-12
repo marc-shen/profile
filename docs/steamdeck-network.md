@@ -101,46 +101,10 @@ Steam 的 pressure-vessel 容器也信任它。2026-11-12 的实机排查中，S
 被 `/etc/hosts` 映射到 `127.0.0.1`；系统 curl 成功，使用 Steam 容器 CA 的同一
 请求则报证书验证失败。Steam 持续重试登录 API，界面停在“正在连接 Steam”。
 
-### 修复容器的证书信任
+当前方案保持 Steam 默认的容器启动方式和证书库，不安装证书挂载钩子。
+由 Mihomo 接管登录 API，更新和下载按原有订阅规则分流，302 保留其他已选功能。
 
-```sh
-workbench steamcommunity302 install
-# 安装不会打断正在运行的 Steam。退出游戏后重新启动 Steam，再检查：
-workbench steamcommunity302 check
-```
-
-安装会部署 `~/Software/libexec/steam-ca-bwrap` 和用户服务配置
-`~/.config/systemd/user/steam-launcher.service.d/60-workbench-ca.conf`。
-游戏模式启动 Steam 时，通过 Valve 支持的 `PRESSURE_VESSEL_BWRAP` 环境变量调用
-这个小型钩子；它继续使用当前 Steam 自带的 `srt-bwrap`，仅在容器的运行时挂载之后，
-将系统 `/etc/ssl/certs/ca-certificates.crt` 只读挂载到容器的相同路径。
-同时设置容器内 `SSL_CERT_FILE`，使 OpenSSL 命令行工具也使用同一份证书库。
-
-这让 Steam 信任与系统相同的 CA，包含已由 302 官方安装器授权的本机根证书。
-不会关闭 TLS 校验、添加过期 CA、改动 Steam 下载的运行时文件或解除 SteamOS 只读。
-钩子在客户端容器内清除自身环境变量，游戏容器继续选择各自的启动工具。
-文件存放在 home；每次启动读取当前系统证书和 Steam 自带的工具，无需复制整套运行时。
-Steam 更新后仍需以 `check` 验证兼容性，系统 CA 轮换后重启 Steam 即可重新挂载。
-
-`check` 同时验证安装文件和运行中 Steam 容器的 CA 内容；发现尚未重启或证书已变化时
-会明确提示。2026-11-13 实机恢复上述四项 302 规则后，Steam 从开始登录到
-`Success` 约 5 秒，运行中容器的证书库与系统一致。
-
-此自动启动配置针对游戏模式的 `steam-launcher.service`。在 KDE 中直接运行 Steam
-而不经过该服务时，可在 Steam 完全退出后使用相同钩子启动：
-
-```sh
-PRESSURE_VESSEL_BWRAP="$HOME/Software/libexec/steam-ca-bwrap" steam
-```
-
-上游的 `PRESSURE_VESSEL_IMPORT_CA_CERTS=1` 当前要求系统存在指定旧根证书的哈希文件
-`244b5494.0`，本机缺少该文件时会放弃整个导入。本方案不为满足该检查而重新信任旧 CA。
-实现参考：[Valve 的 bubblewrap 环境变量入口](https://gitlab.steamos.cloud/steamrt/steam-runtime-tools/-/blob/main/steam-runtime-tools/bwrap.c)、
-[上游证书导入检查](https://gitlab.steamos.cloud/steamrt/steam-runtime-tools/-/blob/main/pressure-vessel/runtime.c)。
-
-### 无法使用证书挂载时的回退方案
-
-保持 hosts 模式，在 `workbench steamcommunity302 open` 中关闭下列规则并应用：
+在 `workbench steamcommunity302 open` 中保持 hosts 模式，关闭下列规则并应用：
 
 | 302 规则 | 原因 |
 | --- | --- |
@@ -150,14 +114,20 @@ PRESSURE_VESSEL_BWRAP="$HOME/Software/libexec/steam-ca-bwrap" steam
 | Steam 网页布局/图片修复 CF+Akamai (`imgfix`) | 同样接管 `client-update.akamai.steamstatic.com` |
 
 这些功能会有域名重叠，仅关闭“客户端更新”并不足够。商店、社区、聊天等其余规则
-无需随之关闭。Workbench 的 `steamcommunity302 check` 仅在证书挂载尚未就绪时
-报告这些冲突规则，不覆盖 GUI 中的用户选择。证书信任修复后可以恢复这些功能。
+无需随之关闭。Workbench 的 `steamcommunity302 check` 会检查上述已知冲突规则，
+只报告问题，不覆盖 GUI 中的用户选择；初次安装 302 后也应完成这一步配置。
 
 在 Mihomo 网页中检查登录 API 实际命中的策略。如果订阅的“游戏平台”使用 `DIRECT`
 而当前网络直连 Steam API 超时，将该组改为跟随“节点选择”。当前 Deck 的订阅先匹配
 `GEOSITE,steam@cn,全球直连`，再匹配 `GEOSITE,steam,游戏平台`，因此国内 Steam
 下载规则保持直连。其他订阅需根据实际规则判断，不应把所有 Steam 下载强制代理。
+`steam@cn` 不只是下载 CDN，还包含部分服务域名；这里保留现有规则，
+不把该标签视为所有域名都在国内或始终可以直连的保证。
 策略选择由 Mihomo `profile.store-selected` 保存，日常订阅更新保留该选择（组名不变时）。
+
+这解决的是已复现的客户端登录和更新冲突。其余保留的 302 功能仍依赖调用方的
+证书信任；若某个功能再次出现证书错误，单独停用对应的 302 规则并交给 Mihomo，
+不需要为此修改 Steam 容器。登录代理的可用性也取决于当前选定的节点。
 
 ```sh
 workbench steamcommunity302 check
@@ -167,7 +137,7 @@ workbench mihomo check
 修复后检查 `~/.local/share/Steam/logs/steamui_login.txt` 中的新记录是否出现
 `SetLoginState: Success - OK`。已经卡住的客户端可能保留旧 DNS/hosts 或连接，需要
 退出并重新启动 Steam。不要关闭 TLS 校验，也不要修改 Steam 随更新替换的运行时文件。
-证书修复和回退方案都保持 SteamOS 只读，不修改 Tailscale。
+本次修复只改 302 和 Mihomo 的持久配置，未关闭 SteamOS 只读，未修改 Tailscale。
 
 注意：Mihomo 的 `use-system-hosts: false` 不能单独解决这个问题，systemd-resolved
 默认也会读取 `/etc/hosts`，Steam 容器还可能保留启动时的 hosts 文件。

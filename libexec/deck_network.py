@@ -106,8 +106,6 @@ def install_sc302(root):
     duplicate = Path.home() / 'Applications' / s302['url'].rsplit('/', 1)[1]
     if duplicate.is_file() and not duplicate.is_symlink() and digest(duplicate) == digest(binary):
         duplicate.unlink()
-    from steam_trust import install as install_steam_trust
-    install_steam_trust(root)
 
 
 
@@ -190,13 +188,12 @@ def service_unit(service):
             'sc302': f's302-{os.getuid()}.service'}[service]
 
 
-def sc302_compatibility_issues(config_path=Path('/var/lib/Steamcommunity_302/config.json'), *, trusted_client=False):
+def sc302_compatibility_issues(config_path=Path('/var/lib/Steamcommunity_302/config.json')):
     """Catch TLS interception of Steam's client container during startup.
 
     The container has its own CA bundle: installing the 302 CA on SteamOS
-    does not make Steam's login API/updater trust it without the CA bridge.
-    Keeping those two paths on normal HTTPS is a fallback, not mandatory
-    when the client's certificate trust has been repaired.
+    does not make Steam's login API/updater trust it. Keep those two paths
+    on normal HTTPS, while leaving the user's community/other rules alone.
     """
     if not config_path.exists():
         return []  # The service/client checks report an uninstalled backend.
@@ -206,7 +203,7 @@ def sc302_compatibility_issues(config_path=Path('/var/lib/Steamcommunity_302/con
         enabled = settings.get('rules', {}).get('enabled', [])
     except (OSError, ValueError, KeyError, TypeError, AttributeError):
         return ['302 compatibility: cannot read backend settings']
-    if not hosts_mode or trusted_client:
+    if not hosts_mode:
         return []
     return [f'302 hosts TLS conflict: disable {rule} ({label}) in workbench steamcommunity302 open; '
             'Steam client containers do not inherit the system CA trust'
@@ -242,10 +239,7 @@ def service_pending(root, service):
     elif service == 'sc302':
         if not (root / 'apps/steamcommunity302/current/Steamcommunity302.AppImage').is_file():
             issues.append('302 client: workbench steamcommunity302 install')
-        from steam_trust import check as check_steam_trust
-        trust_issues = check_steam_trust(root)
-        issues.extend(trust_issues)
-        issues.extend(sc302_compatibility_issues(trusted_client=not trust_issues))
+        issues.extend(sc302_compatibility_issues())
     return issues
 
 
