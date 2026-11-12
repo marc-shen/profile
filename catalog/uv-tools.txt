@@ -1,4 +1,0 @@
-# Default Python developer tools; also managed by language-servers.json.
-fortls
-basedpyright
-ruff

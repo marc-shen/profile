@@ -1,0 +1,24 @@
+schema = 1
+description = "Linux 科研工作站：开发环境 + GCC/Fortran、TeX 和 Python CLI"
+platforms = ["steamdeck", "fedora", "ubuntu", "debian"]
+extends = ["workstation"]
+
+[[install]]
+component = "gcc"
+action = "install"
+args = []
+
+[[install]]
+component = "texlive"
+action = "install"
+args = []
+
+[[check]]
+component = "gcc"
+action = "check"
+args = []
+
+[[check]]
+component = "texlive"
+action = "check"
+args = []

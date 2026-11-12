@@ -1,0 +1,29 @@
+schema = 1
+name = "fzf-tab"
+description = "fzf-tab Shell 插件"
+category = "terminal"
+tags = ["shell-plugin"]
+platforms = ["macos", "steamdeck", "fedora", "ubuntu", "debian"]
+requires = []
+entrypoint = ["{python}", "{repo}/libexec/component.py", "fzf-tab"]
+arguments = ""
+
+[actions]
+
+[actions.list]
+platforms = ["macos", "steamdeck", "fedora", "ubuntu", "debian"]
+description = "查看软件与安装状态"
+
+[actions.check]
+description = "检查安装状态"
+
+[actions.install]
+description = "补齐缺失安装"
+
+[actions.update]
+description = "更新此软件"
+
+[install]
+kind = "plugin"
+provider = "git"
+repository = "https://github.com/Aloxaf/fzf-tab.git"

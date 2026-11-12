@@ -5,21 +5,35 @@ local -a choices
 local component action root helper
 root=${SOFTWARE_HOME:-$HOME/Software}
 helper=${WORKBENCH_HOME:-$root/config/workbench}/bin/workbench
+[[ ! -x $root/bin/workbench ]] || helper=$root/bin/workbench
 _arguments -C \
   '(-h --help)'{-h,--help}'[显示帮助]' \
   '--prefix=[Software 目录]:目录:_directories' \
   '--platform=[预览目标平台]:平台:(macos steamdeck fedora ubuntu debian)' \
+  '--category=[用途分类]:分类:->category' '--tag=[标签]:标签:->tag' \
   '--plan[只显示计划]' '--json[结构化输出]' '--version[版本]' \
   '1:功能:->component' '*::参数:->args'
 root=${opt_args[--prefix]:-$root}
 case $state in
+  category|tag)
+    local query=categories
+    [[ $state != tag ]] || query=tags
+    choices=("${(@f)$("$helper" --complete "$query" 2>/dev/null)}")
+    compadd -a choices ;;
   component)
-    choices=("${(@f)$(python3 "$helper" --prefix "$root" --complete components 2>/dev/null)}")
+    choices=("${(@f)$("$helper" --prefix "$root" --complete components 2>/dev/null)}")
     choices+=('list:列出全部功能')
     _describe '功能' choices ;;
   args)
     component=$line[1]
-    [[ $component != list ]] || return 0
+    if [[ $component == list ]]; then
+      case $words[CURRENT-1] in
+        --category) choices=("${(@f)$("$helper" --complete categories 2>/dev/null)}"); compadd -a choices ;;
+        --tag) choices=("${(@f)$("$helper" --complete tags 2>/dev/null)}"); compadd -a choices ;;
+        *) compadd -- --category --tag --json ;;
+      esac
+      return 0
+    fi
     words[1]=$component
     _arguments -C \
       '(-h --help)'{-h,--help}'[显示帮助]' \
@@ -29,11 +43,11 @@ case $state in
       '1:操作:->action' '*:对象:->target'
     case $state in
       action)
-        choices=("${(@f)$(python3 "$helper" --prefix "$root" --complete actions "$component" 2>/dev/null)}")
+        choices=("${(@f)$("$helper" --prefix "$root" --complete actions "$component" 2>/dev/null)}")
         compadd -a choices ;;
       target)
         action=$words[2]
-        choices=("${(@f)$(python3 "$helper" --prefix "$root" --complete targets "$component" "$action" 2>/dev/null)}")
+        choices=("${(@f)$("$helper" --prefix "$root" --complete targets "$component" "$action" 2>/dev/null)}")
         if (( $#choices )); then compadd -a choices; else _files; fi ;;
     esac ;;
 esac

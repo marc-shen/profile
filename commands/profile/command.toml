@@ -1,0 +1,53 @@
+schema = 1
+name = "profile"
+description = "配置部署与 Git 同步"
+platforms = ["macos", "steamdeck", "fedora", "ubuntu", "debian"]
+requires = []
+entrypoint = ["{python}", "{repo}/libexec/component.py", "profile"]
+arguments = ""
+kind = "command"
+
+[actions]
+
+[actions.list]
+description = "列出配置范围"
+
+[actions.check]
+description = "检查配置与命令"
+
+[actions.check.options]
+"--only <scope>" = "范围：all|shell|emacs|helix（默认 all）"
+
+[actions.install]
+description = "部署配置并补齐缺失依赖"
+
+[actions.install.options]
+"--only <scope>" = "范围：all|shell|emacs|helix|network（默认 all）"
+--config-only = "仅部署配置，跳过依赖安装和 LSP 探测"
+
+[actions.apply]
+description = "部署当前工作树；--config-only 跳过依赖安装"
+
+[actions.apply.options]
+"--only <scope>" = "范围：all|shell|emacs|helix|network（默认 all）"
+--config-only = "仅部署配置，跳过依赖安装和 LSP 探测"
+
+[actions.update]
+description = "Git 快进拉取并部署"
+
+[actions.update.options]
+"--only <scope>" = "范围：all|shell|emacs|helix|network（默认 all）"
+--config-only = "仅部署配置，跳过依赖安装和 LSP 探测"
+
+[actions.plan]
+description = "查看配置变化"
+
+[actions.plan.options]
+"--only <scope>" = "范围：all|shell|emacs|helix|network（默认 all）"
+--config-only = "仅部署配置，跳过依赖安装和 LSP 探测"
+
+[actions.link]
+description = "仅部署配置链接"
+
+[actions.link.options]
+"--only <scope>" = "范围：all|shell|emacs|helix（默认 all）"

@@ -2,7 +2,7 @@
 """Stable public entry point; the framework uses only the Python standard library."""
 from pathlib import Path
 import sys
-if sys.version_info < (3, 9): raise SystemExit('workbench requires Python 3.9 or newer.')
+if sys.version_info < (3, 12): raise SystemExit('workbench requires Python 3.12 or newer; run ./bootstrap.sh to prepare it.')
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'lib'))
 from workbench.cli import main

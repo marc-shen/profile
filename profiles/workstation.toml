@@ -1,0 +1,293 @@
+schema = 1
+description = "完整开发工作站：编辑器、语言服务、终端与后台"
+platforms = ["macos", "steamdeck", "fedora", "ubuntu", "debian"]
+
+[[install]]
+component = "platform"
+action = "install"
+args = []
+
+[[install]]
+component = "python"
+action = "install"
+args = []
+
+[[install]]
+component = "fd"
+action = "install"
+args = []
+
+[[install]]
+component = "ripgrep"
+action = "install"
+args = []
+
+[[install]]
+component = "fzf"
+action = "install"
+args = []
+
+[[install]]
+component = "zoxide"
+action = "install"
+args = []
+
+[[install]]
+component = "starship"
+action = "install"
+args = []
+
+[[install]]
+component = "jq"
+action = "install"
+args = []
+
+[[install]]
+component = "bat"
+action = "install"
+args = []
+
+[[install]]
+component = "helix"
+action = "install"
+args = []
+
+[[install]]
+component = "zsh"
+action = "install"
+args = []
+
+[[install]]
+component = "node"
+action = "install"
+args = []
+
+[[install]]
+component = "fzf-tab"
+action = "install"
+args = []
+
+[[install]]
+component = "zsh-autosuggestions"
+action = "install"
+args = []
+
+[[install]]
+component = "zsh-completions"
+action = "install"
+args = []
+
+[[install]]
+component = "zsh-syntax-highlighting"
+action = "install"
+args = []
+
+[[install]]
+component = "emacs"
+action = "install"
+args = ["runtime"]
+
+[[install]]
+component = "basedpyright"
+action = "install"
+args = ["--probe"]
+
+[[install]]
+component = "fortls"
+action = "install"
+args = ["--probe"]
+
+[[install]]
+component = "clangd"
+action = "install"
+args = ["--probe"]
+
+[[install]]
+component = "bash-language-server"
+action = "install"
+args = ["--probe"]
+
+[[install]]
+component = "json-language-server"
+action = "install"
+args = ["--probe"]
+
+[[install]]
+component = "yaml-language-server"
+action = "install"
+args = ["--probe"]
+
+[[install]]
+component = "ruff"
+action = "install"
+args = ["--probe"]
+
+[[install]]
+component = "profile"
+action = "apply"
+args = ["--only", "shell", "--config-only"]
+
+[[install]]
+component = "profile"
+action = "apply"
+args = ["--only", "emacs", "--config-only"]
+
+[[install]]
+component = "emacs"
+action = "install"
+args = ["packages"]
+
+[[install]]
+component = "wezterm"
+action = "install"
+args = []
+
+[[install]]
+component = "emacs"
+action = "start"
+args = ["service"]
+
+[[check]]
+component = "platform"
+action = "check"
+args = []
+
+[[check]]
+component = "python"
+action = "check"
+args = []
+
+[[check]]
+component = "fd"
+action = "check"
+args = []
+
+[[check]]
+component = "ripgrep"
+action = "check"
+args = []
+
+[[check]]
+component = "fzf"
+action = "check"
+args = []
+
+[[check]]
+component = "zoxide"
+action = "check"
+args = []
+
+[[check]]
+component = "starship"
+action = "check"
+args = []
+
+[[check]]
+component = "jq"
+action = "check"
+args = []
+
+[[check]]
+component = "bat"
+action = "check"
+args = []
+
+[[check]]
+component = "helix"
+action = "check"
+args = []
+
+[[check]]
+component = "zsh"
+action = "check"
+args = []
+
+[[check]]
+component = "node"
+action = "check"
+args = []
+
+[[check]]
+component = "fzf-tab"
+action = "check"
+args = []
+
+[[check]]
+component = "zsh-autosuggestions"
+action = "check"
+args = []
+
+[[check]]
+component = "zsh-completions"
+action = "check"
+args = []
+
+[[check]]
+component = "zsh-syntax-highlighting"
+action = "check"
+args = []
+
+[[check]]
+component = "basedpyright"
+action = "check"
+args = ["--probe"]
+
+[[check]]
+component = "fortls"
+action = "check"
+args = ["--probe"]
+
+[[check]]
+component = "clangd"
+action = "check"
+args = ["--probe"]
+
+[[check]]
+component = "bash-language-server"
+action = "check"
+args = ["--probe"]
+
+[[check]]
+component = "json-language-server"
+action = "check"
+args = ["--probe"]
+
+[[check]]
+component = "yaml-language-server"
+action = "check"
+args = ["--probe"]
+
+[[check]]
+component = "ruff"
+action = "check"
+args = ["--probe"]
+
+[[check]]
+component = "profile"
+action = "check"
+args = []
+
+[[check]]
+component = "wezterm"
+action = "check"
+args = []
+
+[[check]]
+component = "emacs"
+action = "check"
+args = ["runtime"]
+
+[[check]]
+component = "emacs"
+action = "check"
+args = ["packages"]
+
+[[check]]
+component = "emacs"
+action = "check"
+args = ["service"]
+
+[[check]]
+component = "providers"
+action = "check"
+args = []

@@ -1,0 +1,143 @@
+schema = 1
+description = "基础命令行、Shell 和配置"
+platforms = ["macos", "steamdeck", "fedora", "ubuntu", "debian"]
+
+[[install]]
+component = "python"
+action = "install"
+args = []
+
+[[install]]
+component = "fd"
+action = "install"
+args = []
+
+[[install]]
+component = "ripgrep"
+action = "install"
+args = []
+
+[[install]]
+component = "fzf"
+action = "install"
+args = []
+
+[[install]]
+component = "zoxide"
+action = "install"
+args = []
+
+[[install]]
+component = "starship"
+action = "install"
+args = []
+
+[[install]]
+component = "jq"
+action = "install"
+args = []
+
+[[install]]
+component = "bat"
+action = "install"
+args = []
+
+[[install]]
+component = "zsh"
+action = "install"
+args = []
+
+[[install]]
+component = "fzf-tab"
+action = "install"
+args = []
+
+[[install]]
+component = "zsh-autosuggestions"
+action = "install"
+args = []
+
+[[install]]
+component = "zsh-completions"
+action = "install"
+args = []
+
+[[install]]
+component = "zsh-syntax-highlighting"
+action = "install"
+args = []
+
+[[install]]
+component = "profile"
+action = "link"
+args = ["--only", "shell"]
+
+[[check]]
+component = "python"
+action = "check"
+args = []
+
+[[check]]
+component = "fd"
+action = "check"
+args = []
+
+[[check]]
+component = "ripgrep"
+action = "check"
+args = []
+
+[[check]]
+component = "fzf"
+action = "check"
+args = []
+
+[[check]]
+component = "zoxide"
+action = "check"
+args = []
+
+[[check]]
+component = "starship"
+action = "check"
+args = []
+
+[[check]]
+component = "jq"
+action = "check"
+args = []
+
+[[check]]
+component = "bat"
+action = "check"
+args = []
+
+[[check]]
+component = "zsh"
+action = "check"
+args = []
+
+[[check]]
+component = "fzf-tab"
+action = "check"
+args = []
+
+[[check]]
+component = "zsh-autosuggestions"
+action = "check"
+args = []
+
+[[check]]
+component = "zsh-completions"
+action = "check"
+args = []
+
+[[check]]
+component = "zsh-syntax-highlighting"
+action = "check"
+args = []
+
+[[check]]
+component = "providers"
+action = "check"
+args = []

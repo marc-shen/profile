@@ -23,9 +23,8 @@ def component_action(action, args, repo, root):
     template = repo / 'examples/components/example'
     for filename in ('run.py', 'README.md'):
         shutil.copy2(template / filename, path / filename)
-    spec = json.loads((template / 'component.json').read_text())
-    spec['name'] = name
-    (path / 'component.json').write_text(json.dumps(spec, ensure_ascii=False, indent=2) + '\n')
+    text = (template / 'component.toml').read_text().replace('name = "example"', 'name = ' + json.dumps(name), 1)
+    (path / 'component.toml').write_text(text)
     Console().status('CREATED', str(path), 'ok')
-    print('Edit component.json and run.py. Immediately available in help and Tab completion.')
+    print('Edit component.toml and run.py. Immediately available in help and Tab completion.')
     return 0

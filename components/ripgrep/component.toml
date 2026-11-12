@@ -1,0 +1,36 @@
+schema = 1
+name = "ripgrep"
+description = "ripgrep 命令行工具"
+category = "cli"
+tags = []
+platforms = ["macos", "steamdeck", "fedora", "ubuntu", "debian"]
+requires = []
+entrypoint = ["{python}", "{repo}/libexec/component.py", "ripgrep"]
+arguments = ""
+
+[actions]
+
+[actions.list]
+platforms = ["macos", "steamdeck", "fedora", "ubuntu", "debian"]
+description = "查看软件与安装状态"
+
+[actions.check]
+description = "检查安装状态"
+
+[actions.install]
+description = "补齐缺失安装"
+
+[actions.install.options]
+--reinstall = "重新安装当前软件"
+
+[actions.update]
+description = "更新此软件"
+
+[actions.update.options]
+--reinstall = "重新安装当前软件"
+
+[install]
+package = "ripgrep"
+commands = ["rg"]
+provider = "pixi"
+kind = "package"

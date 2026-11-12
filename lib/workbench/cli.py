@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 from . import __version__
 from . import engine, registry
+from .data import CATEGORIES, tool_specs
 from .ui import Console, component_help, notation, ArgumentParser
 from .platforms import detect, SUPPORTED
 
@@ -15,7 +16,7 @@ REPO = Path(__file__).resolve().parents[2]
 def load_profile(repo, name, seen=()):
     if not registry.NAME.fullmatch(name) or name in seen:
         raise RuntimeError('Invalid or cyclic installation profile: ' + name)
-    path = repo / 'profiles' / (name + '.json')
+    path = repo / 'profiles' / (name + '.toml')
     if not path.is_file(): raise RuntimeError('Unknown installation profile: ' + name)
     spec = registry.read(path)
     if spec.get('schema') != 1: raise RuntimeError('Unsupported profile schema: ' + name)
@@ -58,13 +59,15 @@ def main(argv=None):
     parser = ArgumentParser(prog='workbench', add_help=False, formatter_class=argparse.RawDescriptionHelpFormatter,
         usage='workbench [options] [list]\n       workbench [options] <component> <action> [<target> ...]',
         description='跨平台工作站管理。无参数或 list 列出组件；<参数> 必填，[参数] 可选，... 可重复。',
-        epilog='示例：\n  workbench tools list\n  workbench tools update fd --plan\n  workbench components create my-app')
+        epilog='示例：\n  workbench node list\n  workbench fd update --plan\n  workbench components create my-app')
     parser._positionals.title = '位置参数'
     parser._optionals.title = '选项'
     parser.add_argument('-h', '--help', action='help', help='显示帮助')
     parser.add_argument('--prefix', type=Path, metavar='<dir>', help='Software 安装目录（放在组件名前）', default=Path(os.environ.get('SOFTWARE_HOME', str(Path.home() / 'Software'))))
     parser.add_argument('--platform', choices=SUPPORTED, metavar='<platform>', help='预览平台：macos|steamdeck|fedora|ubuntu|debian；跨平台仅支持 --plan')
-    parser.add_argument('--complete', choices=['components', 'actions', 'targets'], help=argparse.SUPPRESS)
+    parser.add_argument('--complete', choices=['components', 'actions', 'targets', 'categories', 'tags', 'packages'], help=argparse.SUPPRESS)
+    parser.add_argument('--category', choices=CATEGORIES, help='按用途分类筛选列表')
+    parser.add_argument('--tag', help='按标签筛选列表')
     parser.add_argument('--version', action='version', version=__version__, help='显示版本')
     parser.add_argument('--json', action='store_true', help='组件列表或 --plan 使用 JSON 输出')
     parser.add_argument('--plan', action='store_true', help='仅预览，不执行或写入')
@@ -78,10 +81,21 @@ def main(argv=None):
         platform = args.platform or host
         components = registry.discover(REPO, root)
         rest = args.args
+        if args.component in (None, 'list') and not args.complete:
+            filters = ArgumentParser(prog='workbench list', add_help=False)
+            filters.add_argument('--category', choices=CATEGORIES, default=args.category)
+            filters.add_argument('--tag', default=args.tag)
+            selected, rest = filters.parse_known_args(rest)
+            args.category, args.tag = selected.category, selected.tag
+        elif (args.category or args.tag) and not args.complete:
+            raise RuntimeError('--category/--tag filter list output only')
         plan_only = args.plan or '--plan' in rest
         as_json = args.json or '--json' in rest
         rest = [a for a in rest if a not in ('--plan', '--json')]
         if args.complete:
+            if args.complete == 'categories': print('\n'.join(CATEGORIES)); return 0
+            if args.complete == 'tags': print('\n'.join(sorted({tag for spec in components.values() for tag in spec.get('tags', [])}))); return 0
+            if args.complete == 'packages': print('\n'.join(tool_specs(REPO))); return 0
             if args.complete == 'components':
                 print('\n'.join(name + ':' + spec['description'] for name, spec in components.items()))
             elif args.component in components:
@@ -92,17 +106,26 @@ def main(argv=None):
                     print('\n'.join(registry.targets(spec, rest[0], REPO)))
             return 0
         if args.component in (None, 'list'):
+            if rest: raise RuntimeError('Unexpected list arguments: ' + ' '.join(rest))
             data = [dict(name=name, description=spec['description'], platforms=spec['platforms'],
-                         actions=list(spec['actions']), available=platform in spec['platforms']) for name, spec in components.items()]
+                         category=spec.get('category'), tags=spec.get('tags', []), kind=spec.get('kind', 'software'),
+                         actions=list(spec['actions']), available=platform in spec['platforms']) for name, spec in components.items()
+                    if (not args.category or spec.get('category') == args.category)
+                    and (not args.tag or args.tag in spec.get('tags', []))]
             if as_json:
                 print(json.dumps(data, ensure_ascii=False, indent=2))
             else:
                 console.title('workbench ' + __version__ + '  /  ' + platform)
                 console.print('用法：workbench <component> <action> [<target> ...] [options]')
                 console.print()
-                console.table([(item['name'], item['description'] +
-                                ('' if item['available'] else ' [当前平台不可用]') + '\n' +
-                                ' '.join(item['actions'])) for item in data])
+                for category, title in [*CATEGORIES.items(), (None, '框架管理')]:
+                    members = [item for item in data if item['category'] == category]
+                    if not members: continue
+                    console.title(title + ('  [' + category + ']' if category else ''))
+                    console.table([(item['name'], item['description'] +
+                                    ('' if item['available'] else ' [当前平台不可用]')) for item in members])
+                    console.print()
+                if not data: console.print('没有匹配的组件。')
                 console.print()
                 notation(console)
                 console.print('帮助：workbench <component> --help；详细参数：workbench <component> <action> --help')
@@ -121,6 +144,8 @@ def main(argv=None):
             return 0
         choices = registry.targets(spec, action, REPO)
         positional = tail[:next((i for i, arg in enumerate(tail) if arg.startswith('-')), len(tail))]
+        if positional and spec['actions'][action].get('arguments', spec.get('arguments')) == '' and not choices:
+            raise RuntimeError(args.component + ' ' + action + ' takes no targets')
         if choices and any(value not in choices for value in positional):
             raise RuntimeError('Unknown target; choose: ' + ' '.join(choices))
         if args.component == 'system' and action in ('install', 'update', 'check'):

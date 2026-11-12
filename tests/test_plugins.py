@@ -8,6 +8,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'libexec'))
 SPEC = importlib.util.spec_from_file_location('plugins', Path(__file__).resolve().parents[1] / 'libexec/plugins.py')
 plugins = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(plugins)

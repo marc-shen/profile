@@ -14,7 +14,13 @@ for arg in "$@"; do
    exit 0
   fi
   command -v python3 >/dev/null || { echo 'Plan requires Python 3; native setup installs python3/git/curl first.'; exit 0; }
-  exec python3 "$repo/bin/workbench" system install "$@"
+  runtime=${SOFTWARE_HOME:-$HOME/Software}/bin/workbench
+  if [[ -x $runtime ]]; then exec "$runtime" system install "$@"; fi
+  if python3 -c 'import sys; sys.exit(sys.version_info < (3,12))' 2>/dev/null; then
+   exec python3 "$repo/bin/workbench" system install "$@"
+  fi
+  echo 'PLAN: bootstrap managed Python 3.12, then run workbench system install (no writes).'
+  exit 0
  fi
 done
 [[ $EUID != 0 ]] || { echo 'Run as your normal user; system packages use sudo.' >&2; exit 1; }
@@ -47,7 +53,7 @@ if [[ ! -f "$repo/bin/workbench" ]]; then
   git clone "${WORKBENCH_REPOSITORY_URL:-https://github.com/marc-shen/workbench.git}" "$checkout"
  fi
  repo=$(CDPATH= cd -- "$checkout" && pwd -P)
- [[ -f "$repo/bin/workbench" ]] || { echo 'The checkout does not contain workbench v2. Select the updated revision first.' >&2; exit 1; }
+ [[ -f "$repo/bin/workbench" ]] || { echo 'The checkout does not contain workbench v3. Select the updated revision first.' >&2; exit 1; }
 fi
 bash "$repo/bootstrap.sh"
-exec python3 "$repo/bin/workbench" system install "$@"
+exec "${SOFTWARE_HOME:-$HOME/Software}/bin/workbench" system install "$@"

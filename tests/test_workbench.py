@@ -1,5 +1,7 @@
 """Exercise the public framework, extension protocol, migration and offline planning."""
 import json
+import tomllib
+from toml_helpers import dumps
 import os
 from pathlib import Path
 import subprocess as sp
@@ -22,7 +24,7 @@ class FrameworkTests(unittest.TestCase):
         self.home = Path(self.temp.name).resolve()
         self.root = self.home / 'Software with spaces'
         self.env = dict(os.environ, HOME=str(self.home), SOFTWARE_HOME=str(self.root),
-                        SOFTWARE_USER_HOME=str(self.root), WORKBENCH_HOME=str(REPO), PYTHONDONTWRITEBYTECODE='1')
+                        SOFTWARE_USER_HOME=str(self.root), WORKBENCH_HOME=str(REPO), PYTHONDONTWRITEBYTECODE='1', WORKBENCH_BOOTSTRAP_PYTHON=sys.executable)
 
     def ctl(self, *args):
         return sp.run([sys.executable, str(REPO / 'bin/workbench'), *args], env=self.env, text=True, capture_output=True)
@@ -33,8 +35,8 @@ class FrameworkTests(unittest.TestCase):
     def extension(self, name='custom', requires=()):
         folder = self.root / 'extensions' / name
         folder.mkdir(parents=True)
-        spec = dict(schema=1, name=name, description='Extension', platforms=['macos','steamdeck','fedora','ubuntu','debian'],requires=list(requires),entrypoint=['{python}','{component}/run.py'],actions={a:dict(description=a) for a in ['list','check','install','update']})
-        (folder / 'component.json').write_text(json.dumps(spec))
+        spec = dict(schema=1, name=name, description='Extension', category='cli', platforms=['macos','steamdeck','fedora','ubuntu','debian'],requires=list(requires),entrypoint=['{python}','{component}/run.py'],actions={a:dict(description=a) for a in ['list','check','install','update']})
+        (folder / 'component.toml').write_text(dumps(spec))
         (folder / 'run.py').write_text('''import os,json,pathlib,sys
 root=pathlib.Path(os.environ['SOFTWARE_HOME'])
 if sys.argv[1] not in ['list','check']:
@@ -56,12 +58,12 @@ if '--fail' in sys.argv: raise SystemExit(7)
             self.assertEqual(result.returncode,0,result.stderr)
             plan=json.loads(result.stdout)
             steps=[(step['component'],step['action']) for step in plan['steps']]
-            for name in ['platform','managers','tools','plugins','languages','emacs','profile','wezterm']:
+            for name in ['platform','python','fd','fzf-tab','ruff','emacs','profile','wezterm']:
                 self.assertTrue(any(step[0]==name for step in steps), name)
-            self.assertLess(steps.index(('managers','install')),steps.index(('tools','install')))
+            self.assertLess(steps.index(('providers','install')),steps.index(('fd','install')))
             self.assertLess(steps.index(('emacs','install')),steps.index(('emacs','start')))
-            if platform=='steamdeck': self.assertIn(('network','apply'),steps)
-            for name in ['platform','managers','tools','plugins','languages','emacs','profile','wezterm']:
+            if platform=='steamdeck': self.assertIn(('mihomo','apply'),steps)
+            for name in ['platform','python','fd','fzf-tab','ruff','emacs','profile','wezterm']:
                 self.assertIn((name, 'check'), steps)
             self.assertGreater(steps.index(('profile','check')),steps.index(('emacs','start')))
             self.assertFalse(self.root.exists())
@@ -70,25 +72,25 @@ if '--fail' in sys.argv: raise SystemExit(7)
         folder=self.home/'profiles';folder.mkdir()
         base=dict(schema=1, platforms=['fedora'], install=[dict(component='tools',action='install')],check=[dict(component='tools',action='check')])
         child=dict(schema=1, platforms=['fedora'],extends=['base'],install=[dict(component='emacs',action='install')])
-        (folder/'base.json').write_text(json.dumps(base))
-        (folder/'child.json').write_text(json.dumps(child))
+        (folder/'base.toml').write_text(dumps(base))
+        (folder/'child.toml').write_text(dumps(child))
         resolved=load_profile(self.home,'child')
         self.assertEqual([item['component'] for item in resolved['install']],['tools','emacs'])
         self.assertEqual(resolved['check'],base['check'])
         child['platforms'].append('macos')
-        (folder/'child.json').write_text(json.dumps(child))
+        (folder/'child.toml').write_text(dumps(child))
         with self.assertRaisesRegex(RuntimeError,'parent does not support'):
             load_profile(self.home,'child')
         child['platforms']=['fedora'];child['extends']=['child']
-        (folder/'child.json').write_text(json.dumps(child))
+        (folder/'child.toml').write_text(dumps(child))
         with self.assertRaisesRegex(RuntimeError,'cyclic'):
             load_profile(self.home,'child')
 
     def test_platform_entrypoints_override_only_the_selected_platform(self):
         folder=self.extension()
-        path=folder/'component.json';spec=json.loads(path.read_text())
+        path=folder/'component.toml';spec=tomllib.loads(path.read_text())
         spec['entrypoints']={'macos':['{python}','{component}/macos.py']}
-        path.write_text(json.dumps(spec))
+        path.write_text(dumps(spec))
         components=discover(REPO,self.root)
         mac=plan(components,'custom','install',[],REPO,self.root,'macos')
         linux=plan(components,'custom','install',[],REPO,self.root,'fedora')
@@ -98,7 +100,7 @@ if '--fail' in sys.argv: raise SystemExit(7)
 
     def test_plan_rejects_mutation_for_a_different_host(self):
         other='ubuntu' if detect()!='ubuntu' else 'macos'
-        result=self.ctl('--platform',other,'tools','install','fd')
+        result=self.ctl('--platform',other,'fd','install')
         self.assertNotEqual(result.returncode,0)
         self.assertFalse(self.root.exists())
 
@@ -162,10 +164,10 @@ if '--fail' in sys.argv: raise SystemExit(7)
         self.assertEqual(self.ctl('second','install').returncode,0)
 
     def test_duplicate_and_cyclic_modules_are_rejected(self):
-        self.extension('tools')
+        self.extension('fd')
         self.assertIn('Duplicate component',self.ctl('list').stderr)
         import shutil
-        shutil.rmtree(self.root/'extensions/tools')
+        shutil.rmtree(self.root/'extensions/fd')
         self.extension('a',['b']);self.extension('b',['a'])
         self.assertIn('Dependency cycle',self.ctl('list').stderr)
 
@@ -176,7 +178,7 @@ if '--fail' in sys.argv: raise SystemExit(7)
         self.extension()
         folder = self.home / 'profiles'
         folder.mkdir()
-        (folder / 'old.json').write_text(json.dumps(dict(schema=1, platforms=['macos'],
+        (folder / 'old.toml').write_text(dumps(dict(schema=1, platforms=['macos'],
             install=[], check=[dict(module='custom', action='check')])))
         with self.assertRaisesRegex(RuntimeError, 'requires component'):
             workflow(discover(REPO, self.root), 'check', ['old'], self.home, self.root, 'macos')
@@ -199,7 +201,7 @@ if '--fail' in sys.argv: raise SystemExit(7)
             self.assertFalse(self.root.exists())
 
     def test_invalid_selection_fails_before_dependency_install(self):
-        result=self.ctl('plugins','install','nonexistent')
+        result=self.ctl('fd','install','nonexistent')
         self.assertNotEqual(result.returncode,0)
         self.assertFalse(self.root.exists())
 

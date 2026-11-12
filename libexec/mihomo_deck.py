@@ -11,6 +11,7 @@ import tarfile
 import time
 import urllib.request
 
+from config_data import read as read_toml
 REPO = Path(__file__).resolve().parents[1]
 
 
@@ -48,9 +49,10 @@ def ensure_yaml(root, action):
         import yaml
         return True
     except ImportError:
-        runtime=root/'data/mihomo-helper';python=runtime/'bin/python'
-        if not python.exists():sp.run([root/'bin/uv','venv','--python','3.13',runtime],check=True)
-        sp.run([root/'bin/uv','pip','install','--python',python,'PyYAML==6.0.2'],check=True)
+        runtime=root/'data/mihomo-helper-3.12';python=runtime/'bin/python'
+        if not python.exists():sp.run([root/'bin/uv','venv','--python',root/'apps/python/current/bin/python3',runtime],check=True)
+        if sp.run([python, '-c', 'import yaml'], stdout=sp.DEVNULL, stderr=sp.DEVNULL).returncode:
+            sp.run([root/'bin/uv','pip','install','--python',python,'PyYAML==6.0.2'],check=True)
         sp.run([python,REPO/'libexec/deck_network.py','--prefix',root,'mihomo',action],check=True)
         return False
 
@@ -95,7 +97,7 @@ ConditionPathExists={root / 'config/mihomo/subscription.url'}
 [Service]
 Type=oneshot
 UMask=0077
-ExecStart="{root / 'bin/workbench'}" network update mihomo
+ExecStart="{root / 'bin/workbench'}" mihomo update
 TimeoutStartSec=8min
 ''')
     write(units/'mihomo-subscription-update.timer','''[Unit]
@@ -156,7 +158,7 @@ def prepare(root):
     if not ensure_yaml(root,'prepare'):return
     from deck_network import archive, link, load, write, tailscale_ip
     os.umask(0o077)
-    specs=load(REPO/'catalog/mihomo.json')
+    specs=read_toml(REPO/'components/mihomo/component.toml')['install']['assets']
     for name,spec in specs.items():
         app=root/'apps'/name/spec['version'];app.mkdir(parents=True,exist_ok=True)
         if not (app/('mihomo' if name=='mihomo' else 'index.html')).exists():
@@ -173,7 +175,7 @@ def prepare(root):
     folder=root/'config/mihomo';folder.mkdir(parents=True,exist_ok=True);folder.chmod(0o700)
     if not (folder/'provider.yaml').exists() and not (folder/'subscription.url').exists():
         install_update_timer(root)
-        print('Clients installed. Put your subscription URL in config/mihomo/subscription.url (mode 600), then run workbench network install mihomo.')
+        print('Clients installed. Put your subscription URL in config/mihomo/subscription.url (mode 600), then run workbench mihomo install.')
         return
     refresh_config(root)
     unit=f'''[Unit]
@@ -194,7 +196,7 @@ WantedBy=default.target
     write(Path.home()/'.config/systemd/user/mihomo.service',unit)
     install_update_timer(root)
     if sp.run(['systemctl','--user','is-active','--quiet','mihomo']).returncode:
-        print('Run workbench network apply mihomo in local Konsole for one-time administrator setup.')
+        print('Run workbench mihomo apply in local Konsole for one-time administrator setup.')
     else:
         print('Running service preserved; restart mihomo when ready to apply configuration changes.')
 

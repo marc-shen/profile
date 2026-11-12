@@ -1,0 +1,63 @@
+schema = 1
+name = "mihomo"
+description = "mihomo 网络服务"
+category = "network"
+tags = ["service"]
+platforms = ["steamdeck"]
+requires = []
+entrypoint = ["{python}", "{repo}/libexec/component.py", "mihomo"]
+arguments = ""
+
+[actions]
+
+[actions.list]
+platforms = ["macos", "steamdeck", "fedora", "ubuntu", "debian"]
+description = "列出对象与本机状态"
+
+[actions.check]
+description = "检查配置和安装状态"
+
+[actions.install]
+description = "补齐缺失项目，保留已有安装"
+
+[actions.update]
+description = "显式更新已选择的项目"
+
+[actions.apply]
+description = "首次授权、安装系统服务并启用"
+
+[actions.start]
+description = "启动后台"
+
+[actions.stop]
+description = "停止后台"
+
+[actions.restart]
+description = "重启后台"
+
+[actions.status]
+description = "查看后台状态"
+
+[actions.logs]
+description = "查看日志"
+
+[actions.open]
+description = "打开客户端或网页"
+
+[install]
+providers = ["uv"]
+kind = "network"
+provider = "upstream"
+service = "mihomo"
+
+[install.assets]
+
+[install.assets.mihomo]
+version = "1.19.34"
+url = "https://github.com/MetaCubeX/mihomo/releases/download/v1.19.34/mihomo-linux-amd64-compatible-v1.19.34.gz"
+sha256 = "2763f5b414527f7baf6dc57e3f82f3ab561eedf34bfd7c2f2cde1f7e592efe06"
+
+[install.assets.metacubexd]
+version = "1.274.6"
+url = "https://github.com/MetaCubeX/metacubexd/releases/download/v1.274.6/compressed-dist.tgz"
+sha256 = "b08f54e74cf14b9ffce4a618dcfb863c4504f69c8c7adb91d37928f9d62c0e14"

@@ -27,94 +27,101 @@ def native_installed():
 
 
 def main(name, argv):
+    from .data import read
+    from .registry import discover
     action, args = argv[0], argv[1:]
     platform = detect()
-    if name in ('tools', 'managers', 'wezterm') and action in ('list', 'check'):
-        return backend('component_inventory.py', name, action, *args)
-    if name == 'plugins':
-        return backend('plugins.py', action, *args)
-    if name == 'languages':
-        return backend('language-servers.py', {'list': 'plan', 'update': 'upgrade'}.get(action, action), *args)
-    if name == 'managers':
-        names = args or ['pixi', 'uv']
-        if set(names) - {'pixi', 'uv'}:
-            raise RuntimeError('Unknown manager')
-        for item in names:
-            if action == 'update' or not os.access(ROOT / 'bin' / item, os.X_OK):
-                code = backend('software.py', 'managers', item)
-                if code: return code
-        return 0
-    if name == 'tools':
-        specs = json.loads((REPO / 'catalog/tools.json').read_text())
-        names = [arg for arg in args if not arg.startswith('-')] or list(specs)
-        if set(names) - specs.keys():
-            raise RuntimeError('Unknown tool: ' + ', '.join(sorted(set(names) - specs.keys())))
-        for item in names:
-            if action == 'install' and all(os.access(ROOT / 'bin' / c, os.X_OK) for c in specs[item]['commands']):
-                if specs[item].get('backend') != 'nvm': continue
-                receipt = ROOT / 'apps/node/current/receipt.json'
-                if receipt.is_file() and all(json.loads(receipt.read_text()).get(k) == specs[item][k] for k in ('backend', 'version', 'nvm_version')) and all((ROOT / 'bin' / c).resolve() == (ROOT / 'apps/node/current/bin' / c).resolve() for c in specs[item]['commands']): continue
-            code = backend('software.py', 'tools', item, *[a for a in args if a.startswith('-')])
-            if code: return code
-        return 0
-    if name == 'profile':
-        if action == 'install':
-            # Profile means configuration. Whole-machine installation lives in system.
-            action = 'apply'
-        if action == 'plan': return backend('profile_commands.py', 'apply', '--plan', *args)
-        return backend('profile_commands.py', action, *args)
-    if name == 'platform':
-        from .provision import platform_action
-        return platform_action(action, args, REPO, ROOT, platform)
-    if name == 'emacs':
+    spec = discover(REPO, ROOT)[name]
+    if spec.get('kind') == 'command':
+        if name == 'providers':
+            selected = args or ['uv', 'pixi']
+            if set(selected) - {'uv', 'pixi'}: raise RuntimeError('Providers: uv pixi')
+            for provider in selected:
+                binary = ROOT / 'bin' / provider
+                if action in ('list', 'check'):
+                    ready = os.access(binary, os.X_OK)
+                    Console().status('OK' if ready else 'MISSING', provider, 'ok' if ready else 'error')
+                    if not ready and action == 'check': return 1
+                elif action == 'update' or not os.access(binary, os.X_OK):
+                    code = backend('software.py', 'managers', provider)
+                    if code: return code
+            return 0
+        if name == 'profile':
+            if action == 'install': action = 'apply'
+            if action == 'plan': return backend('profile_commands.py', 'apply', '--plan', *args)
+            return backend('profile_commands.py', action, *args)
+        if name == 'platform':
+            from .provision import platform_action
+            return platform_action(action, args, REPO, ROOT, platform)
+        if name == 'components':
+            from .scaffold import component_action
+            return component_action(action, args, REPO, ROOT)
+        if name == 'system':
+            Console().table([(p.stem, read(p)['description']) for p in sorted((REPO / 'profiles').glob('*.toml'))])
+            return 0
+    install = spec.get('install', {})
+    kind = install.get('kind')
+    if kind == 'emacs':
         from .provision import emacs_action
         return emacs_action(action, args, REPO, ROOT, platform)
-    if name == 'network':
-        if action == 'list': return backend('deck_network.py', 'list')
-        targets = args or ['all']
-        if set(targets) - {'all', 'sc302', 'mihomo', 'tailscale'}:
-            raise RuntimeError('Network targets: all sc302 mihomo tailscale')
+    if kind == 'python-cli':
+        if args: raise RuntimeError(name + ' takes no targets')
+        result = sp.run([str(ROOT / 'bin/uv'), 'tool', 'list'], capture_output=True, text=True) if (ROOT / 'bin/uv').is_file() else None
+        installed = {line.split()[0] for line in result.stdout.splitlines() if line and not line.startswith((' ', '-'))} if result and not result.returncode else set()
+        ready = install['package'] in installed
+        if action in ('list', 'check'):
+            Console().status('OK' if ready else 'MISSING', name, 'ok' if ready else 'error')
+            return int(action == 'check' and not ready)
+        if action == 'install' and ready: return 0
+        return run(ROOT / 'bin/uv', 'tool', 'install', *(['--upgrade'] if action == 'update' else []), install['package'])
+    if kind == 'plugin':
+        return backend('plugins.py', action, name, *args)
+    if kind == 'language-server':
+        return backend('language-servers.py', {'list': 'plan', 'update': 'upgrade'}.get(action, action), install['storage_name'], *args)
+    if kind == 'network':
+        if args: raise RuntimeError(name + ' takes no targets')
+        service = install['service']
+        if action == 'list':
+            Console().table([(name, spec['description']), ('operations', ' '.join(spec['actions']))]); return 0
         if action == 'apply':
             sys.path.insert(0, str(REPO / 'libexec'))
             import deck_network
-            services = deck_network.SERVICES if 'all' in targets else targets
-            if not any(deck_network.service_pending(ROOT, service) for service in services):
-                print('Network services already configured'); return 0
-        for target in targets:
-            code = backend('deck_network.py', target, {'install': 'prepare', 'apply': 'activate'}.get(action, action))
-            if code: return code
-        return 0
-    if name == 'wezterm':
-        if action == 'install' and (os.access(ROOT / 'bin/wezterm', os.X_OK) or (platform == 'macos' and Path('/Applications/WezTerm.app').is_dir())): return 0
-        if platform == 'macos':
-            return run('brew', 'upgrade' if action == 'update' else 'install', '--cask', 'wezterm')
-        return backend('install-wezterm.py', *args)
-    if name == 'components':
-        from .scaffold import component_action
-        return component_action(action, args, REPO, ROOT)
-    if name == 'system':
-        rows = []
-        for path in sorted((REPO / 'profiles').glob('*.json')):
-            spec = json.loads(path.read_text())
-            rows.append((path.stem, spec['description'] + '\n' + ', '.join(spec['platforms'])))
-        Console().table(rows)
-        return 0
-    if name == 'python-tools':
-        sources = REPO / 'catalog/uv-tools.txt'
-        names = args or [line.strip() for line in sources.read_text().splitlines() if line.strip() and not line.startswith('#')]
-        if action == 'list':
-            print('\n'.join(names)); return 0
-        if action == 'check':
-            result = sp.run([str(ROOT / 'bin/uv'), 'tool', 'list'], capture_output=True, text=True)
-            if result.returncode: print(result.stderr); return result.returncode
-            installed = {line.split()[0] for line in result.stdout.splitlines() if line and not line.startswith((' ', '-'))}
-            missing = [name for name in names if name.split('[')[0] not in installed]
-            for name in names: print(name + (': MISSING' if name in missing else ': installed'))
-            return int(bool(missing))
-        for item in names:
-            code = run(ROOT / 'bin/uv', 'tool', 'install', *(['--upgrade'] if action == 'update' else []), item)
-            if code: return code
-        return 0
+            if not deck_network.service_pending(ROOT, service):
+                Console().status('OK', name + ' already configured', 'ok'); return 0
+        return backend('deck_network.py', service, {'install': 'prepare', 'apply': 'activate'}.get(action, action))
+    if kind == 'python':
+        if args: raise RuntimeError('python takes no targets')
+        sys.path.insert(0, str(REPO / 'libexec'))
+        from python_runtime import ensure, usable
+        binary = ROOT / 'apps/python/current/bin/python3'
+        if action in ('list', 'check'):
+            ready = usable(binary, exact=True)
+            Console().status('OK' if ready else 'MISSING', 'Python 3.12: ' + str(binary), 'ok' if ready else 'error')
+            return int(action == 'check' and not ready)
+        ensure(ROOT, update=action == 'update'); return 0
+    if kind in ('package', 'wezterm', 'gcc', 'texlive'):
+        if any(arg != '--reinstall' for arg in args): raise RuntimeError(name + ' accepts only [--reinstall]')
+        commands = install.get('commands', ['wezterm'] if kind == 'wezterm' else ['gfortran'] if kind == 'gcc' else ['xelatex'])
+        paths = [ROOT / 'bin' / command for command in commands]
+        if kind == 'wezterm' and platform == 'macos': paths = [Path('/Applications/WezTerm.app/Contents/MacOS/wezterm')]
+        ready = all(os.access(path, os.X_OK) for path in paths)
+        record = ROOT / 'apps' / name / 'current/receipt.json'
+        receipt = json.loads(record.read_text()) if record.is_file() else {}
+        if kind == 'package' and install['provider'] == 'nvm':
+            ready = ready and all(receipt.get(k) == install[k] for k in ('version', 'nvm_version'))
+            ready = ready and (ROOT / 'data/nvm/nvm.sh').is_file()
+            ready = ready and all(p.resolve() == (ROOT / 'apps/node/current/bin' / p.name).resolve() for p in paths)
+        if kind in ('gcc', 'texlive'): ready = ready and record.is_file()
+        if action in ('list', 'check'):
+            Console().table([(name, ('[OK]' if ready else '[MISSING]') + '  ' + str(receipt.get('version', '-'))),
+                             ('path', str(paths[0]))])
+            return int(action == 'check' and not ready)
+        if action == 'install' and ready and '--reinstall' not in args: return 0
+        if kind == 'package': return backend('software.py', 'tools', name, *args)
+        if kind == 'wezterm':
+            if platform == 'macos': return run('brew', 'upgrade' if action == 'update' else 'install', '--cask', 'wezterm')
+            return backend('install-wezterm.py', *args)
+        return backend('install-gcc.py' if kind == 'gcc' else 'install-texlive.py', *args)
     raise RuntimeError('No adapter for ' + name)
 
 

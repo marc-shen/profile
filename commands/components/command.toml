@@ -1,0 +1,22 @@
+schema = 1
+name = "components"
+description = "组件发现、校验和脚手架"
+platforms = ["macos", "steamdeck", "fedora", "ubuntu", "debian"]
+requires = []
+entrypoint = ["{python}", "{repo}/libexec/component.py", "components"]
+kind = "command"
+
+[actions]
+
+[actions.list]
+description = "列出组件及来源目录"
+
+[actions.check]
+description = "校验全部组件及依赖图"
+
+[actions.create]
+description = "创建独立组件"
+arguments = "<name>"
+
+[actions.create.options]
+--shared = "创建到仓库 components/；默认创建到 ~/Software/extensions/"

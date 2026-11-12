@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-import json
+import tomllib
 import os
 from pathlib import Path
 import sys
-name = json.loads((Path(__file__).resolve().parent / 'component.json').read_text())['name']
+name = tomllib.loads((Path(__file__).resolve().parent / 'component.toml').read_text())['name']
 target = Path(os.environ['SOFTWARE_HOME']) / 'data/extensions' / name / 'example.txt'
 action = sys.argv[1]
 if action == 'list':

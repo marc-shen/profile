@@ -1,7 +1,0 @@
-{
-  "schema": 1,
-  "name": "macos",
-  "package_manager": "brew",
-  "readonly_root": false,
-  "native_dependencies": "Brewfile"
-}

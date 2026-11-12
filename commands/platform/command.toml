@@ -1,0 +1,21 @@
+schema = 1
+name = "platform"
+description = "平台原生依赖与构建环境"
+platforms = ["macos", "steamdeck", "fedora", "ubuntu", "debian"]
+requires = []
+entrypoint = ["{python}", "{repo}/libexec/component.py", "platform"]
+kind = "command"
+
+[actions]
+
+[actions.list]
+description = "列出对象与本机状态"
+
+[actions.check]
+description = "检查配置和安装状态"
+
+[actions.install]
+description = "补齐缺失项目，保留已有安装"
+
+[actions.update]
+description = "显式更新已选择的项目"

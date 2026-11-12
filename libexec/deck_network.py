@@ -13,6 +13,7 @@ import shutil
 import subprocess as sp
 import sys
 import tempfile
+from config_data import network_sources
 
 REPO = Path(__file__).resolve().parents[1]
 TEMPLATES = REPO / 'platforms/steamdeck/network'
@@ -78,7 +79,7 @@ def archive(root, spec, candidates=()):
 
 
 def install_sc302(root):
-    specs = load(REPO / 'catalog/deck-network.json')
+    specs = network_sources(REPO)
     s302 = specs['steamcommunity302']; s302_app = root / 'apps/steamcommunity302' / s302['version']
     binary = s302_app / 'Steamcommunity302.AppImage'
     if not binary.exists() or digest(binary) != s302['sha256']:
@@ -109,7 +110,7 @@ def install_sc302(root):
 
 
 def install_tailscale(root):
-    upstream = load(REPO / 'catalog/deck-network.json')['deck-tailscale']; checkout = root / 'apps/deck-tailscale' / upstream['revision']
+    upstream = network_sources(REPO)['deck-tailscale']; checkout = root / 'apps/deck-tailscale' / upstream['revision']
     if not (checkout / '.git').exists():
         checkout.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix='deck-tailscale-', dir=checkout.parent) as staging:
@@ -152,7 +153,7 @@ def deploy(root, services=SERVICES):
     for service in services:
         if service not in entries: continue
         filename, name, icon, wmclass = entries[service]
-        command = '"' + str(root / 'bin/workbench') + '" network open ' + service
+        command = '"' + str(root / 'bin/workbench') + '" ' + ('steamcommunity302' if service == 'sc302' else service) + ' open'
         write(desktop / filename, f'[Desktop Entry]\nType=Application\nName={name}\nExec={command}\nIcon={icon}\nTerminal=false\nCategories=Network;\n'
               + (f'StartupWMClass={wmclass}\n' if wmclass else ''))
     if 'sc302' in services:
@@ -200,18 +201,18 @@ def service_pending(root, service):
         require(['systemctl','is-active','--quiet','profile-mihomo-firewall'], 'Mihomo Tailscale firewall')
         core = root / 'apps/mihomo/current/mihomo'
         caps = text(['getcap', core]) if core.exists() and shutil.which('getcap') else ''
-        if not all(c in caps for c in CAPS): issues.append('Mihomo privileges: workbench network apply mihomo')
+        if not all(c in caps for c in CAPS): issues.append('Mihomo privileges: workbench mihomo apply')
         firewall = Path('/etc/profile-mihomo/firewall.nft')
         if not firewall.exists() or 'tcp dport 9090 drop' not in firewall.read_text():
-            issues.append('Mihomo 9090 firewall: workbench network apply mihomo')
+            issues.append('Mihomo 9090 firewall: workbench mihomo apply')
         if not (root / 'config/mihomo/config.yaml').exists(): issues.append('Local Clash subscription/configuration')
         if not Path('/var/lib/systemd/linger', pwd.getpwuid(os.getuid()).pw_name).exists(): issues.append('User linger')
     elif service == 'tailscale':
         if not Path('/opt/tailscale/tailscale').is_file(): issues.append('Tailscale executable')
         if not Path('/etc/atomic-update.conf.d/90-deck-tailscale-persistence.conf').exists():
-            issues.append('Tailscale persistence: workbench network apply tailscale')
+            issues.append('Tailscale persistence: workbench tailscale apply')
     elif not (root / 'apps/steamcommunity302/current/Steamcommunity302.AppImage').is_file():
-        issues.append('302 client: workbench network install sc302')
+        issues.append('302 client: workbench steamcommunity302 install')
     return issues
 
 
@@ -223,9 +224,9 @@ def authorize(root, update=False):
     if os.environ.get('SSH_CONNECTION'):
         raise RuntimeError('Run this command in the Deck local Konsole; upstream may restart your SSH network')
     checkout = root / 'apps/deck-tailscale/current'
-    upstream = load(REPO / 'catalog/deck-network.json')['deck-tailscale']
+    upstream = network_sources(REPO)['deck-tailscale']
     if text(['git', '-C', checkout, 'rev-parse', 'HEAD']) != upstream['revision']:
-        raise RuntimeError('Run workbench network install tailscale to prepare the pinned installer')
+        raise RuntimeError('Run workbench tailscale install to prepare the pinned installer')
     run(['git', '-C', checkout, 'diff', '--exit-code', 'HEAD', '--', 'tailscale.sh', 'override.conf'], stdout=sp.DEVNULL)
     run(['sudo', '/bin/bash', TEMPLATES / 'tailscale-privileged.sh', root, checkout,
          pwd.getpwuid(os.getuid()).pw_name, 'update-tailscale' if update else 'prepare'])
@@ -233,7 +234,7 @@ def authorize(root, update=False):
         result = sp.run(['/opt/tailscale/tailscale', 'status', '--json'], capture_output=True, text=True)
         if json.loads(result.stdout).get('BackendState') == 'NeedsLogin':
             run(['sudo', '/opt/tailscale/tailscale', 'up'])
-    print('Tailscale ready. Use workbench network status tailscale or open.')
+    print('Tailscale ready. Use workbench tailscale status or open.')
 
 
 def preflight(services, action):
@@ -272,8 +273,8 @@ def dispatch(root, service, action):
             authorize(root, update=True)
         else:
             install_sc302(root)
-            version = load(REPO / 'catalog/deck-network.json')['steamcommunity302']['version']
-            print('302 client matches profile version ' + version + '. Backend upgrades are managed by the official GUI: workbench network open sc302')
+            version = network_sources(REPO)['steamcommunity302']['version']
+            print('302 client matches profile version ' + version + '. Backend upgrades are managed by the official GUI: workbench steamcommunity302 open')
     elif action in ('start', 'stop', 'restart'):
         command = service_command(service) + [action, service_unit(service)]
         run((['sudo'] if service != 'mihomo' else []) + command)

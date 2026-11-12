@@ -1,0 +1,28 @@
+schema = 1
+name = "gcc"
+description = "GCC / G++ / Fortran 编译环境"
+category = "development"
+tags = ["compiler"]
+platforms = ["steamdeck", "fedora", "ubuntu", "debian"]
+requires = []
+entrypoint = ["{python}", "{repo}/libexec/component.py", "gcc"]
+arguments = ""
+
+[actions]
+
+[actions.list]
+platforms = ["macos", "steamdeck", "fedora", "ubuntu", "debian"]
+description = "列出安装状态"
+
+[actions.check]
+description = "验证命令可运行"
+
+[actions.install]
+description = "补齐缺失安装"
+
+[actions.update]
+description = "显式更新版本"
+
+[install]
+kind = "gcc"
+provider = "pixi"

@@ -1,0 +1,60 @@
+schema = 1
+name = "emacs"
+description = "Emacs 编辑器、扩展与服务"
+category = "editors"
+tags = []
+platforms = ["macos", "steamdeck", "fedora", "ubuntu", "debian"]
+requires = ["platform", "node"]
+entrypoint = ["{python}", "{repo}/libexec/component.py", "emacs"]
+arguments = "[<target>]"
+targets = ["runtime", "packages", "service"]
+
+[actions]
+
+[actions.list]
+platforms = ["macos", "steamdeck", "fedora", "ubuntu", "debian"]
+description = "列出对象与本机状态"
+
+[actions.check]
+description = "检查配置和安装状态"
+
+[actions.install]
+description = "补齐缺失项目，保留已有安装"
+
+[actions.update]
+description = "显式更新已选择的项目"
+
+[actions.apply]
+description = "部署配置或服务定义，不重启运行中的进程"
+
+[actions.start]
+description = "启用并启动用户服务"
+arguments = "[service]"
+targets = ["service"]
+
+[actions.stop]
+description = "停止用户服务"
+arguments = "[service]"
+targets = ["service"]
+
+[actions.restart]
+description = "重启用户服务"
+arguments = "[service]"
+targets = ["service"]
+
+[actions.status]
+description = "查看服务状态"
+arguments = "[service]"
+targets = ["service"]
+
+[actions.logs]
+description = "查看服务日志"
+arguments = "[service]"
+targets = ["service"]
+
+[install]
+kind = "emacs"
+provider = "native"
+
+[install.providers_by_platform]
+steamdeck = ["pixi"]

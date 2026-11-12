@@ -1,0 +1,28 @@
+schema = 1
+name = "wezterm"
+description = "WezTerm 终端"
+category = "terminal"
+tags = []
+platforms = ["macos", "steamdeck", "fedora", "ubuntu", "debian"]
+requires = []
+entrypoint = ["{python}", "{repo}/libexec/component.py", "wezterm"]
+arguments = ""
+
+[actions]
+
+[actions.list]
+platforms = ["macos", "steamdeck", "fedora", "ubuntu", "debian"]
+description = "列出对象与本机状态"
+
+[actions.check]
+description = "检查配置和安装状态"
+
+[actions.install]
+description = "补齐缺失项目，保留已有安装"
+
+[actions.update]
+description = "显式更新已选择的项目"
+
+[install]
+kind = "wezterm"
+provider = "native"

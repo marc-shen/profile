@@ -1,0 +1,54 @@
+schema = 1
+name = "tailscale"
+description = "tailscale 网络服务"
+category = "network"
+tags = ["service"]
+platforms = ["steamdeck"]
+requires = []
+entrypoint = ["{python}", "{repo}/libexec/component.py", "tailscale"]
+arguments = ""
+
+[actions]
+
+[actions.list]
+platforms = ["macos", "steamdeck", "fedora", "ubuntu", "debian"]
+description = "列出对象与本机状态"
+
+[actions.check]
+description = "检查配置和安装状态"
+
+[actions.install]
+description = "补齐缺失项目，保留已有安装"
+
+[actions.update]
+description = "显式更新已选择的项目"
+
+[actions.apply]
+description = "首次授权、安装系统服务并启用"
+
+[actions.start]
+description = "启动后台"
+
+[actions.stop]
+description = "停止后台"
+
+[actions.restart]
+description = "重启后台"
+
+[actions.status]
+description = "查看后台状态"
+
+[actions.logs]
+description = "查看日志"
+
+[actions.open]
+description = "打开客户端或网页"
+
+[install]
+kind = "network"
+provider = "upstream"
+service = "tailscale"
+
+[install.source]
+repository = "https://github.com/tailscale-dev/deck-tailscale.git"
+revision = "4691bb20d492ae9b2f5121c3eaf6e2dc1950e73f"

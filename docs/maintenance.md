@@ -5,7 +5,7 @@
 本文命令默认使用个人安装 `~/Software`，并在 `~/Software/config/workbench` 内执行。源码编译、软件升级和 Git 拉取是独立操作。
 
 Steam Deck 网络组件用 `workbench profile apply --only network` 部署，检查用
-`workbench network check all`；本机 sudo 授权用 `workbench network apply all`。
+`workbench system check steamdeck`；本机 sudo 授权用 各网络组件的 `apply`。
 完整流程及不保存订阅的边界见 [网络客户端说明](steamdeck-network.md)。
 
 Zsh 的自定义补全由 `shell/completions/` 管理，随 profile 部署加载。
@@ -27,15 +27,15 @@ Tab 选择时只读取本机清单和目录，不会联网或执行管理操作�
 | 仅执行旧链接流程 | `workbench profile link` | 链接配置，必要时备份；不记录部署状态 |
 | 只重新部署 Shell 配置 | `workbench profile link --only shell` | 不部署 Emacs 配置 |
 | 只重新部署 Emacs 配置 | `workbench profile link --only emacs` | 不替换 Zsh 配置 |
-| 安装或更新指定基础工具 | `workbench tools update fd ripgrep` | 按当前清单解析版本，验证后切换入口 |
+| 安装或更新指定基础工具 | `workbench fd update ripgrep` | 按当前清单解析版本，验证后切换入口 |
 | 更新管理器及指定基础工具 | `software-app update fd ripgrep` | 先更新 Pixi/uv，再更新指定工具 |
-| 仅更新官方管理器 | `workbench managers update` | Pixi、uv；不更新其他工具 |
-| 更新 Zsh 插件和管理器补全 | `workbench plugins update` | 上游 Git HEAD，拒绝覆盖脏插件工作树 |
-| 安装/升级默认 Python CLI | `workbench python-tools update` | 默认 fortls、basedpyright、ruff；额外包可通过参数指定 |
-| 升级语言服务 | `workbench languages update` | 当前配置支持的 LSP 和 Ruff |
+| 仅更新官方管理器 | `workbench providers update` | Pixi、uv；不更新其他工具 |
+| 更新 Zsh 插件和管理器补全 | `workbench fzf-tab update` | 上游 Git HEAD，拒绝覆盖脏插件工作树 |
+| 安装/升级默认 Python CLI | `workbench fortls update` / `workbench basedpyright update` / `workbench ruff update` | 默认 fortls、basedpyright、ruff；额外包可通过参数指定 |
+| 升级语言服务 | 各语言工具组件的 `update` | 当前配置支持的 LSP 和 Ruff |
 | 维护完整安装环境 | `workbench system update` | 管理器、基础 CLI、平台依赖、Emacs、插件、语言服务、配置与末尾检查 |
 
-`workbench system update` 在 Linux 会源码重编译 Emacs，在 Deck 还会构建 Modules；它也会重新安装/检查声明的 Emacs 包，但不保证升级所有已有 ELPA 包。可选科研环境由 scientific 方案管理。需要强制重装 Pixi 基础工具时使用 `workbench tools update --reinstall`。
+`workbench system update` 在 Linux 会源码重编译 Emacs，在 Deck 还会构建 Modules；它也会重新安装/检查声明的 Emacs 包，但不保证升级所有已有 ELPA 包。可选科研环境由 scientific 方案管理。需要强制重装 Pixi 基础工具时使用 `workbench fd update --reinstall`。
 
 `--only` 控制配置部署范围，**不是 install/upgrade 的软件过滤器**；不要用 `workbench system update --only shell` 来期待跳过 Emacs 编译。
 
@@ -195,7 +195,7 @@ live、source 和只读 preview。渲染异常时检查 `*Messages*`，尤其是
 
 ## Node.js、nvm 和 npm
 
-`catalog/tools.json` 固定 Node.js **26.13.0 LTS** 和 nvm **0.41.0**。
+`components/node/component.toml` 固定 Node.js **26.13.0 LTS** 和 nvm **0.41.0**。
 nvm 从其官方 Git 仓库安装，再从 `https://nodejs.org/dist` 下载 Node
 官方二进制并校验下载校验和；不回退到源码构建或 conda-forge。
 npm 和 npx 使用 Node 随附版本（npm 11.20.0），不额外运行 npm 自升级。
@@ -225,7 +225,7 @@ Zsh 自动加载 nvm；Bash 可用上述两条 source 命令。`nvm use` 只切�
 终端，`nvm alias default <版本>` 改变新终端默认值；后台 Emacs 的稳定
 入口仍由 profile 清单管理。更改清单后运行安装命令会重新设置默认版本。
 已有正确安装的 `apply` 不重新下载。升级 Node 时修改清单中的版本，
-再运行 `workbench tools update node`。
+再运行 `workbench node update`。
 
 全局 npm 包安装在对应 nvm 版本下，不需要 sudo，不设置 npm 的 `prefix`。
 各版本的全局包不自动迁移。旧 Pixi Node 保留供回退，但命令入口已切到 nvm。

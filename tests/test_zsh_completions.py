@@ -1,6 +1,8 @@
 """Exercise real Zsh completion widgets without executing completed commands."""
 import importlib.util
 import os
+import sys
+from toml_helpers import dumps
 from pathlib import Path
 import pty
 import select
@@ -12,6 +14,8 @@ import unittest
 
 REPO = Path(__file__).resolve().parents[1]
 ZSH = shutil.which('zsh')
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'libexec'))
 SPEC = importlib.util.spec_from_file_location('network', REPO / 'libexec/deck_network.py')
 network = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(network)
@@ -30,7 +34,7 @@ class CompletionTests(unittest.TestCase):
             plugin = root / 'extensions/extra'
             plugin.mkdir(parents=True)
             import json
-            (plugin / 'component.json').write_text(json.dumps(dict(schema=1,name='extra',description='Test extension',platforms=['macos','steamdeck','fedora','ubuntu'],entrypoint=['/bin/false'],actions={name:{'description':name} for name in ['list','install','update','check']})))
+            (plugin / 'component.toml').write_text(dumps(dict(schema=1,category='cli',name='extra',description='Test extension',platforms=['macos','steamdeck','fedora','ubuntu'],entrypoint=['/bin/false'],actions={name:{'description':name} for name in ['list','install','update','check']})))
             output = home / 'matches'
             (home / '.zshrc').write_text('''
 fpath=("$WORKBENCH_HOME/config/shell/completions" $fpath)
@@ -56,7 +60,7 @@ bindkey '^I' capture-complete
 ''')
             master, slave = pty.openpty()
             env = dict(os.environ, HOME=tmp, ZDOTDIR=tmp, WORKBENCH_HOME=str(REPO),
-                       SOFTWARE_HOME=str(root), COMPLETION_CAPTURE=str(output), TERM='xterm-256color')
+                       SOFTWARE_HOME=str(root), PATH=str(Path(sys.executable).parent)+os.pathsep+os.environ.get('PATH',''), COMPLETION_CAPTURE=str(output), TERM='xterm-256color')
             proc = subprocess.Popen([ZSH, '-d', '-i'], env=env, cwd=REPO,
                                     stdin=slave, stdout=slave, stderr=slave, start_new_session=True)
             os.close(slave)
@@ -83,9 +87,14 @@ bindkey '^I' capture-complete
                     proc.wait()
                 os.close(master)
 
+    def test_category_and_tag_filters(self):
+        self.assertTrue({'development', 'terminal', 'network'} <= self.complete('workbench list --category '))
+        self.assertIn('runtime', self.complete('workbench list --tag '))
+        self.assertIn('development', self.complete('workbench --category '))
+
     def test_workbench_plugins_actions_and_names(self):
-        self.assertTrue({'list', 'check', 'install', 'update'} <= self.complete('workbench plugins '))
-        self.assertTrue({'fzf-tab', 'zsh-autosuggestions'} <= self.complete('workbench plugins update '))
+        self.assertTrue({'list', 'check', 'install', 'update'} <= self.complete('workbench fzf-tab '))
+        self.assertTrue({'fzf-tab', 'zsh-autosuggestions'} <= self.complete('workbench '))
 
     def test_lists_at_profile_and_network_entry(self):
         self.assertIn('list', self.complete('workbench profile '))
@@ -106,13 +115,13 @@ bindkey '^I' capture-complete
         self.assertNotIn('upgrade', self.complete('workbench profile '))
 
     def test_manage_discovers_new_modules(self):
-        self.assertTrue({'profile', 'tools', 'network', 'extra'} <= self.complete('workbench '))
+        self.assertTrue({'profile', 'node', 'mihomo', 'extra'} <= self.complete('workbench '))
 
     def test_manage_discovers_extension_actions(self):
         self.assertTrue({'install', 'update', 'check'} <= self.complete('workbench extra '))
 
     def test_manage_network_delegates_service_and_action_completion(self):
-        self.assertTrue({'all', 'mihomo', 'sc302', 'tailscale'} <= self.complete('workbench network update '))
+        self.assertTrue({'update', 'check', 'status'} <= self.complete('workbench mihomo '))
 
     def test_software_manifest_names(self):
         self.assertTrue({'node', 'zsh', 'ripgrep'} <= self.complete('software-app install '))

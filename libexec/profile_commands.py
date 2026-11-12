@@ -3,7 +3,7 @@
 import argparse, os, platform, shutil, subprocess as sp, sys
 from pathlib import Path
 repo=Path(__file__).resolve().parents[1]
-simple=len(sys.argv)>1 and sys.argv[1] in ['apply','update']
+simple=len(sys.argv)>1 and sys.argv[1] in ['apply','update','install']
 p=argparse.ArgumentParser(prog='workbench profile',description=__doc__)
 if simple:
  p.add_argument('action',choices=[sys.argv[1]])
@@ -26,10 +26,10 @@ if a.action=='list':
   print(name + ': ' + description)
  sys.exit(0)
 def run(args):sp.run(list(map(str,args)),check=True)
-if a.action in ['apply','update']:
+if a.action in ['apply','update','install']:
  if a.scope!='user':sys.exit('apply/update currently support per-user deployments only; shared /opt provisioning remains separate.')
  if os.geteuid()==0:sys.exit('Run personal deployment as the target user, not root.')
- command=[sys.executable,'-B',str(repo/'libexec/profile-sync.py'),'sync' if a.action=='update' else a.action,'--prefix',str(root),'--only',a.only]
+ command=[sys.executable,'-B',str(repo/'libexec/profile-sync.py'),'sync' if a.action=='update' else 'apply','--prefix',str(root),'--only',a.only]
  if a.plan or a.dry_run:command+=['--plan']
  if not a.install_missing:command+=['--config-only']
  os.execv(sys.executable,command)
@@ -46,8 +46,5 @@ if a.scope=='system' and os.geteuid()!=0:sys.exit('System provisioning requires 
 if a.scope=='user' and os.geteuid()==0:sys.exit('Do not deploy personal dotfiles as root; use --scope system or the target user.')
 if a.scope=='system' and Path('/etc/os-release').exists() and any(line.strip().strip('"\'')=='steamos' for line in [entry.split('=',1)[1] for entry in Path('/etc/os-release').read_text().splitlines() if entry.startswith('ID=')]):
  sys.exit('SteamOS stays read-only: use a user installation under ~/Software.')
-if a.action=='install':
- run(['bash',repo/'libexec/install-platform.sh',a.action,*(['--reinstall'] if a.reinstall else [])])
- action='link'
-else:action=a.action
+action=a.action
 run([sys.executable,repo/'libexec/deploy.py',action,'--scope',a.scope,'--prefix',root,'--only',a.only])

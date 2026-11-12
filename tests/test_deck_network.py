@@ -9,6 +9,8 @@ import sys
 import os
 
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'libexec'))
 SPEC = importlib.util.spec_from_file_location(
     'mihomo_deck', Path(__file__).resolve().parents[1] / 'libexec/mihomo_deck.py')
 mihomo = importlib.util.module_from_spec(SPEC)
@@ -165,10 +167,10 @@ class UnifiedCommandTests(unittest.TestCase):
                 network.deploy(root)
                 mihomo.install_update_timer(root)
             desktop = Path(tmp) / '.local/share/applications'
-            self.assertIn('workbench" network open mihomo', (desktop / 'mihomo-web.desktop').read_text())
-            self.assertIn('workbench" network open sc302', (desktop / 'Steamcommunity_302.desktop').read_text())
+            self.assertIn('workbench" mihomo open', (desktop / 'mihomo-web.desktop').read_text())
+            self.assertIn('workbench" steamcommunity302 open', (desktop / 'Steamcommunity_302.desktop').read_text())
             unit = Path(tmp) / '.config/systemd/user/mihomo-subscription-update.service'
-            self.assertIn('workbench" network update mihomo', unit.read_text())
+            self.assertIn('workbench" mihomo update', unit.read_text())
             self.assertFalse((root / 'config/network-launchers/steamcommunity302').exists())
             for name in ('mihomo-deck', 'steamcommunity302', 'deck-network'):
                 p = root / 'bin' / name

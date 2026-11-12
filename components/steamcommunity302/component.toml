@@ -1,0 +1,55 @@
+schema = 1
+name = "steamcommunity302"
+description = "steamcommunity302 网络服务"
+category = "network"
+tags = ["service"]
+platforms = ["steamdeck"]
+requires = []
+entrypoint = ["{python}", "{repo}/libexec/component.py", "steamcommunity302"]
+arguments = ""
+
+[actions]
+
+[actions.list]
+platforms = ["macos", "steamdeck", "fedora", "ubuntu", "debian"]
+description = "列出对象与本机状态"
+
+[actions.check]
+description = "检查配置和安装状态"
+
+[actions.install]
+description = "补齐缺失项目，保留已有安装"
+
+[actions.update]
+description = "显式更新已选择的项目"
+
+[actions.apply]
+description = "首次授权、安装系统服务并启用"
+
+[actions.start]
+description = "启动后台"
+
+[actions.stop]
+description = "停止后台"
+
+[actions.restart]
+description = "重启后台"
+
+[actions.status]
+description = "查看后台状态"
+
+[actions.logs]
+description = "查看日志"
+
+[actions.open]
+description = "打开客户端或网页"
+
+[install]
+kind = "network"
+provider = "upstream"
+service = "sc302"
+
+[install.source]
+version = "15.0.9"
+url = "https://www.dogfight360.com/Usbeam/V15/Steamcommunity_302_15.0.9_Linux_WebKit_x64.AppImage"
+sha256 = "7884bbf43abe9b6202de37c133b3edfd8ff768c6c533e8d822d8aabf3a6f3fdd"

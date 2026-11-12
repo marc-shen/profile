@@ -11,6 +11,7 @@ import subprocess as sp
 import sys
 import software
 from lsp_probe import probe
+from config_data import language_specs
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -28,7 +29,7 @@ def main():
                                ('UV_PYTHON_INSTALL_DIR', 'data/uv/python'), ('UV_CACHE_DIR', 'cache/uv'),
                                ('PIXI_CACHE_DIR', 'cache/pixi')]:
         os.environ.setdefault(variable, str(root / relative))
-    specs = json.loads((REPO / 'catalog/language-servers.json').read_text())
+    specs = language_specs(REPO)
     names = args.names or list(specs)
     unknown = set(names) - specs.keys()
     if unknown: parser.error('Unknown language server: ' + ', '.join(sorted(unknown)))

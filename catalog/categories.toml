@@ -1,0 +1,6 @@
+cli = "命令行工具"
+terminal = "终端与 Shell"
+development = "开发环境"
+editors = "编辑器"
+network = "网络"
+latex = "LaTeX"

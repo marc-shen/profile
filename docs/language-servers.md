@@ -1,6 +1,6 @@
 # Emacs 语言服务
 
-Emacs 使用内置 Eglot。语言服务是外部程序，缺少它们时仍能编辑文件，只缺少相应语义补全、诊断和跳转。安装清单统一保存在 `catalog/language-servers.json`，不固定版本。
+Emacs 使用内置 Eglot。语言服务是外部程序，缺少它们时仍能编辑文件，只缺少相应语义补全、诊断和跳转。安装清单统一保存在 各软件的 `components/<软件>/component.toml`，不固定版本。
 
 | 用途 | 程序 | 安装来源 | 位置 |
 |---|---|---|---|
@@ -22,7 +22,8 @@ workbench profile apply
 python3 libexec/language-servers.py plan
 python3 libexec/language-servers.py install python fortran
 python3 libexec/language-servers.py check --probe
-workbench languages update python fortran
+workbench basedpyright update
+workbench fortls update
 ```
 
 `install` 只补缺失项，`upgrade` 才主动解析新版本。`apply` 还会验证已有语言服务，因此重试不会把“可执行文件存在但服务启动失败”当作安装成功。安装新语言服务时进行真实的 LSP initialize/shutdown 验证；`check --probe` 同样验证已安装服务，使用独立的临时目录和独立进程，不连接编辑器的项目或后台。安装收据在 `Software/data/profile/language-servers.json`；Pixi 安装另保留应用内锁文件和收据，uv 保留自己的工具收据。

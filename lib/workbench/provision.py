@@ -7,11 +7,11 @@ import shutil
 import subprocess as sp
 import sys
 from .builtin import run, backend, native_installed
+from .data import read
 
 
 def packages(repo, platform):
-    path = repo / 'platforms' / platform / 'packages.txt'
-    return [line.strip() for line in path.read_text().splitlines() if line.strip() and not line.startswith('#')]
+    return read(repo / 'platforms' / platform / 'platform.toml').get('packages', [])
 
 
 def missing_packages(names, platform):
@@ -26,7 +26,7 @@ def missing_packages(names, platform):
 
 def platform_action(action, args, repo, root, platform):
     if args: raise RuntimeError('platform takes no targets')
-    spec = json.loads((repo / 'platforms' / platform / 'platform.json').read_text())
+    spec = read(repo / 'platforms' / platform / 'platform.toml')
     if action == 'list':
         print(json.dumps(spec, ensure_ascii=False, indent=2)); return 0
     if platform == 'steamdeck':

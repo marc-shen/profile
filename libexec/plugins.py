@@ -9,13 +9,13 @@ import shutil
 import subprocess as sp
 import sys
 import tempfile
+from config_data import plugin_sources
 
 REPO = Path(__file__).resolve().parents[1]
 
 
 def sources():
-    return {name: url for line in (REPO / 'catalog/zsh-plugins.sources').read_text().splitlines()
-            if line.strip() and not line.startswith('#') for name, _, url in [line.split()]}
+    return plugin_sources(REPO)
 
 
 def git(path, *args):
@@ -119,7 +119,7 @@ def main(argv=None):
             temporary.write_text(result.stdout)
             temporary.replace(completions / ('_' + name))
     if failures:
-        print('Failed: ' + ', '.join(failures) + '. Fix the reported cause and rerun workbench plugins update [name].', file=sys.stderr)
+        print('Failed: ' + ', '.join(failures) + '. Fix the reported cause and rerun workbench <plugin-name> update.', file=sys.stderr)
     return int(bool(failures))
 
 

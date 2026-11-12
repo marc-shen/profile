@@ -1,107 +1,87 @@
-# workbench 2 架构
+# Workbench 3 架构
 
-## 职责边界
+## 声明与实现
 
-- `bin/workbench` 是稳定入口；`lib/workbench` 使用 Python 标准库，无需先安装 PyPI 包。
-- `components/<名称>/component.json` 是功能合同；`run.py` 或其他入口负责实现。
-- `platforms/` 保存平台依赖和资源。macOS 用 Homebrew；Fedora 用 dnf；Ubuntu 用 apt；SteamOS 用用户目录 Pixi。
-- `profiles/` 定义完整环境由哪些操作组成。平台差异不复制一整套管理工具。
-- `config/` 保存可版本管理的配置，`catalog/` 声明下载/软件来源；`libexec/` 是安装与部署的内部后端。
-- `Software/extensions/` 是本机扩展目录。它与共享 components 使用相同协议；同名冲突报错，不静默覆盖。
+框架使用 Python 3.12 标准库，通过 `tomllib` 读取人工维护的 TOML 声明。
+安装回执、运行状态、第三方 API 和 `--json` 输出仍为 JSON。
+Shell、Emacs Lisp、Brewfile、Mihomo YAML 等第三方配置保留原生格式。
 
-## 命令与能力
+每个软件在 `components/<名称>/component.toml` 中定义一次。安装器、帮助、补全和依赖计划读取同一份声明。
+`category` 是唯一用途分类，`tags` 描述辅助能力；分类不决定安装来源或执行顺序。
+分类定义在 `catalog/categories.toml`。独立组件可引用共享后端，也可使用自身的任意可执行脚本。
 
-固定形式为 `workbench COMPONENT ACTION [TARGET ...]`。通用操作的语义保持一致：
+```toml
+schema = 1
+name = "my-app"
+description = "我的软件"
+category = "development"
+tags = ["runtime"]
+platforms = ["macos", "steamdeck", "fedora", "ubuntu", "debian"]
+requires = ["node"]
+entrypoint = ["{python}", "{component}/run.py"]
+arguments = ""
 
-| 操作 | 约定 |
-| --- | --- |
-| list | 只读展示对象或状态，不联网安装 |
-| check | 验证本机状态，失败返回非零 |
-| install | 补齐缺失项，已有可用安装保持不变 |
-| update | 用户明确要求更新选中对象 |
-| apply | 应用配置、服务定义或必要授权 |
-| start/stop/restart/status/logs | 仅服务组件提供 |
+[actions.list]
+description = "查看状态"
 
-配置组件的 update 更新 Git 配置；插件组件更新上游 Git 插件；网络组件更新所选服务。
-具体能力在帮助中声明；不会给不存在后台的 CLI 工具伪造 start/stop。
-网络入口统一为 `workbench network update mihomo`，操作在前、对象在后。
+[actions.check]
+description = "验证安装"
 
-## 组件协议
+[actions.install]
+description = "安装缺失项"
 
-最小示例参见 `examples/components/example`。重要字段：
-
-```json
-{
-  "schema": 1,
-  "name": "my-app",
-  "description": "我的应用",
-  "platforms": ["macos", "steamdeck", "fedora", "ubuntu"],
-  "requires": ["managers"],
-  "entrypoint": ["{python}", "{component}/run.py"],
-  "entrypoints": {
-    "macos": ["{python}", "{component}/macos.py"]
-  },
-  "targets": ["client", "server"],
-  "actions": {
-    "list": {"description": "列出对象"},
-    "check": {"description": "检查本机"},
-    "install": {"description": "安装缺失项"},
-    "update": {"description": "更新所选对象"}
-  }
-}
+[actions.update]
+description = "更新软件"
 ```
 
-入口获得 `ACTION` 和后续参数的独立 argv，不经过 eval。占位符包括
-`{python}`、`{repo}`、`{component}`、`{root}`、`{platform}`。
+`{python}` 是运行框架的 3.12+ 解释器；其他占位符为 `{repo}`、`{component}`、`{root}`、`{platform}`。
+入口接收操作和后续参数的独立 argv，不经过 eval。
 环境提供 SOFTWARE_HOME、SOFTWARE_USER_HOME、WORKBENCH_HOME、PROFILE_PLATFORM、PROFILE_PYTHON。
 
-帮助可通过组件或操作中的 `arguments` 字符串声明参数，如 `[<target>]`；
-操作中的 `options` 是选项语法到说明的映射，如 `{"--shared":"创建共享组件"}`。
-这些字段用于帮助展示，参数的执行校验仍由入口负责。
+操作可声明 `arguments`、`options`（选项语法到说明的映射）、`targets` 和 `platforms`。
+`entrypoints` 可按平台覆盖默认入口。声明校验不执行组件代码。
+本机扩展位于 `Software/extensions/<名称>/component.toml`；同名冲突或依赖环在执行前报错。
 
-entrypoints 可按平台覆盖默认入口；单个 action 也可声明 platforms 与 targets。
-对象可用静态列表，或 `{"catalog":"catalog/tools.json"}` 从本地 JSON 键读取。
-帮助、列表、Tab 只读取声明，不导入或执行第三方组件代码。
-扩展是用户明确选择的本机程序，不是沙盒插件，也不会自动获得 root。
+## 软件和安装后端
 
-install/update 先按 requires 拓扑排序执行依赖的 install，然后执行目标动作；
-不会为了更新一个工具而自动更新所有依赖。未知依赖、环、名称冲突和未知对象在执行前拒绝。
-系统方案按明确的步骤顺序组合这些组件，并合并重复步骤。方案可用 extends 继承其他方案，
-Deck 和科研方案复用 workstation；循环继承和扩大父方案平台范围都会被拒绝。
-新增 profiles/*.json 会自动出现在方案帮助和补全中。
+内置组件的 `[install]` 声明 `kind`、`provider` 以及该软件所需的版本、来源等信息。
+通用后端实现位于 libexec；Workbench 不维护另一份按安装来源划分的软件清单。
+例如 Node 的用途是 development，标签是 runtime/javascript，安装后端是 nvm。
+Shell 插件属于 terminal，由 Git 下载；语言服务器属于 development，可由 uv 或 Pixi 安装。
 
-## 整机安装与恢复
+install/update 先解析 `requires` 中的具体组件，再补齐需要的 uv/Pixi 后端。
+已有依赖执行 install，不因更新目标而自动升级所有依赖。
+`providers_by_platform` 允许声明额外平台后端，例如 Steam Deck 编译 Emacs 所需的 Pixi。
+软件的实际版本、命令路径和安装来源写入 JSON 回执；旧安装目录可复用，不因声明改名重装应用。
 
-`install.sh` 在基础 Python/Git/curl 缺失时补齐平台前提，然后调用最小 bootstrap，
-最后执行 system install。默认 macOS/Fedora/Ubuntu 使用 workstation，Deck 使用 steamdeck。
+## 框架管理命令
 
-方案顺序是平台依赖 → 管理器 → 工具/插件 → 原生编辑器 → 语言服务 → 配置 →
-编辑器包 → 终端 → 用户后台 → 全套检查；Deck 再完成网络准备、授权和检查。
-base 只提供 CLI/Shell，不要求原生编辑器或后台。
+`commands/` 单独保存 system、profile、components、providers、platform 声明，首页与软件分开展示。
+这些命令用于整机方案、配置部署、扩展脚手架、后端管理和平台前提，不参与软件用途分类。
 
-写操作使用跨进程锁。每次运行在 `Software/data/workbench/runs/` 保存状态，
-输出保存到权限 0600 的 `Software/logs/workbench-*.log`。状态记录只保留组件和操作，
-不会把传入参数（可能包含私人 URL）写进回执；组件作者仍应避免向日志输出秘密。
-失败立即停止，记录 returncode。恢复方式是修复原因后重跑同一命令；install 实现需可重复执行，
-框架不盲目信任旧“完成”记录而跳过本机检查。update 是显式升级，重复执行可能再次检查上游。
+`profiles/*.toml` 组合明确的组件操作，可使用 extends 继承其他方案。步骤字段为 component/action/args。
+安装/更新后执行方案的完整 check；相同依赖步骤去重。默认 Steam Deck 选择 steamdeck，其余选择 workstation。
+跨平台 `--platform` 只允许预览，不能伪装为其他系统实际安装。
 
-`--plan` 仅解析组件命令，不假装已验证远程软件包是否仍可下载；它不是下载锁文件。
-安装器各自保存版本、来源与校验信息。CLI 退出非零时不得将整套安装视为完成。
+## 引导和 Python
 
-## 权限与私人状态
+bootstrap.sh 只创建基础环境，不安装全部应用或部署私人配置。
+系统 Python 3.9+ 运行小型引导种子：准备 uv，安装托管 Python 3.12，验证后重新执行 bootstrap。
+正式框架入口拒绝低于 3.12 的解释器，使用标准库 tomllib，无额外 TOML 解析依赖。
+托管解释器在 Software/data/uv/python，稳定入口在 Software/apps/python/current 与 Software/bin/python3。
+系统解释器不被替换。离线引导必须已有兼容解释器；预览不下载或写入。
 
-无需 root 运行框架，系统依赖或服务授权按步骤调用 sudo。无授权时失败或等待本机输入；
-不会修改 sudoers 绕过授权，也不会解除 SteamOS 只读。
-macOS 的 Apple CLT 安装对话框和 Homebrew 初次授权受系统限制；无人值守部署需要预先完成
-这些 OS 前提，参见 [Homebrew 安装前提](https://docs.brew.sh/Installation)。
-Tailscale 登录、代理订阅等身份/私人内容必须由用户提供，空白机器不能从本项目推导这些值。
+install.sh 在需要时准备原生引导前提，随后运行 bootstrap 和 system install。
+macOS 初次 CLT/Homebrew 授权、Tailscale 登录、代理订阅和 302 GUI 授权属于主机前提。
+SteamOS 不解除只读，构建依赖通过用户目录环境提供。
 
-## 正式版约定
+## 执行与恢复
 
-框架统一使用 `components/`、`component.json` 和 `workbench components`。
-Environment Modules 的 `module` 命令及其配置路径保持原名。
-本机扩展仅读取 `extensions/<名称>/component.json`，入口使用 `{component}`。
-安装方案步骤和运行记录使用 `component` 字段。
-不保留 `modules`、`manage.d`、`profile upgrade/service` 或独立 `deck-network` 兼容入口。
-软件更新使用对应组件的 `update`；Emacs 服务定义使用 `workbench emacs apply service`。
-Emacs 运行数据位于 Software/data/emacs；配置部署不重启现有守护进程。
+写操作使用跨进程锁，运行回执位于 Software/data/workbench/runs，日志位于 Software/logs。
+回执只保存组件、操作和状态，不保存可能包含秘密的任意参数。
+失败停止后可修复并重跑同一命令；install 必须可重复执行。
+只读列表、帮助、补全和 --plan 不下载、不安装、不写运行记录。
+
+配置部署与应用进程分离，普通 apply 不重启 Emacs。
+JSON 运行记录、订阅、身份凭据以及 Emacs 包和缓存均保存在源码目录之外。
+不保留旧 module/component JSON、聚合软件命令或旧目录兼容入口。

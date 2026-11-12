@@ -23,7 +23,7 @@ class MacDeploymentTests(unittest.TestCase):
             root = home / 'Software'
             checkout = home / 'checkout'
             checkout.mkdir()
-            for name in ['bin','lib','libexec','components','platforms','catalog','profiles','config','docs']:
+            for name in ['bin','lib','libexec','commands','providers','components','platforms','catalog','profiles','config','docs']:
                 shutil.copytree(SOURCE / name, checkout / name, symlinks=True,
                                 ignore=shutil.ignore_patterns('__pycache__','elpa','eln-cache','var','tree-sitter','custom.el','projects.eld','projects','tramp','auto-save-list','eshell','transient','log','agent','tramp-rpc','.cache'))
             subprocess.run(['git','init','-q',str(checkout)],check=True)

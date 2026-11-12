@@ -1,0 +1,28 @@
+schema = 1
+name = "texlive"
+description = "TeX Live 排版环境"
+category = "latex"
+tags = ["typesetting"]
+platforms = ["steamdeck", "fedora", "ubuntu", "debian"]
+requires = []
+entrypoint = ["{python}", "{repo}/libexec/component.py", "texlive"]
+arguments = ""
+
+[actions]
+
+[actions.list]
+platforms = ["macos", "steamdeck", "fedora", "ubuntu", "debian"]
+description = "列出安装状态"
+
+[actions.check]
+description = "验证命令可运行"
+
+[actions.install]
+description = "补齐缺失安装"
+
+[actions.update]
+description = "显式更新版本"
+
+[install]
+kind = "texlive"
+provider = "upstream"

@@ -9,4 +9,4 @@ if ! command -v python3 >/dev/null; then
  esac
  exit 1
 fi
-exec python3 "$repo/libexec/bootstrap.py" "$@"
+exec "${WORKBENCH_BOOTSTRAP_PYTHON:-python3}" "$repo/libexec/bootstrap.py" "$@"

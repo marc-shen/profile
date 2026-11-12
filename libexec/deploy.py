@@ -12,6 +12,7 @@ import shutil
 import subprocess as sp
 import sys
 
+from config_data import language_specs
 REPO = Path(__file__).resolve().parents[1]
 HOME = Path.home()
 ROOT = Path(os.environ.get('SOFTWARE_HOME', str(HOME / 'Software'))).absolute()
@@ -260,9 +261,8 @@ def check():
         ok = (ROOT / 'share/zsh/plugins' / name).is_dir()
         print(f'{name}: {"OK" if ok else "MISSING"}')
         if not ok: missing.append(name)
-    manifest = REPO / 'catalog/language-servers.json'
-    if manifest.exists():
-        for name, spec in json.loads(manifest.read_text()).items():
+    if (REPO / 'components').exists():
+        for name, spec in language_specs(REPO).items():
             absent = [command for command in spec['commands'] if not shutil.which(command, path=str(ROOT / 'bin') + os.pathsep + os.environ.get('PATH', ''))]
             print('language-server ' + name + ': ' + ('MISSING ' + ', '.join(absent) if absent else 'OK'))
             missing.extend(absent)

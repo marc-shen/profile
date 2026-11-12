@@ -1,5 +1,5 @@
 """Declarative component discovery. Listing and completion never import component code."""
-import json
+from .data import read, CATEGORIES
 from pathlib import Path
 import re
 
@@ -7,22 +7,22 @@ RESERVED = {'list', 'help'}
 NAME = re.compile(r'[a-z][a-z0-9-]*\Z')
 
 
-def read(path):
-    return json.loads(path.read_text())
-
-
 def discover(repo, root):
     components = {}
-    for directory in (repo / 'components', root / 'extensions'):
+    for directory, filename in ((repo / 'components', 'component.toml'), (repo / 'commands', 'command.toml'), (root / 'extensions', 'component.toml')):
         if not directory.exists():
             continue
-        for path in sorted(directory.glob('*/component.json')):
+        for path in sorted(directory.glob('*/' + filename)):
             spec = read(path)
             name = spec.get('name', '')
             if spec.get('schema') != 1 or not NAME.fullmatch(name) or name != path.parent.name or name in RESERVED:
                 raise RuntimeError('Invalid component identity/schema: ' + str(path))
             if name in components:
                 raise RuntimeError('Duplicate component ' + name + ': ' + str(path))
+            if spec.get('kind') != 'command' and spec.get('category') not in CATEGORIES:
+                raise RuntimeError('Unknown or missing category: ' + str(path))
+            if not isinstance(spec.get('tags', []), list) or any(not isinstance(t, str) or not NAME.fullmatch(t) for t in spec.get('tags', [])):
+                raise RuntimeError('Invalid component tags: ' + str(path))
             actions = spec.get('actions', {})
             if not isinstance(actions, dict) or not actions or any(not NAME.fullmatch(a) for a in actions):
                 raise RuntimeError('Invalid actions: ' + str(path))
@@ -74,7 +74,7 @@ def targets(spec, action, repo):
     if isinstance(value, list):
         return value
     if 'directory' in value:
-        return sorted(path.stem for path in (repo / value['directory']).glob('*.json'))
+        return sorted(path.stem for path in (repo / value['directory']).glob('*.toml'))
     path = repo / value['catalog']
     if value.get('format') == 'sources':
         return [line.split()[0] for line in path.read_text().splitlines() if line.strip() and not line.startswith('#')]

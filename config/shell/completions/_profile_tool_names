@@ -1,23 +1,7 @@
 #autoload
-
-# Only inspect local manifests; never invoke an installer or fetch metadata.
+local root=${SOFTWARE_HOME:-$HOME/Software}
+local helper=$root/bin/workbench
+[[ -x $helper ]] || helper=${WORKBENCH_HOME:-$root/config/workbench}/bin/workbench
 local -a names
-local manifest root=${WORKBENCH_HOME:-${SOFTWARE_HOME:-$HOME/Software}/config/workbench}
-local -a manifests
-manifests=("$root/catalog/tools.json")
-case ${words[1]:t} in
-  profile) manifests+=("$root/catalog/language-servers.json") ;;
-  languages) manifests=("$root/catalog/language-servers.json") ;;
-esac
-if (( $+commands[python3] )); then
-  names=("${(@f)$(python3 -c '
-import json, pathlib, sys
-names = set()
-for name in sys.argv[1:]:
-    path = pathlib.Path(name)
-    if path.is_file():
-        names.update(json.loads(path.read_text()))
-print("\n".join(sorted(names)))
-' "${manifests[@]}" 2>/dev/null)}")
-  compadd -a names
-fi
+names=("${(@f)$("$helper" --complete packages 2>/dev/null)}")
+compadd -a names

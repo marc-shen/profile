@@ -1,0 +1,64 @@
+schema = 1
+description = "Steam Deck 完整工作站与网络客户端"
+platforms = ["steamdeck"]
+extends = ["workstation"]
+
+[[install]]
+component = "steamcommunity302"
+action = "install"
+args = []
+
+[[install]]
+component = "mihomo"
+action = "install"
+args = []
+
+[[install]]
+component = "tailscale"
+action = "install"
+args = []
+
+[[install]]
+component = "steamcommunity302"
+action = "apply"
+args = []
+
+[[install]]
+component = "mihomo"
+action = "apply"
+args = []
+
+[[install]]
+component = "tailscale"
+action = "apply"
+args = []
+
+[[install]]
+component = "steamcommunity302"
+action = "check"
+args = []
+
+[[install]]
+component = "mihomo"
+action = "check"
+args = []
+
+[[install]]
+component = "tailscale"
+action = "check"
+args = []
+
+[[check]]
+component = "steamcommunity302"
+action = "check"
+args = []
+
+[[check]]
+component = "mihomo"
+action = "check"
+args = []
+
+[[check]]
+component = "tailscale"
+action = "check"
+args = []

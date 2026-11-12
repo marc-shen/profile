@@ -1,111 +1,115 @@
-# workbench
+# Workbench 3
 
-一套用于 macOS、Steam Deck、Fedora、Ubuntu 的个人工作站管理工具。
-配置共享，安装与服务操作按平台实现；软件和数据默认保存在 `~/Software`。
-框架仅依赖 Python 3.9+ 标准库，组件可用任意可执行语言编写。
+macOS、Steam Deck、Fedora、Ubuntu 的个人工作站管理工具。
+每个软件是一个独立组件，使用 TOML 声明分类、依赖和安装方式；运行记录使用 JSON。
+框架要求 **Python 3.12+**，默认使用 uv 管理的 **Python 3.12**，无需 PyPI 框架依赖。
 
 ## 从零安装
 
-在目标机器以普通用户取得本仓库或解压源码包后运行：
-
 ```sh
-./install.sh --plan          # 先查看完整方案，不安装、不联网
-./install.sh                 # 安装适合当前平台的完整方案
+git clone https://github.com/marc-shen/workbench.git ~/Software/src/workbench
+cd ~/Software/src/workbench
+./install.sh
 ```
 
-Fedora/Ubuntu 自动补齐 Python、Git、curl 等基础依赖，并用 sudo 安装系统构建依赖。
-macOS 自动安装缺失的 Homebrew；如未安装 Apple Command Line Tools，会打开系统安装提示，
-完成后重跑同一命令。Steam Deck 保持系统只读，编译依赖使用用户目录下的 Pixi 环境。
+`install.sh` 补齐系统引导前提，准备 Python 3.12，再执行整机安装与检查。
+macOS 初次安装需要 Apple Command Line Tools 和 Homebrew 授权；Linux 的原生依赖可能需要 sudo。
+SteamOS 保持只读，应用、Python 和编译环境安装在用户目录。Tailscale 登录、代理订阅与 302 授权由本机用户提供。
 
-已有环境也可以重复运行：install 保留已安装组件，补齐缺失项；update 才显式升级。
-安装出错会停止并记录失败步骤，解决原因后重跑原命令，不需要清空 Software。
-整机安装包括工具、Zsh 插件、Node/npm/nvm、Emacs、语言服务器、Lisp 包、WezTerm、
-配置部署与 Emacs 用户后台；末尾执行整套检查。Deck 方案还包含网络客户端、服务准备和检查。
-
-代理订阅、Tailscale 登录、系统管理员授权属于本机输入，不能从 Git 恢复。
-Deck 首次网络授权需在本机终端执行；缺少这些输入时不会报告“全部完成”。
-请勿以 root 运行整套安装，也不要关闭 SteamOS 只读。
-
-仅做最小引导（保留 bootstrap 的原本职责）：
+仅准备基础目录、Python 和安装后端：
 
 ```sh
-./bootstrap.sh              # Software 布局、入口、PATH、缺失的 uv/Pixi
+./bootstrap.sh
 . ~/Software/env.sh
-workbench system install   # 后续再安装完整方案
+workbench system install
 ```
 
-## 统一命令
+引导种子可运行在系统 Python 3.9+ 上，通过 uv 安装托管 Python 3.12 后重新执行；
+Workbench 本身始终要求 3.12+。`Software/bin/python`、`python3` 指向托管版本，系统 Python 不替换。
+`--offline` 不下载，仅复用已有兼容解释器；`--plan` 不写入、不下载。
 
-所有组件采用 `workbench <组件> <操作> [对象…]`。
-`list` 查看对象，`check` 检查本机，`install` 补齐，`update` 更新，`apply` 应用配置。
-服务组件额外声明 `start/stop/restart/status/logs`，不支持的能力会明确拒绝。
-帮助、平台支持、补全和依赖计划来自同一份 `component.json`。
+## 软件组件与分类
 
 ```sh
-workbench list
-workbench system list
-workbench system install base        # 基础 CLI / Shell
-workbench system install workstation # 完整开发工作站
-workbench system install steamdeck   # 工作站 + Deck 网络（Deck 专用）
-workbench system install scientific  # Linux 可选科研扩展：GCC/Fortran、TeX、Python CLI
-workbench system check
-workbench tools update fd ripgrep
-workbench plugins list
-workbench languages check --probe
-workbench emacs status
-workbench network update mihomo
-workbench network check all
-workbench profile apply              # 部署当前 checkout
-workbench profile update             # Git 快进拉取，再部署
+workbench                         # 按用途分组列出软件和管理命令
+workbench list --category development
+workbench list --tag runtime
+workbench node check
+workbench fd update
+workbench fzf-tab update
+workbench ruff check --probe
+workbench emacs restart
+workbench mihomo update
+workbench gcc install
+workbench texlive install
 ```
 
-任何操作可加 `--plan` 查看其 argv 计划；此时不执行组件、不下载、不写入。
-`--platform` 可用于在 Mac 上检查 Linux 安装计划，但不能伪装成另一平台执行安装。
+| 分类 | 内容 |
+| --- | --- |
+| cli | fd、ripgrep、jq、bat |
+| terminal | WezTerm、Zsh、fzf、Starship、zoxide 与 Shell 插件 |
+| development | Python、Node、编译器、LSP、检查工具和可选 MCP 工具 |
+| editors | Emacs、Helix |
+| network | Mihomo（含 MetaCubeXD）、Tailscale、Steamcommunity 302 |
+| latex | TeX Live |
+
+每个软件只有一个主分类，可拥有多个标签。分类用于显示与筛选，依赖直接指向组件。
+Homebrew、dnf、apt、uv、Pixi、nvm 是安装方式，不作为软件用途分类。
+Environment Modules 的 `module load/list/unload` 保持原有含义。
+
+## 统一操作
+
+命令形式：`workbench <component> <action> [<target> ...] [options]`。
+`list` 查看，`check` 检查，`install` 补齐，`update` 显式升级，`apply` 应用配置。
+服务组件按实际能力提供 `start/stop/restart/status/logs`。具体选项以操作帮助为准。
 
 ```sh
-workbench --platform ubuntu system install --plan
+workbench node --help
+workbench emacs install --help
+workbench fd update --plan
 workbench --platform fedora system install --plan --json
-workbench tools update --help
+workbench profile apply            # 部署本地配置
+workbench profile update           # Git 快进拉取后部署
+workbench system check
+workbench system update            # 更新整机方案；Linux 可能重新编译 Emacs
 ```
 
-`profile update` 会拒绝有未提交修改的仓库。`profile apply` 可以部署当前工作树。
-现有终端运行 `source ~/.zshrc` 或新开终端后启用新版补全。Bash 也提供组件/操作/对象补全。
+方案：`base`（命令行）、`workstation`（完整工作站）、`steamdeck`（增加网络）、
+`scientific`（Linux 科研环境，增加 GCC 和 TeX Live）。默认依据主机选择。
 
-这里的 **component（组件）** 指 Workbench 的功能单元；
-Environment Modules 的 `module list/load/unload` 专门用于切换编译环境，两者分别命名。
+终端自动配色并按中英文宽度对齐；`<参数>` 必填、`[参数]` 可选。
+管道、重定向、`NO_COLOR` 和 `TERM=dumb` 禁用配色；JSON 与补全数据始终无颜色。
+更新补全后重新打开终端或执行 `source ~/.zshrc`。
 
 ## 目录与扩展
 
 ```text
-bin/workbench             唯一公共总入口
-lib/workbench/            发现、校验、依赖图、计划、执行与状态记录
-components/<名称>/         component.json + 独立实现
-platforms/<平台>/          OS 依赖清单与平台资源
-profiles/                  整机安装方案（有序组件操作组合）
-config/                    Shell、Emacs、Helix、WezTerm 等共享配置
-catalog/                   工具、语言服务器、插件与版本来源清单
-libexec/                   可复用的安装/部署后端（内部实现）
-examples/components/       可运行的扩展示例
-install.sh                 完整初始化
-bootstrap.sh               最小引导
+bin/workbench                    公共入口
+lib/workbench/                   发现、校验、依赖计划、执行与输出
+components/<软件>/component.toml 软件的唯一声明，可附独立实现脚本
+commands/<命令>/command.toml     system/profile/components/providers/platform
+providers/<后端>.toml            安装后端来源
+profiles/<方案>.toml             整机安装与检查步骤
+platforms/<系统>/platform.toml   平台信息和原生依赖
+catalog/categories.toml          用途分类标签
+config/                         编辑器、Shell、终端等原生配置
+libexec/                        共享安装与部署实现
+examples/components/            可运行的扩展示例
 ```
 
 ```sh
-workbench components create my-app          # 创建 ~/Software/extensions/my-app
-workbench components create my-app --shared # 创建仓库 components/my-app（两者二选一）
-workbench my-app list
+workbench components create my-app          # ~/Software/extensions/my-app
+workbench components create my-app --shared # 仓库 components/my-app
 workbench my-app install
 workbench my-app check
 ```
 
-生成的示例实际管理一个用户目录中的演示文件；将其 run.py 替换为你的安装逻辑即可。
-不需要修改核心注册表。平台专用入口、依赖、可选操作和组件协议见
-[架构与扩展](docs/architecture.md)，日常操作见 [使用说明](docs/workbench.md)。
+本机扩展与仓库组件使用相同 TOML 协议。默认示例分类为 cli，可直接修改标签。
+只接受当前 TOML 协议与独立软件命令，不保留旧聚合入口或 JSON 声明兼容。
 
-运行数据位于 `Software/data`，日志位于 `Software/logs`，备份位于 `Software/backups`，
-私人配置位于 `Software/config/local`。Emacs 包与缓存迁至 `Software/data/emacs`，
-通过本机链接接入配置。订阅和密钥不放入组件、配置仓库或安装方案。
-正式版仅使用上述目录、组件协议与命令结构，不保留旧版兼容入口。
+软件保存在 `Software/apps`，运行数据在 `Software/data`，日志在 `Software/logs`，
+私人配置在 `Software/config/local`，订阅在仓库外。Emacs 包和缓存位于 `Software/data/emacs`。
+开发检出可以放在 Software 外，通过 `Software/config/workbench` 接入。
 
-源码包可用 `python3 libexec/export-source.py /path/workbench-source.tar.gz` 生成，
-只包含安装代码与共享配置，不包含运行数据和私人设置。源码包支持 apply/install；Git update 需要 Git checkout。
+更多说明：[架构](docs/architecture.md)、[日常操作](docs/workbench.md)、[配置同步](docs/sync.md)。
+源码导出：`python3 libexec/export-source.py /path/workbench-source.tar.gz`；导出包不含运行数据和私人设置。

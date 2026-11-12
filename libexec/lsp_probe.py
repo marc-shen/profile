@@ -64,12 +64,17 @@ def probe(command, timeout=30):
             detail = errors.read(4000).decode(errors='replace')
             raise RuntimeError('LSP probe failed for %s: %s\n%s' % (command[0], error, detail)) from error
         finally:
-            # Only this probe's own process group, never any running Emacs/LSP.
-            try: os.killpg(process.pid, signal.SIGTERM)
-            except ProcessLookupError: pass
-            try: process.wait(timeout=2)
-            except sp.TimeoutExpired:
-                os.killpg(process.pid, signal.SIGKILL); process.wait()
+            # A reaped PID/group may already have been reused. Only signal a live child.
+            if process.poll() is None:
+                try: os.killpg(process.pid, signal.SIGTERM)
+                except ProcessLookupError: pass
+                except PermissionError: process.terminate()
+                try: process.wait(timeout=2)
+                except sp.TimeoutExpired:
+                    try: os.killpg(process.pid, signal.SIGKILL)
+                    except ProcessLookupError: pass
+                    except PermissionError: process.kill()
+                    process.wait()
             thread.join(timeout=2)
             process.stdin.close()
             process.stdout.close()

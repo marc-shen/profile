@@ -1,3 +1,5 @@
+> 历史版本记录；当前命令与安装方式以 README 和 docs/workbench.md 为准。
+
 # 历史版本参考（以 README.md 与 architecture.md 为准）
 
 # profile
@@ -195,7 +197,7 @@ workbench profile update   # 拉取、部署、补齐缺失依赖并检查
 
 部署会更新链接、命令入口、Mac Dock 应用及服务定义，记录本机上次部署状态并验证链接；不会重启正在编辑的 Emacs。默认补装缺失工具、插件和语言服务；只部署配置可用 `--config-only`。剩余缺失依赖（例如 Emacs 本体）退出码为 2。重新加载方式、备份和日志见[完整同步流程](docs/sync.md)。
 
-软件升级独立执行，例如 `workbench languages update` 或 `workbench tools update fd`。`workbench profile update` 只做 Git 快进同步和配置部署；完整环境升级须显式执行 `workbench system update`，在 Linux 会编译 Emacs。
+软件升级独立执行，例如 `workbench languages update` 或 `workbench fd update`。`workbench profile update` 只做 Git 快进同步和配置部署；完整环境升级须显式执行 `workbench system update`，在 Linux 会编译 Emacs。
 
 ## 共享安装与限制
 
@@ -210,7 +212,7 @@ sudo ~/Software/bin/workbench profile install --scope system --prefix /opt/Softw
 
 ## 扩展管理命令
 
-日常入口为 `workbench <模块> <操作>`，例如 `workbench tools update fd`、
+日常入口为 `workbench <模块> <操作>`，例如 `workbench fd update`、
 `workbench profile apply`、`workbench network mihomo update`。`workbench list` 列出模块，
 `workbench <模块> --help` 显示用途和操作；Tab 动态补全新模块及其声明的操作。
 

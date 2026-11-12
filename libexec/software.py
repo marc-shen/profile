@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Versioned installs: latest compatible stable versions, recorded locks, explicit updates."""
+import sys
 import argparse, datetime, hashlib, json, os, platform, shlex, shutil, subprocess as sp, tarfile
 from pathlib import Path
 REPO=Path(__file__).resolve().parents[1]
@@ -34,7 +35,12 @@ def receipt(app,data):
  data.update(installed_at=STAMP,platform=host_platform())
  (app/'receipt.json').write_text(json.dumps(data,indent=2)+'\n')
 def manager(root,name):
- upstream={'pixi':'prefix-dev/pixi','uv':'astral-sh/uv'}[name]
+ if sys.version_info >= (3,12):
+  from config_data import read
+  upstream=read(REPO/'providers'/(name+'.toml'))['repository']
+ else:
+  # Seed only: acquire uv before Python 3.12/TOML is available.
+  upstream={'uv':'astral-sh/uv'}[name]
  metadata=root/'downloads'/(name+'-latest.json')
  if not os.environ.get('PROFILE_USE_RELEASE_CACHE'):
   fetch('https://api.github.com/repos/'+upstream+'/releases/latest',metadata)
@@ -163,6 +169,7 @@ def main():
  if args.action in ['managers','update']:
   for name in (args.names if args.action=='managers' and args.names else ['pixi','uv']):manager(root,name)
  if args.action in ['tools','update']:
-  specs=json.loads((REPO/'catalog/tools.json').read_text())
+  from config_data import tool_specs
+  specs=tool_specs(REPO)
   for name in (args.names or specs):tool(root,name,specs[name],args.reinstall)
 if __name__=='__main__':main()

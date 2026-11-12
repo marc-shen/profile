@@ -1,7 +1,0 @@
-{
-  "schema": 1,
-  "name": "debian",
-  "package_manager": "apt",
-  "readonly_root": false,
-  "native_dependencies": "packages.txt"
-}

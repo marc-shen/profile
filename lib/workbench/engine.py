@@ -28,11 +28,20 @@ def plan(components, name, action, args, repo, root, platform, dependencies=True
         raise RuntimeError(name + ': unsupported action ' + action)
     names = order(components, [name]) if dependencies and action in ('install', 'update') else [name]
     steps = []
+    providers = set()
     for item in names:
         operation = action if item == name else 'install'
         component = components[item]
         if operation not in component['actions'] or not supported(component, operation, platform):
             raise RuntimeError(f'{item} {operation} is not supported on {platform}')
+        if operation in ('install', 'update'):
+            installation = component.get('install', {})
+            needed = [installation.get('provider')] + installation.get('providers', []) + installation.get('providers_by_platform', {}).get(platform, [])
+            for provider in needed:
+                if provider not in ('pixi', 'uv') or provider in providers: continue
+                providers.add(provider)
+                steps.append(dict(component='providers', action='install',
+                                  command=command(components['providers'], 'install', [provider], repo, root, platform)))
         arguments = args if item == name else []
         steps.append(dict(component=item, action=operation,
                           command=command(component, operation, arguments, repo, root, platform)))
@@ -56,6 +65,10 @@ def execute(steps, repo, root, platform):
     env = dict(os.environ, SOFTWARE_HOME=str(root), SOFTWARE_USER_HOME=str(root),
                WORKBENCH_HOME=str(repo), PROFILE_PLATFORM=platform, PROFILE_PYTHON=sys.executable,
                PYTHONDONTWRITEBYTECODE='1')
+    for variable, relative in [('UV_TOOL_DIR', 'data/uv/tools'), ('UV_TOOL_BIN_DIR', 'bin'),
+                               ('UV_PYTHON_INSTALL_DIR', 'data/uv/python'), ('UV_CACHE_DIR', 'cache/uv'),
+                               ('PIXI_CACHE_DIR', 'cache/pixi')]:
+        env[variable] = str(root / relative)
     env['PYTHONPATH'] = str(repo / 'lib') + os.pathsep + env.get('PYTHONPATH', '')
     env['PATH'] = str(root / 'bin') + os.pathsep + env.get('PATH', os.defpath)
     if platform == 'macos': env['PATH'] = str(root / 'bin') + ':/opt/homebrew/bin:/usr/local/bin:' + env['PATH']

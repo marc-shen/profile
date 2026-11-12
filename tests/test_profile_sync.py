@@ -10,6 +10,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'libexec'))
 SOURCE = Path(__file__).resolve().parents[1]
 
 class SyncTests(unittest.TestCase):
@@ -19,7 +21,7 @@ class SyncTests(unittest.TestCase):
         self.home = base / 'home'; self.home.mkdir()
         self.repo = base / 'repo'; self.repo.mkdir()
         self.root = self.home / 'Software'
-        for name in ['libexec', 'lib', 'bin', 'components', 'docs', 'config/helix', 'config/shell']:
+        for name in ['libexec', 'lib', 'bin', 'commands', 'providers', 'catalog', 'docs', 'config/helix', 'config/shell']:
             shutil.copytree(SOURCE / name, self.repo / name)
         shutil.copy2(SOURCE / 'bootstrap.sh', self.repo / 'bootstrap.sh')
         self.env = dict(os.environ, HOME=str(self.home), SOFTWARE_HOME=str(self.root),
@@ -157,7 +159,7 @@ class NodeDependencyTests(unittest.TestCase):
     def test_pixi_and_unmanaged_node_do_not_satisfy_nvm_requirement(self):
         spec = importlib.util.spec_from_file_location('profile_sync', SOURCE / 'libexec/profile-sync.py')
         sync = importlib.util.module_from_spec(spec); spec.loader.exec_module(sync)
-        node = json.loads((SOURCE / 'catalog/tools.json').read_text())['node']
+        node = sync.tool_specs(SOURCE)['node']
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             current = root / 'apps/node/current'; current.mkdir(parents=True)

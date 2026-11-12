@@ -11,6 +11,7 @@ from pathlib import Path
 import shutil
 import subprocess as sp
 import sys
+from config_data import tool_specs, language_specs, plugin_sources, specifications
 
 REPO = Path(__file__).resolve().parents[1]
 SCOPES = ('shell', 'emacs', 'helix', 'network')
@@ -35,7 +36,7 @@ def snapshot():
     if (REPO / '.git').exists():
         paths = sp.check_output(['git', '-C', str(REPO), 'ls-files', '-co', '--exclude-standard', '-z']).split(b'\0')
     else:
-        source_roots = {'bin','lib','libexec','components','profiles','platforms','config','catalog','examples','docs','tests','bootstrap.sh','install.sh','README.md'}
+        source_roots = {'bin','lib','libexec','commands','providers','components','profiles','platforms','config','catalog','examples','docs','tests','bootstrap.sh','install.sh','README.md'}
         paths = [os.fsencode(str(path.relative_to(REPO))) for path in REPO.rglob('*')
                  if path.relative_to(REPO).parts[0] in source_roots and not path.is_symlink() and '__pycache__' not in path.parts]
 
@@ -54,12 +55,12 @@ def snapshot():
 
 def scope_files(files, scope):
     prefixes = {
-        'shell': ('config/shell/', 'config/starship/', 'config/wezterm/', 'catalog/zsh-plugins', 'catalog/tools'),
-        'emacs': ('config/emacs/', 'platforms/', 'catalog/language-servers', 'catalog/uv-tools', 'catalog/tools'),
-        'helix': ('config/helix/', 'catalog/language-servers'),
-        'network': ('platforms/steamdeck/network/', 'catalog/deck-network', 'catalog/mihomo', 'docs/steamdeck-network', 'docs/steamdeck-mihomo'),
+        'shell': ('config/shell/', 'config/starship/', 'config/wezterm/'),
+        'emacs': ('config/emacs/', 'platforms/'),
+        'helix': ('config/helix/',),
+        'network': ('platforms/steamdeck/network/', 'docs/steamdeck-network', 'docs/steamdeck-mihomo'),
     }
-    return {k: v for k, v in files.items() if k.startswith(('bin/', 'lib/', 'libexec/', 'components/', 'profiles/', 'platforms/', 'bootstrap.sh') + prefixes[scope])}
+    return {k: v for k, v in files.items() if k.startswith(('bin/', 'lib/', 'libexec/', 'commands/', 'providers/', 'components/', 'profiles/', 'platforms/', 'bootstrap.sh') + prefixes[scope])}
 
 def changed_files(old, new):
     return sorted(k for k in old.keys() | new.keys() if old.get(k) != new.get(k))
@@ -72,8 +73,10 @@ def missing_dependencies(root, scopes):
     for name in ('pixi', 'uv'):
         if scopes != ['network'] and not os.access(root / 'bin' / name, os.X_OK): missing['managers'].append(name)
     if any(scope in scopes for scope in ('shell', 'helix', 'emacs')):
-        for name, spec in read_json(REPO / 'catalog/tools.json', {}).items():
-            if 'shell' not in scopes and not (name == 'helix' and 'helix' in scopes or name == 'node' and 'emacs' in scopes): continue
+        software = specifications(REPO)
+        for name, spec in tool_specs(REPO).items():
+            wanted = ('shell' in scopes and software[name]['category'] in ('cli', 'terminal')) or (name == 'helix' and 'helix' in scopes) or (name == 'node' and 'emacs' in scopes)
+            if not wanted: continue
             absent = any(not executable(root, c) for c in spec['commands'])
             if spec.get('backend') == 'nvm':
                 installed = read_json(root / 'apps/node/current/receipt.json', {})
@@ -84,12 +87,10 @@ def missing_dependencies(root, scopes):
                               for c in spec['commands'])
             if absent: missing['tools'].append(name)
     if 'shell' in scopes:
-        for line in (REPO / 'catalog/zsh-plugins.sources').read_text().splitlines():
-            if line.strip() and not line.startswith('#'):
-                name = line.split()[0]
-                if not (root / 'share/zsh/plugins' / name / '.git').exists(): missing['plugins'].append(name)
+        for name in plugin_sources(REPO):
+            if not (root / 'share/zsh/plugins' / name / '.git').exists(): missing['plugins'].append(name)
     if 'emacs' in scopes or 'helix' in scopes:
-        for name, spec in read_json(REPO / 'catalog/language-servers.json', {}).items():
+        for name, spec in language_specs(REPO).items():
             if any(not executable(root, c) for c in spec['commands']): missing['languages'].append(name)
     if 'emacs' in scopes:
         if not executable(root, 'emacsclient'): missing['native'].append('Emacs (run workbench emacs install runtime)')
@@ -151,7 +152,7 @@ def install_missing(root, scopes, runner):
         runner.run('install missing tools', [sys.executable, REPO / 'libexec/software.py', 'tools', *missing['tools']])
     if missing['plugins']:
         runner.run('install missing plugins', [sys.executable, REPO / 'libexec/plugins.py', '--missing-only'])
-    if ('emacs' in scopes or 'helix' in scopes) and (REPO / 'catalog/language-servers.json').exists():
+    if ('emacs' in scopes or 'helix' in scopes) and bool(language_specs(REPO)):
         # Recheck existing servers too: a previous install may have created its
         # executable but failed verification. Never mistake that for recovery.
         runner.run('install missing and verify language servers', [sys.executable, REPO / 'libexec/language-servers.py', 'install', '--probe'])

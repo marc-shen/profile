@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 import time
 import unittest
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('lsp_probe', Path(__file__).resolve().parents[1] / 'libexec/lsp_probe.py')
 probe_module = importlib.util.module_from_spec(spec); spec.loader.exec_module(probe_module)
@@ -33,6 +34,12 @@ class ProbeTests(unittest.TestCase):
     def test_initialize_and_shutdown(self):
         result = probe_module.probe([sys.executable, '-u', '-c', SERVER, 'ok'], timeout=2)
         self.assertEqual(result, {'name': 'test-server'})
+    def test_success_does_not_signal_an_already_reaped_process_group(self):
+        with patch.object(probe_module.os, 'killpg', side_effect=PermissionError) as signal_group:
+            result = probe_module.probe([sys.executable, '-u', '-c', SERVER, 'ok'], timeout=2)
+        self.assertEqual(result['name'], 'test-server')
+        signal_group.assert_not_called()
+
     def test_invalid_capabilities_fail(self):
         with self.assertRaisesRegex(RuntimeError, 'capabilities'):
             probe_module.probe([sys.executable, '-u', '-c', SERVER, 'invalid'], timeout=2)

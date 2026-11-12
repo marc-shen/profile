@@ -1,0 +1,22 @@
+schema = 1
+name = "example"
+description = "示例：管理用户目录中的文件"
+platforms = ["macos", "steamdeck", "fedora", "ubuntu", "debian"]
+requires = []
+entrypoint = ["{python}", "{component}/run.py"]
+category = "cli"
+tags = []
+
+[actions]
+
+[actions.list]
+description = "列出示例文件"
+
+[actions.check]
+description = "检查文件"
+
+[actions.install]
+description = "创建缺失文件"
+
+[actions.update]
+description = "更新文件"

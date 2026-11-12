@@ -17,7 +17,7 @@ class DeploymentTests(unittest.TestCase):
         self.home.mkdir()
         self.repo = self.base / 'repo with spaces'
         self.repo.mkdir()
-        for name in ['libexec', 'docs', 'config/helix', 'config/shell', 'platforms']:
+        for name in ['libexec', 'lib', 'catalog', 'docs', 'config/helix', 'config/shell', 'platforms']:
             shutil.copytree(SOURCE / name, self.repo / name)
         for name in ['config/starship', 'config/wezterm']:
             shutil.copytree(SOURCE / name, self.repo / name)
