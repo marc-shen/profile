@@ -292,10 +292,14 @@ def mirror_action(action, args, repo, root, platform):
         if not site or state['site'] not in settings['priority']:
             console.status('PENDING', '镜像策略已更新；运行 workbench mirrors apply ' + target, 'warn'); return 2
         if target == 'flatpak':
+            if any(url != site['flatpak'] for url in state['applied'].values()):
+                console.status('PENDING', '镜像入口已更新；运行 workbench mirrors apply ' + target, 'warn'); return 2
             probe(site['flatpak'] + '/config', 'flatpak'); probe(site['flatpak'] + '/summary.idx', 'summary')
         else:
             release, arch = fedora_identity() if target == 'dnf' else (None, None)
-            _, _, urls = native_changes(target, site, settings, release=release, arch=arch)
+            before, after, urls = native_changes(target, site, settings, release=release, arch=arch)
+            if before != after:
+                console.status('PENDING', '镜像入口已更新；运行 workbench mirrors apply ' + target, 'warn'); return 2
             for url in urls: probe(url, target)
         console.status('OK', target + ': ' + site['name'], 'ok'); return 0
     if action not in ('apply', 'install', 'update'): raise RuntimeError('Unknown mirror action')

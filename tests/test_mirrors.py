@@ -163,6 +163,13 @@ class MirrorsTests(unittest.TestCase):
             with patch.object(mirrors, 'flatpak_remotes', return_value={'system': 'old'}):
                 self.assertEqual(mirrors.mirror_action('check', ['flatpak'], REPO, root, 'steamdeck'), 2)
 
+    def test_unprefixed_cernet_configuration_needs_reapply(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); old = {'system': 'https://mirrors.cernet.edu.cn/flathub'}
+            mirrors.save(root/'data/mirrors/flatpak.json', {'site': 'cernet', 'applied': old})
+            with patch.object(mirrors, 'flatpak_remotes', return_value=old):
+                self.assertEqual(mirrors.mirror_action('check', ['flatpak'], REPO, root, 'steamdeck'), 2)
+
     def test_all_candidates_offline_make_no_changes(self):
         with tempfile.TemporaryDirectory() as tmp, patch.object(mirrors, 'flatpak_remotes', return_value={'system': 'official'}), \
              patch.object(mirrors, 'probe', side_effect=OSError('offline')), patch.object(mirrors, 'write_flatpak') as writer:
