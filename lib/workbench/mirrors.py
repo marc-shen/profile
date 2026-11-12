@@ -267,6 +267,8 @@ def mirror_action(action, args, repo, root, platform):
         if target != 'flatpak': call(['sudo', '-v'])
         restore(root, target); return 0
     if action == 'check':
+        if (root / 'data/mirrors' / (target + '.pending.json')).exists():
+            console.status('PENDING', '换源中断；先运行 workbench mirrors restore ' + target, 'warn'); return 2
         path = root / 'data/mirrors' / (target + '.json')
         if not path.exists(): console.status('MISSING', target + ' 尚未换源', 'warn'); return 2
         state = json.loads(path.read_text())

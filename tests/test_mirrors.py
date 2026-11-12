@@ -87,6 +87,26 @@ class MirrorsTests(unittest.TestCase):
                 mirrors.restore(root, 'flatpak')
             self.assertEqual(state, {'system': 'official'})
 
+    def test_denied_authorization_does_not_retry_unchanged_url_during_rollback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            with patch.object(mirrors, 'write_flatpak', side_effect=subprocess.CalledProcessError(1, ['flatpak'])) as writer:
+                with self.assertRaises(subprocess.CalledProcessError):
+                    mirrors.transaction(root, 'flatpak', {'system': 'official'}, {'system': 'mirror'},
+                                        'ustc', writer, lambda *_: None, lambda: {'system': 'official'})
+                self.assertEqual(writer.call_count, 1)
+            self.assertFalse((root/'data/mirrors/flatpak.pending.json').exists())
+
+    def test_interrupted_transaction_reports_pending_and_can_restore(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); state = {'system': 'partial'}
+            mirrors.save(root/'data/mirrors/flatpak.pending.json', {'before': {'system': 'official'}})
+            self.assertEqual(mirrors.mirror_action('check', ['flatpak'], REPO, root, 'steamdeck'), 2)
+            with patch.object(mirrors, 'flatpak_remotes', return_value=dict(state)), \
+                 patch.object(mirrors, 'write_flatpak', side_effect=lambda k, v: state.update({k: v})):
+                mirrors.restore(root, 'flatpak')
+            self.assertEqual(state, {'system': 'official'})
+
     def test_probe_rejects_captive_portal_html(self):
         class Reply:
             status = 200
