@@ -21,7 +21,10 @@
       "description": "列出对象与本机状态"
     },
     "check": {
-      "description": "检查配置和安装状态"
+      "description": "检查配置和安装状态",
+      "options": {
+        "--probe": "验证语言服务器的 LSP initialize/shutdown 协议"
+      }
     },
     "install": {
       "description": "补齐缺失项目，保留已有安装"

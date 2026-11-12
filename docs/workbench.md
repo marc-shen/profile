@@ -32,3 +32,20 @@ system update 会更新原生组件，Linux 上可能重新编译 Emacs；日常
 
 公开入口是 bin/workbench；libexec 下的文件属于后端实现，不作为新的日常命令推广。
 扩展直接放 Software/extensions，公共功能放 components；不再使用 manage.d。
+
+## 终端输出
+
+终端中自动启用配色，列表按中英文显示宽度对齐；步骤使用 `[1/3]`、
+`[OK]`、`[PENDING]`、`[FAIL]` 等标记，颜色之外也能辨别状态。
+帮助中的 `<参数>` 表示必填，`[参数]` 表示可选，`...` 表示可重复。
+例如 `workbench components create <name> [--shared]`。
+
+重定向、管道、`TERM=dumb` 或设置 `NO_COLOR` 时不输出颜色；
+`--json` 和补全数据始终保持机器可读。安装日志会移除 ANSI 颜色控制码。
+
+```sh
+workbench --help
+workbench profile apply --help
+NO_COLOR=1 workbench list
+workbench tools update fd --plan --json
+```

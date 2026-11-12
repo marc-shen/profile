@@ -24,10 +24,16 @@
       "description": "检查配置和安装状态"
     },
     "install": {
-      "description": "补齐缺失项目，保留已有安装"
+      "description": "补齐缺失项目，保留已有安装",
+      "options": {
+        "--reinstall": "重新安装选中的工具"
+      }
     },
     "update": {
-      "description": "显式更新已选择的项目"
+      "description": "显式更新已选择的项目",
+      "options": {
+        "--reinstall": "重新安装选中的工具"
+      }
     }
   },
   "targets": {

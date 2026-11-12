@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 from .registry import order, supported
+from .ui import Console, ANSI
 
 READ_ONLY = {'list', 'check', 'status', 'logs', 'plan', 'show'}
 
@@ -51,6 +52,7 @@ def lock(root):
 
 
 def execute(steps, repo, root, platform):
+    console = Console()
     env = dict(os.environ, SOFTWARE_HOME=str(root), SOFTWARE_USER_HOME=str(root),
                WORKBENCH_HOME=str(repo), PROFILE_PLATFORM=platform, PROFILE_PYTHON=sys.executable,
                PYTHONDONTWRITEBYTECODE='1')
@@ -58,7 +60,15 @@ def execute(steps, repo, root, platform):
     env['PATH'] = str(root / 'bin') + os.pathsep + env.get('PATH', os.defpath)
     if platform == 'macos': env['PATH'] = str(root / 'bin') + ':/opt/homebrew/bin:/usr/local/bin:' + env['PATH']
     if all(step['action'] in READ_ONLY for step in steps):
-        codes = [subprocess.run(step['command'], env=env).returncode for step in steps]
+        codes = []
+        for index, step in enumerate(steps, 1):
+            if len(steps) > 1:
+                console.status(f'{index}/{len(steps)}', step['component'] + ' ' + step['action'], 'key')
+            code = subprocess.run(step['command'], env=env).returncode
+            codes.append(code)
+            if step['action'] == 'check':
+                console.status('OK' if code == 0 else 'PENDING' if code == 2 else 'FAIL',
+                               step['component'] + ' check', 'ok' if code == 0 else 'warn' if code == 2 else 'error')
         return max((code if code >= 0 else 128 - code for code in codes), default=0)
     if os.geteuid() == 0:
         raise RuntimeError('Run as the target user; platform installers request sudo only where needed.')
@@ -78,8 +88,8 @@ def execute(steps, repo, root, platform):
         try:
             with log.open('w') as stream:
                 log.chmod(0o600)
-                for step in steps:
-                    print(f'-> {step["component"]} {step["action"]}', flush=True)
+                for index, step in enumerate(steps, 1):
+                    console.status(f'{index}/{len(steps)}', step['component'] + ' ' + step['action'], 'key')
                     # Do not store arbitrary arguments: they may contain private URLs/tokens.
                     progress = dict(component=step['component'], action=step['action'], status='running')
                     record['steps'].append(progress); save()
@@ -87,19 +97,25 @@ def execute(steps, repo, root, platform):
                                                stderr=subprocess.STDOUT, text=True)
                     try:
                         for line in process.stdout:
-                            print(line, end='', flush=True); stream.write(line); stream.flush()
+                            print(line if console.color else ANSI.sub('', line), end='', flush=True)
+                            stream.write(ANSI.sub('', line)); stream.flush()
                         code = process.wait()
                     finally:
                         process.stdout.close()
                         if process.poll() is None:
                             process.terminate(); process.wait()
                     progress.update(returncode=code, status='ok' if code == 0 else 'failed')
+                    console.status('OK' if code == 0 else 'PENDING' if code == 2 else 'FAIL',
+                                   step['component'] + ' ' + step['action'],
+                                   'ok' if code == 0 else 'warn' if code == 2 else 'error')
                     if code:
                         record['status'] = 'pending' if code == 2 else 'failed'; save()
-                        print('Stopped at this step; rerun the same command after resolving it. Log:', log)
+                        console.print('已停止。解决问题后可重跑同一命令。')
+                        console.table([('日志', log)])
                         return code
             record['status'] = 'ok'; save()
-            print('Completed. Run record:', receipt)
+            console.status('DONE', str(len(steps)) + ' 个步骤完成', 'ok')
+            console.table([('运行记录', receipt)])
             return 0
         except BaseException:
             record['status'] = 'interrupted'; save()

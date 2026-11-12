@@ -8,6 +8,8 @@ import platform
 import sys
 
 REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO / 'lib'))
+from workbench.ui import Console
 
 
 def main(argv=None):
@@ -26,6 +28,7 @@ def main(argv=None):
     if set(args.names) - specs.keys():
         parser.error('Unknown item: ' + ', '.join(sorted(set(args.names) - specs.keys())))
     failed = False
+    rows = []
     for name in args.names or specs:
         commands = [root / 'bin' / command for command in specs[name]['commands']]
         if name == 'wezterm' and platform.system() == 'Darwin':
@@ -33,9 +36,10 @@ def main(argv=None):
         missing = [p.name for p in commands if not os.access(p, os.X_OK)]
         record = root / 'apps' / name / 'current/receipt.json'
         receipt = json.loads(record.read_text()) if record.is_file() else {}
-        state = ('MISSING: ' + ', '.join(missing)) if missing else 'available'
-        print(f'{name:14} {state:22} {receipt.get("version", "-")}  {commands[0]}')
+        state = ('[MISSING] ' + ', '.join(missing)) if missing else '[OK]'
+        rows.append((name, state + '  ' + str(receipt.get('version', '-')) + '\n' + str(commands[0])))
         failed |= bool(missing)
+    Console().table(rows)
     return int(failed and args.action == 'check')
 
 

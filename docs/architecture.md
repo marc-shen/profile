@@ -55,6 +55,10 @@
 `{python}`、`{repo}`、`{component}`、`{root}`、`{platform}`。
 环境提供 SOFTWARE_HOME、SOFTWARE_USER_HOME、WORKBENCH_HOME、PROFILE_PLATFORM、PROFILE_PYTHON。
 
+帮助可通过组件或操作中的 `arguments` 字符串声明参数，如 `[<target>]`；
+操作中的 `options` 是选项语法到说明的映射，如 `{"--shared":"创建共享组件"}`。
+这些字段用于帮助展示，参数的执行校验仍由入口负责。
+
 entrypoints 可按平台覆盖默认入口；单个 action 也可声明 platforms 与 targets。
 对象可用静态列表，或 `{"catalog":"catalog/tools.json"}` 从本地 JSON 键读取。
 帮助、列表、Tab 只读取声明，不导入或执行第三方组件代码。

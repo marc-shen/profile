@@ -3,13 +3,12 @@ import json
 from pathlib import Path
 import shutil
 from .registry import discover, NAME, RESERVED
-from .platforms import SUPPORTED
+from .ui import Console
 
 
 def component_action(action, args, repo, root):
     if action in ('list', 'check'):
-        for name, spec in discover(repo, root).items():
-            print(name + ': ' + str(spec['_directory']))
+        Console().table([(name, spec['_directory']) for name, spec in discover(repo, root).items()])
         return 0
     if action != 'create' or not args or len(args) > 2 or (len(args) == 2 and args[1] != '--shared'):
         raise RuntimeError('Usage: workbench components create NAME [--shared] (default: local extension)')
@@ -27,6 +26,6 @@ def component_action(action, args, repo, root):
     spec = json.loads((template / 'component.json').read_text())
     spec['name'] = name
     (path / 'component.json').write_text(json.dumps(spec, ensure_ascii=False, indent=2) + '\n')
-    print('Created:', path)
+    Console().status('CREATED', str(path), 'ok')
     print('Edit component.json and run.py. Immediately available in help and Tab completion.')
     return 0

@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 from . import __version__
 from . import engine, registry
+from .ui import Console, component_help, notation, ArgumentParser
 from .platforms import detect, SUPPORTED
 
 REPO = Path(__file__).resolve().parents[2]
@@ -54,16 +55,23 @@ def workflow(components, action, args, repo, root, platform):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(prog='workbench', description=__doc__)
-    parser.add_argument('--prefix', type=Path, default=Path(os.environ.get('SOFTWARE_HOME', str(Path.home() / 'Software'))))
-    parser.add_argument('--platform', choices=SUPPORTED, help='Preview another platform; execution on a different host is refused')
+    parser = ArgumentParser(prog='workbench', add_help=False, formatter_class=argparse.RawDescriptionHelpFormatter,
+        usage='workbench [options] [list]\n       workbench [options] <component> <action> [<target> ...]',
+        description='跨平台工作站管理。无参数或 list 列出组件；<参数> 必填，[参数] 可选，... 可重复。',
+        epilog='示例：\n  workbench tools list\n  workbench tools update fd --plan\n  workbench components create my-app')
+    parser._positionals.title = '位置参数'
+    parser._optionals.title = '选项'
+    parser.add_argument('-h', '--help', action='help', help='显示帮助')
+    parser.add_argument('--prefix', type=Path, metavar='<dir>', help='Software 安装目录（放在组件名前）', default=Path(os.environ.get('SOFTWARE_HOME', str(Path.home() / 'Software'))))
+    parser.add_argument('--platform', choices=SUPPORTED, metavar='<platform>', help='预览平台：macos|steamdeck|fedora|ubuntu|debian；跨平台仅支持 --plan')
     parser.add_argument('--complete', choices=['components', 'actions', 'targets'], help=argparse.SUPPRESS)
-    parser.add_argument('--version', action='version', version=__version__)
-    parser.add_argument('--json', action='store_true', help='Structured list/plan output')
-    parser.add_argument('--plan', action='store_true', help='Resolve commands without executing or writing')
-    parser.add_argument('component', nargs='?')
-    parser.add_argument('args', nargs=argparse.REMAINDER)
+    parser.add_argument('--version', action='version', version=__version__, help='显示版本')
+    parser.add_argument('--json', action='store_true', help='组件列表或 --plan 使用 JSON 输出')
+    parser.add_argument('--plan', action='store_true', help='仅预览，不执行或写入')
+    parser.add_argument('component', nargs='?', help='组件名称；list 列出全部组件')
+    parser.add_argument('args', nargs=argparse.REMAINDER, help='<action> [<target> ...] [options]')
     args = parser.parse_args(argv)
+    console = Console()
     try:
         root = args.prefix.expanduser().resolve()
         host = detect()
@@ -89,28 +97,27 @@ def main(argv=None):
             if as_json:
                 print(json.dumps(data, ensure_ascii=False, indent=2))
             else:
-                print('workbench ' + __version__ + ' — ' + platform)
-                for item in data:
-                    print(f'{item["name"]:16} {item["description"]}' + ('' if item['available'] else ' [not available on this platform]'))
-                    print('                 ' + ' '.join(item['actions']))
+                console.title('workbench ' + __version__ + '  /  ' + platform)
+                console.print('用法：workbench <component> <action> [<target> ...] [options]')
+                console.print()
+                console.table([(item['name'], item['description'] +
+                                ('' if item['available'] else ' [当前平台不可用]') + '\n' +
+                                ' '.join(item['actions'])) for item in data])
+                console.print()
+                notation(console)
+                console.print('帮助：workbench <component> --help；详细参数：workbench <component> <action> --help')
             return 0
         if args.component not in components:
             raise RuntimeError('Unknown component: ' + args.component + '; run workbench list')
         spec = components[args.component]
         if not rest or rest[0] in ('help', '-h', '--help'):
-            print(f'workbench {args.component} ACTION [TARGET ...] [--plan]\n{spec["description"]}\nPlatforms: ' + ', '.join(spec['platforms']))
-            for action, info in spec['actions'].items():
-                print(f'  {action:12} {info["description"]}')
+            component_help(console, args.component, spec)
             return 0
         action, tail = rest[0], rest[1:]
         if action not in spec['actions']:
             raise RuntimeError('Unsupported action: ' + action + '; choose ' + ', '.join(spec['actions']))
         if any(a in ('-h', '--help') for a in tail):
-            print(f'workbench {args.component} {action} [TARGET ...] [--plan]\n' + spec['actions'][action]['description'])
-            choices = registry.targets(spec, action, REPO)
-            if choices:
-                print('Targets: ' + ' '.join(choices))
-            print('Options: --plan (read-only command plan); ' + spec['actions'][action].get('options', ''))
+            component_help(console, args.component, spec, action, registry.targets(spec, action, REPO))
             return 0
         choices = registry.targets(spec, action, REPO)
         positional = tail[:next((i for i, arg in enumerate(tail) if arg.startswith('-')), len(tail))]
@@ -125,12 +132,16 @@ def main(argv=None):
                 print(json.dumps(dict(platform=platform, prefix=str(root), steps=steps), ensure_ascii=False, indent=2))
             else:
                 import shlex
-                for step in steps:
-                    print(f'{step["component"]:16} {step["action"]:10} ' + shlex.join(step['command']))
+                console.status('PLAN', str(len(steps)) + ' 个步骤；未执行', 'warn')
+                rows = []
+                for index, step in enumerate(steps, 1):
+                    rows.extend([(str(index) + '. ' + step['component'], step['action']),
+                                 ('', shlex.join(step['command']))])
+                console.table(rows)
             return 0
         if platform != host:
             raise RuntimeError('--platform may only target another OS with --plan; actual host is ' + host)
         return engine.execute(steps, REPO, root, platform)
     except (RuntimeError, OSError, ValueError, KeyError) as error:
-        print('workbench:', error, file=sys.stderr)
+        Console(sys.stderr).status('ERROR', str(error), 'error')
         return 1

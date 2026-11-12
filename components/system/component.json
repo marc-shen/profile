@@ -16,7 +16,8 @@
   ],
   "actions": {
     "list": {
-      "description": "列出可用安装方案"
+      "description": "列出可用安装方案",
+      "arguments": ""
     },
     "install": {
       "description": "按依赖顺序部署完整方案"
@@ -30,5 +31,6 @@
   },
   "targets": {
     "directory": "profiles"
-  }
+  },
+  "arguments": "[<profile>]"
 }

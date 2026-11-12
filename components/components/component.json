@@ -22,7 +22,11 @@
       "description": "校验全部组件及依赖图"
     },
     "create": {
-      "description": "创建独立组件：NAME [--shared]"
+      "description": "创建独立组件",
+      "arguments": "<name>",
+      "options": {
+        "--shared": "创建到仓库 components/；默认创建到 ~/Software/extensions/"
+      }
     }
   }
 }

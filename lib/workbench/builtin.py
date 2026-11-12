@@ -6,6 +6,7 @@ import shutil
 import subprocess as sp
 import sys
 from .platforms import detect
+from .ui import Console
 
 REPO = Path(__file__).resolve().parents[2]
 ROOT = Path(os.environ.get('SOFTWARE_HOME', str(Path.home() / 'Software')))
@@ -92,9 +93,11 @@ def main(name, argv):
         from .scaffold import component_action
         return component_action(action, args, REPO, ROOT)
     if name == 'system':
+        rows = []
         for path in sorted((REPO / 'profiles').glob('*.json')):
             spec = json.loads(path.read_text())
-            print(path.stem + ': ' + spec['description'] + ' [' + ', '.join(spec['platforms']) + ']')
+            rows.append((path.stem, spec['description'] + '\n' + ', '.join(spec['platforms'])))
+        Console().table(rows)
         return 0
     if name == 'python-tools':
         sources = REPO / 'catalog/uv-tools.txt'

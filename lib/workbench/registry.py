@@ -29,6 +29,13 @@ def discover(repo, root):
             for action, info in actions.items():
                 if not isinstance(info, dict) or not isinstance(info.get('description'), str):
                     raise RuntimeError('Action requires a description: ' + str(path) + ' ' + action)
+            for info in [spec, *actions.values()]:
+                if 'arguments' in info and not isinstance(info['arguments'], str):
+                    raise RuntimeError('arguments must be a usage string: ' + str(path))
+                options = info.get('options', {})
+                if not isinstance(options, dict) or any(not isinstance(k, str) or not isinstance(v, str)
+                                                        for k, v in options.items()):
+                    raise RuntimeError('options must map option syntax to descriptions: ' + str(path))
             entry = spec.get('entrypoint')
             if not isinstance(entry, list) or not entry or any(not isinstance(x, str) for x in entry):
                 raise RuntimeError('entrypoint must be an argv array: ' + str(path))
