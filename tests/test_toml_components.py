@@ -69,6 +69,11 @@ class ComponentTests(unittest.TestCase):
             self.assertEqual((root / 'calls').read_text(), before)
             self.assertTrue((root / 'bin/python3').is_symlink())
             self.assertEqual((root / 'bin/python3').resolve(), Path(sys.executable).resolve())
+            self.assertFalse((root / 'apps/python/current/bin').is_symlink())
+            probe = subprocess.run([root / 'bin/python3', '-I', '-c',
+                                    'import sys; assert sys.exec_prefix == sys.prefix'],
+                                   capture_output=True, text=True, check=True)
+            self.assertEqual(probe.stderr, '')
             record = json.loads((root / 'apps/python/current/receipt.json').read_text())
             self.assertTrue(record['version'].startswith('3.12.'))
             self.assertEqual(record['backend'], 'uv')

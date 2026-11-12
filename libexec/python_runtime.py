@@ -17,12 +17,25 @@ def usable(path, exact=False):
                   stdout=sp.DEVNULL, stderr=sp.DEVNULL).returncode == 0
 
 
+def expose(root, app, binary):
+    # CPython resolves executable symlinks, but a symlinked parent directory can
+    # leave its Linux exec_prefix at the build-time /install location.
+    binary = binary.resolve()
+    directory = app / 'bin'
+    if directory.is_symlink(): directory.unlink()
+    directory.mkdir(parents=True, exist_ok=True)
+    for name in ('python', 'python3', 'python3.12'):
+        atomic_link(binary, directory / name, root)
+    atomic_link(app, root / 'apps/python/current', root)
+    for name in ('python', 'python3', 'python3.12'):
+        atomic_link(root / 'apps/python/current/bin' / name, root / 'bin' / name, root)
+
+
 def ensure(root, offline=False, update=False):
     root = root.expanduser().resolve()
     executable = root / 'apps/python/current/bin/python3'
     if usable(executable, exact=True) and not update:
-        for name in ('python', 'python3', 'python3.12'):
-            atomic_link(executable, root / 'bin' / name, root)
+        expose(root, (root / 'apps/python/current').resolve(), executable.resolve())
         return executable
     if offline:
         if usable(Path(sys.executable)): return Path(sys.executable)
@@ -38,9 +51,6 @@ def ensure(root, offline=False, update=False):
     version = sp.check_output([binary, '-I', '-c', 'import platform; print(platform.python_version())'], text=True).strip()
     app = root / 'apps/python' / version
     app.mkdir(parents=True, exist_ok=True)
-    atomic_link(binary.parent, app / 'bin', root)
     receipt(app, dict(name='python', version=version, backend='uv', runtime=str(binary)))
-    atomic_link(app, root / 'apps/python/current', root)
-    for name in ('python', 'python3', 'python3.12'):
-        atomic_link(executable, root / 'bin' / name, root)
+    expose(root, app, binary)
     return executable
