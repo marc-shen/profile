@@ -44,7 +44,8 @@ def probe(url, kind):
         destination = urllib.parse.urlsplit(response.url).hostname
         # CERNET is a dispatcher: member mirror redirects are its normal API.
         # Keep the original CERNET URL in configuration, never pin this result.
-        same_site = origin == 'mirrors.cernet.edu.cn' or origin == destination or any(
+        dispatcher = origin == 'mirrors.cernet.edu.cn' or origin.endswith('.mirrors.cernet.edu.cn')
+        same_site = dispatcher or origin == destination or any(
             origin.endswith('.' + domain) and destination.endswith('.' + domain)
             for domain in ('tsinghua.edu.cn', 'ustc.edu.cn', 'sjtu.edu.cn'))
         if not same_site:

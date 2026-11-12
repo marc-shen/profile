@@ -15,7 +15,8 @@ direct_domains = [
 ]
 
 [sites.cernet]
-name = "CERNET 教育网联合镜像"
-base = "https://mirrors.cernet.edu.cn"
-fedora = "https://mirrors.cernet.edu.cn/fedora"
-flatpak = "https://mirrors.cernet.edu.cn/flathub"
+# Labels are ordered from lower to higher preference; CERNET handles fallback.
+name = "CERNET 联合镜像（清华 → 科大 → 交大偏好）"
+base = "https://sjtug-ustc-tuna.mirrors.cernet.edu.cn"
+fedora = "https://sjtug-ustc-tuna.mirrors.cernet.edu.cn/fedora"
+flatpak = "https://sjtug-ustc-tuna.mirrors.cernet.edu.cn/flathub"
