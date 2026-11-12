@@ -71,3 +71,48 @@ Tailscale 的登录、exit node 和 302 状态不更改。
 
 节点切换通过核心 API 完成。专用 polkit 规则只授权指定用户对 `mihomo-tun`
 的 DNS 操作，没有授予任意 sudo 权限。
+
+## 限定范围的自动回退
+
+本机可使用 `~/Software/config/mihomo/fallbacks.toml` 添加独立的回退组。
+文件不提交 Git；订阅更新时按供应商组的最新成员重新生成，不复制订阅或节点凭据。
+例如当前 Deck 的游戏平台只在供应商的“香港节点”范围内自动回退：
+
+```toml
+schema = 1
+
+[[fallback]]
+name = "🎮 香港自动回退"
+source = "🇭🇰 香港节点"
+attach-to = "🎮 游戏平台"
+# 可选：填入范围内的具体节点名，作为第一优先级；只保存在本机。
+# preferred = "具体节点名"
+url = "https://api.steampowered.com/ISteamWebAPIUtil/GetServerInfo/v1/"
+interval = 180
+timeout = 8000
+```
+
+每 180 秒对组内节点执行 Steam API 的 HTTPS HEAD 检查，8 秒超时，要求 HTTP 200。
+按列表顺序选择首个健康节点，优先节点恢复后，新连接可以重新使用它。已有 TCP/UDP
+连接不能无缝迁移，断线时应用仍可能需要重连；这个检查也不保证具体游戏 UDP 链路可用。
+所有节点都失败时，不会扩大到其他地区或自动直连，业务仍可能失败。
+
+`preferred` 已不在最新供应商范围内时会被忽略；新节点按供应商顺序加入。
+目前支持源组的显式节点列表，不接受嵌套策略组、DIRECT 或动态 provider/filter
+作为范围。源组消失、范围为空或配置无效时停止更新并保留旧配置，不扩大范围。
+
+```sh
+# 合并本机配置并校验；不重启正在运行的服务
+workbench mihomo install
+# 应用刚生成的配置
+workbench mihomo restart
+workbench mihomo open
+```
+
+随后在“游戏平台”选择“香港自动回退”。首次设置需选择一次；后续日常订阅更新
+由 `store-selected` 保存选择。仅向游戏平台增加选项，不改变供应商香港组、
+全局“节点选择”或其他应用的选择；在网页上改回原香港组即可恢复手动选择。
+不要直接编辑生成的 `config.yaml`，下一次订阅更新会覆盖它。
+
+机制参考：[Mihomo fallback](https://wiki.metacubex.one/config/proxy-groups/fallback/)、
+[健康检查参数](https://wiki.metacubex.one/config/proxy-groups/)。

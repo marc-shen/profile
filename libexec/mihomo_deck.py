@@ -19,7 +19,7 @@ def compose(provider, root, address):
     config = copy.deepcopy(provider)
     if not isinstance(config, dict) or not config.get('rules') or not config.get('proxy-groups'):
         raise RuntimeError('Expected a complete Clash configuration with rules and proxy groups')
-    # The vendor retains ownership of proxy selection, rule order and groups.
+    # Preserve vendor routes and groups; opt-in local policies add scoped groups.
     bypass = [f'PROCESS-NAME,{p},DIRECT' for p in ('tailscaled','tailscale','steamcommunity_302.cli','steamcommunity_302.caddy','caddy')]
     mirrors = read_toml(REPO / 'catalog/mirrors.toml')['proxy']
     bypass += [f'DOMAIN-SUFFIX,{domain},DIRECT' for domain in mirrors['direct_domains']]
@@ -44,6 +44,10 @@ def compose(provider, root, address):
     dns.setdefault('nameserver-policy',{})['+.ts.net']='100.100.100.100'
     dns['fake-ip-filter']=list(dict.fromkeys(dns.get('fake-ip-filter',[])+['*.ts.net','*.tailscale.com','*.tailscale.io']))
     config.setdefault('profile',{})['store-selected']=True
+    policy = root/'config/mihomo/fallbacks.toml'
+    if policy.exists():
+        from mihomo_overrides import apply_fallbacks
+        apply_fallbacks(config, read_toml(policy))
     return config
 
 

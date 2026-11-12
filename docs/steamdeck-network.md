@@ -125,6 +125,9 @@ Steam 的 pressure-vessel 容器也信任它。2026-11-12 的实机排查中，S
 不把该标签视为所有域名都在国内或始终可以直连的保证。
 策略选择由 Mihomo `profile.store-selected` 保存，日常订阅更新保留该选择（组名不变时）。
 
+当前 Deck 为游戏平台单独添加了“🎮 香港自动回退”，成员从“🇭🇰 香港节点”生成，
+不再依赖全局“节点选择”的当前地区。具体配置见 [限定范围的自动回退](steamdeck-mihomo.md#限定范围的自动回退)。
+
 这解决的是已复现的客户端登录和更新冲突。其余保留的 302 功能仍依赖调用方的
 证书信任；若某个功能再次出现证书错误，单独停用对应的 302 规则并交给 Mihomo，
 不需要为此修改 Steam 容器。登录代理的可用性也取决于当前选定的节点。
@@ -147,3 +150,38 @@ workbench mihomo check
 所有订阅、节点、密钥和运行数据保存在仓库外。SteamOS 保持只读。
 系统服务及授权文件通过 `/etc/atomic-update.conf.d` 保留；系统重装后仍需
 重新部署。代理细节见 [Mihomo 说明](steamdeck-mihomo.md)。
+
+## 当前 Steam 网络路径
+
+下图描述当前 Deck 的配置。hosts 解析包括应用的系统解析，以及 systemd-resolved /
+Mihomo DNS 对系统 hosts 的读取。被 302 接管的域名会先落到本机，后续不会进入香港回退组。
+
+```mermaid
+flowchart TD
+    steam["Steam 客户端 / 网页 / 游戏"] --> hosts{"命中 302 hosts？"}
+    hosts -->|是| local302["127.0.0.1:80/443 · 302"]
+    local302 --> caddy["302 Caddy · 进程规则 DIRECT"]
+    caddy --> upstream["302 选定的上游/CDN"]
+    hosts -->|否| tun["Mihomo TUN · 订阅规则分流"]
+    tun --> cn["steam@cn · 全球直连 → DIRECT"]
+    tun --> services["其余 steam · 游戏平台"]
+    services --> hk["香港自动回退 · 仅香港组成员"]
+    hk --> remote["当前健康香港节点 → 目标服务"]
+    tun --> other["其他游戏目的地 · 其余订阅规则"]
+    cn --> direct["当前网络直连目标"]
+```
+
+| 内容 | 当前处理 |
+| --- | --- |
+| `api.steampowered.com` 登录 API | 不由 302 接管，Mihomo 游戏平台 → 香港自动回退 |
+| 国内下载/更新 CDN，例如 `media.st.dl.eccdnx.com` | 不由 302 接管，按原 `steam@cn` 规则直连 |
+| 其他更新地址 | 根据实际域名命中订阅规则，不能把所有更新地址一概视为国内 CDN |
+| 商店、社区、聊天、Fastly 图片等保留的 302 域名 | hosts → 本机 302 → 上游直连 |
+| Google Steam 云同步、工坊修复、直播修复 | 仍按用户保留的对应 302 模块处理 |
+| 游戏实际联机流量 | 按实际目的地命中规则；“游戏平台”组不代表所有游戏进程或全部 UDP 流量 |
+| Tailscale / 局域网 | TUN 排除对应接口或网段；直连规则优先 |
+| 教育网镜像 | 优先 DIRECT |
+
+MetaCubeXD 是控制页面：通过本机或 Tailscale 的 `:9090` 管理 Mihomo，业务流量不经过网页。
+Workbench 每日订阅更新将 `provider.yaml` 与 `fallbacks.toml` 合并、校验后生成 `config.yaml`。
+302 仍使用自己的配置和 hosts，没有安装 Steam 容器证书钩子。
