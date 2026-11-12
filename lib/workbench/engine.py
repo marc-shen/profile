@@ -11,6 +11,9 @@ from .registry import order, supported
 from .ui import Console, ANSI
 
 READ_ONLY = {'list', 'check', 'status', 'logs', 'plan', 'show'}
+# A GUI can remain open indefinitely. Launching it must neither hold the
+# installation lock nor be blocked by another application's open window.
+UNLOCKED_ACTIONS = READ_ONLY | {'open'}
 
 
 def command(spec, action, args, repo, root, platform):
@@ -72,7 +75,7 @@ def execute(steps, repo, root, platform):
     env['PYTHONPATH'] = str(repo / 'lib') + os.pathsep + env.get('PYTHONPATH', '')
     env['PATH'] = str(root / 'bin') + os.pathsep + env.get('PATH', os.defpath)
     if platform == 'macos': env['PATH'] = str(root / 'bin') + ':/opt/homebrew/bin:/usr/local/bin:' + env['PATH']
-    if all(step['action'] in READ_ONLY for step in steps):
+    if all(step['action'] in UNLOCKED_ACTIONS for step in steps):
         codes = []
         for index, step in enumerate(steps, 1):
             if len(steps) > 1:

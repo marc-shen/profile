@@ -15,7 +15,7 @@ from unittest.mock import patch
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / 'lib'))
 from workbench.ui import Console, width
-from workbench.engine import execute
+from workbench.engine import execute, lock
 
 
 class TTY(io.StringIO):
@@ -23,6 +23,24 @@ class TTY(io.StringIO):
 
 
 class OutputTests(unittest.TestCase):
+    def test_open_does_not_hold_or_require_installation_lock(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            # The launched process must be able to acquire the installation lock.
+            script = ('import os,fcntl,pathlib; '
+                      'p=pathlib.Path(os.environ["SOFTWARE_HOME"])/"data/workbench/operation.lock"; '
+                      'p.parent.mkdir(parents=True,exist_ok=True); '
+                      'f=p.open("a"); fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB)')
+            step = dict(component='example', action='open', command=[sys.executable, '-c', script])
+            self.assertEqual(execute([step], REPO, root, 'steamdeck'), 0)
+            # An existing GUI or installer holding the lock must not prevent launch.
+            with lock(root):
+                step['command'] = [sys.executable, '-c', 'import sys; sys.exit(7)']
+                self.assertEqual(execute([step], REPO, root, 'steamdeck'), 7)
+                step['action'] = 'install'
+                with patch('os.geteuid', return_value=1000), self.assertRaisesRegex(RuntimeError, 'Another workbench'):
+                    execute([step], REPO, root, 'steamdeck')
+
     def test_color_policy_and_unicode_alignment(self):
         with patch.dict(os.environ, {'TERM': 'xterm-256color', 'COLUMNS': '48'}, clear=True):
             stream = TTY(); console = Console(stream)
