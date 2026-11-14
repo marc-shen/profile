@@ -14,6 +14,12 @@ for arg in "$@"; do
   *) files+=("$arg") ;;
  esac
 done
+# A Steam shortcut added from the desktop entry still needs gamescope window
+# tagging and a foreground client lifetime. Batch and terminal invocations above
+# retain their usual behavior.
+if [[ $terminal == 0 && ${SteamAppId:-0} =~ ^[1-9][0-9]*$ ]]; then
+ exec "$SOFTWARE_HOME/bin/emacs-steam" "$@"
+fi
 if [[ $terminal == 0 ]]; then source "$WORKBENCH_HOME/libexec/emacs-x11-auth.sh"; fi
 systemctl --user start emacs.service
 client="$HOME/Software/bin/emacsclient"
