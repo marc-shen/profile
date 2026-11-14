@@ -39,7 +39,7 @@ class FallbackPolicyTests(unittest.TestCase):
         self.assertEqual(group['proxies'], ['hk-b', 'hk-a'])
         self.assertEqual(group['type'], 'fallback')
         self.assertEqual(group['expected-status'], '200')
-        self.assertEqual((group['interval'], group['timeout'], group['lazy']), (180, 8000, False))
+        self.assertEqual((group['interval'], group['timeout'], group['lazy']), (180, 8000, True))
 
     def test_refresh_rebuilds_scope_without_retaining_removed_nodes(self):
         updated = copy.deepcopy(self.provider)

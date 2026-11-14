@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run Mihomo only while a physical uplink is connected; preserve its config."""
+"""Keep the controller online; bypass proxy routing while physical links are down."""
 import argparse
 import json
 import os
@@ -8,6 +8,7 @@ import signal
 import subprocess as sp
 import threading
 import time
+import urllib.request
 
 UPLINK_TYPES = {'wifi', 'ethernet', 'gsm', 'cdma', 'bluetooth', 'wimax'}
 
@@ -70,12 +71,46 @@ def stop_child(child):
         child.wait(timeout=5)
 
 
+class ProxySwitch:
+    """Change routing only, leaving the core, dashboard and node choices intact."""
+    def __init__(self, endpoint='http://127.0.0.1:9090'):
+        self.endpoint = endpoint
+        self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        self.offline = False
+        self.restore = None
+
+    def request(self, method, path, data=None):
+        request = urllib.request.Request(self.endpoint + path, method=method,
+            data=json.dumps(data).encode() if data is not None else None,
+            headers={'Content-Type': 'application/json'})
+        with self.opener.open(request, timeout=3) as reply:
+            body = reply.read()
+            return json.loads(body) if body else None
+
+    def set_online(self, online):
+        if not online and not self.offline:
+            if self.restore is None:
+                config = self.request('GET', '/configs')
+                self.restore = {'mode': config['mode'],
+                                'tun': {'enable': config['tun']['enable']}}
+            self.request('PATCH', '/configs', {'mode': 'direct', 'tun': {'enable': False}})
+            # Existing explicit-proxy sockets otherwise continue using their old route.
+            self.request('DELETE', '/connections')
+            self.offline = True
+        elif online and self.restore is not None:
+            self.request('PATCH', '/configs', self.restore)
+            self.offline = False
+            self.restore = None
+
+
 def supervise(command, *, state_file=None, probe=network_available,
-              stop=None, interval=5, debounce=10, spawn=sp.Popen):
+              stop=None, interval=5, debounce=10, spawn=sp.Popen, switch=None):
     stop = stop if stop is not None else threading.Event()
     state_file = state_file or state_path()
     gate = StableLink(debounce)
+    switch = switch if switch is not None else ProxySwitch()
     child, last, exit_code = None, None, 0
+    first = True
 
     def publish(phase, reason):
         nonlocal last
@@ -92,24 +127,29 @@ def supervise(command, *, state_file=None, probe=network_available,
         last = current
 
     try:
+        child = spawn(command)  # The core and dashboard stay up even without Wi-Fi.
         while not stop.is_set():
             online, reason = probe()
             if stop.is_set():
                 break
             ready = gate.update(online, time.monotonic())
+            if first and online is False:
+                gate.since -= debounce  # Offline boot must not wait another debounce window.
+                ready = False
+            first = False
             if child is not None and child.poll() is not None:
                 code = child.returncode
                 child = None
-                if online is not False:
-                    publish('failed', f'core-exited-{code}')
-                    exit_code = 1
-                    break  # Let systemd's restart policy handle crashes.
-            if child is not None and ready is False:
-                stop_child(child)
-                child = None
-            if child is None and (ready is True or online is None):
-                child = spawn(command)
-            publish('running' if child else 'waiting-network', reason)
+                publish('failed', f'core-exited-{code}')
+                exit_code = 1
+                break  # Let systemd's restart policy handle crashes, including offline.
+            try:
+                if ready is not None:
+                    switch.set_online(ready)
+                publish('offline-direct' if switch.offline else 'running', reason)
+            except (OSError, ValueError, KeyError) as error:
+                # A starting/unavailable API is retried without killing the core.
+                publish('routing-pending', type(error).__name__)
             stop.wait(interval)
     finally:
         stop_child(child)

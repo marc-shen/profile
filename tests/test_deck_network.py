@@ -73,7 +73,7 @@ class ComposeTests(unittest.TestCase):
         result = self.compose()
         self.assertEqual(self.provider, original)
         self.assertEqual(result['rules'][-2:], original['rules'])
-        self.assertEqual(result['proxy-groups'], original['proxy-groups'])
+        self.assertEqual(result['proxy-groups'], [dict(g, lazy=True) for g in original['proxy-groups']])
         self.assertEqual(result['proxies'], original['proxies'])
         self.assertEqual(result['dns']['nameserver'], original['dns']['nameserver'])
 
@@ -85,6 +85,15 @@ class ComposeTests(unittest.TestCase):
         self.assertIn('100.64.0.0/10', result['tun']['route-exclude-address'])
         self.assertTrue(result['dns']['use-system-hosts'])
         self.assertEqual(result['dns']['nameserver-policy']['+.ts.net'], '100.100.100.100')
+
+    def test_idle_health_checks_apply_to_groups_and_providers(self):
+        self.provider['proxy-groups'][0]['lazy'] = False
+        self.provider['proxy-providers'] = {'test': {'type': 'inline', 'payload': [],
+            'health-check': {'enable': True, 'interval': 180, 'lazy': False}}}
+        result = self.compose()
+        self.assertTrue(result['proxy-groups'][0]['lazy'])
+        self.assertEqual(result['proxy-providers']['test']['health-check'],
+                         {'enable': True, 'interval': 180, 'lazy': True})
 
     def test_mirror_domains_bypass_vendor_rules_and_subscription_refresh(self):
         result = self.compose()

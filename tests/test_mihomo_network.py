@@ -44,9 +44,11 @@ class LinkTests(unittest.TestCase):
 
 class SupervisorTests(unittest.TestCase):
     def test_real_child_offline_reconnect_and_manual_stop(self):
-        """Exercise actual process termination/recreation without changing host networking."""
+        """The same real process survives all physical-link transitions."""
         children, states = [], []
         stop = threading.Event()
+        switch = network.ProxySwitch()
+        switch.request = mock.Mock(return_value={'mode': 'rule', 'tun': {'enable': True}})
         def spawn(command):
             child = subprocess.Popen(command)
             children.append(child)
@@ -63,13 +65,14 @@ class SupervisorTests(unittest.TestCase):
                 return online, 'test-connected' if online else 'test-offline'
             result = network.supervise(
                 [sys.executable, '-c', 'import time; time.sleep(60)'],
-                state_file=state, probe=probe, stop=stop, interval=0.01, debounce=0, spawn=spawn)
+                state_file=state, probe=probe, stop=stop, interval=0.01, debounce=0, spawn=spawn,
+                switch=switch)
             self.assertEqual(result, 0)
-            self.assertEqual(len(children), 2)
+            self.assertEqual(len(children), 1)
             self.assertTrue(all(child.poll() is not None for child in children))
-            self.assertEqual(states[:2], ['waiting-network'] * 2)
+            self.assertEqual(states[:2], ['offline-direct'] * 2)
             self.assertEqual(states[2:4], ['running'] * 2)
-            self.assertEqual(states[4:6], ['waiting-network'] * 2)
+            self.assertEqual(states[4:6], ['offline-direct'] * 2)
             self.assertEqual(json.loads(state.read_text())['phase'], 'stopped')
 
     def test_core_crash_returns_failure_to_systemd(self):
@@ -82,6 +85,37 @@ class SupervisorTests(unittest.TestCase):
                 spawn=lambda command: child)
             self.assertEqual(result, 1)
             self.assertEqual(json.loads(state.read_text())['phase'], 'failed')
+
+
+class ProxySwitchTests(unittest.TestCase):
+    def test_restore_previous_mode_and_tun_without_changing_groups(self):
+        for mode, tun in [('rule', True), ('global', True), ('direct', False), ('rule', False)]:
+            with self.subTest(mode=mode, tun=tun):
+                switch = network.ProxySwitch()
+                switch.request = mock.Mock(return_value={'mode': mode, 'tun': {'enable': tun}})
+                switch.set_online(False)
+                switch.set_online(False)
+                self.assertTrue(switch.offline)
+                switch.set_online(True)
+                switch.set_online(True)
+                self.assertFalse(switch.offline)
+                self.assertEqual(switch.request.call_args_list, [
+                    mock.call('GET', '/configs'),
+                    mock.call('PATCH', '/configs', {'mode': 'direct', 'tun': {'enable': False}}),
+                    mock.call('DELETE', '/connections'),
+                    mock.call('PATCH', '/configs', {'mode': mode, 'tun': {'enable': tun}}),
+                ])
+
+    def test_failed_api_call_retries_without_losing_original_state(self):
+        switch = network.ProxySwitch()
+        switch.request = mock.Mock(side_effect=[{'mode': 'global', 'tun': {'enable': True}},
+            OSError('temporarily unavailable'), None, None, None])
+        with self.assertRaises(OSError):
+            switch.set_online(False)
+        switch.set_online(False)
+        switch.set_online(True)
+        switch.request.assert_called_with('PATCH', '/configs', {'mode': 'global', 'tun': {'enable': True}})
+        self.assertEqual(sum(c.args[0] == 'GET' for c in switch.request.call_args_list), 1)
 
 
 if __name__ == '__main__':

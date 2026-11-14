@@ -48,6 +48,12 @@ def compose(provider, root, address):
     if policy.exists():
         from mihomo_overrides import apply_fallbacks
         apply_fallbacks(config, read_toml(policy))
+    # Direct mode alone does not suspend health checks. Idle groups/providers
+    # must skip periodic checks once no proxy traffic touches them.
+    for group in config.get('proxy-groups', []):
+        group['lazy'] = True
+    for provider in config.get('proxy-providers', {}).values():
+        provider.setdefault('health-check', {})['lazy'] = True
     return config
 
 
@@ -145,7 +151,7 @@ def daily_update(root):
         opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
         for i in range(20):
             if network_available()[0] is False:
-                print('Subscription updated; waiting for the physical network before starting the core.')
+                print('Subscription updated; offline routing is managed without stopping the controller.')
                 return
             try:
                 with opener.open('http://127.0.0.1:9090/version',timeout=2) as reply:
@@ -227,11 +233,9 @@ def activate(root):
         # Avoid proxy environment variables when testing the local controller.
         opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
         for i in range(30):
-            if network_available()[0] is False:
-                break  # An offline supervisor is healthy; it will start the core on reconnect.
             try:
-                with opener.open('http://'+tailscale_ip()+':9090/version',timeout=2) as reply:
-                    if reply.status==200 and Path('/sys/class/net/mihomo-tun').exists():break
+                with opener.open('http://127.0.0.1:9090/version',timeout=2) as reply:
+                    if reply.status==200 and (network_available()[0] is False or Path('/sys/class/net/mihomo-tun').exists()):break
             except Exception:time.sleep(1)
         else:raise RuntimeError('Mihomo controller did not become healthy')
     except Exception:
@@ -241,6 +245,6 @@ def activate(root):
     local=root/'config/local/deck-network.json';settings=load(local,{})
     settings['backend']='mihomo';write(local,json.dumps(settings)+'\n',0o600)
     if network_available()[0] is False:
-        print('Enabled: waiting for a physical network; controller and TUN will start on reconnect.')
+        print('Enabled: offline direct mode; dashboard remains at http://127.0.0.1:9090/ui/.')
     else:
         print('Active: http://'+tailscale_ip()+':9090/ui/ (Tailscale only, no password)')

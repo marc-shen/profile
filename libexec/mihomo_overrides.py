@@ -55,7 +55,7 @@ def apply_fallbacks(config, policy):
         config['proxy-groups'].append({
             'name': name, 'type': 'fallback', 'proxies': members,
             'url': spec['url'], 'expected-status': '200',
-            'interval': interval, 'timeout': timeout, 'lazy': False,
+            'interval': interval, 'timeout': timeout, 'lazy': True,
         })
         target['proxies'].insert(0, name)
         reserved.add(name)
