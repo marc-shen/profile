@@ -130,6 +130,18 @@ class DailyUpdateTests(unittest.TestCase):
         patcher = mock.patch.object(mihomo, 'ensure_yaml', return_value=True)
         patcher.start()
         self.addCleanup(patcher.stop)
+        connectivity = mock.patch('mihomo_network.network_available', return_value=(True, 'uplink-connected'))
+        connectivity.start()
+        self.addCleanup(connectivity.stop)
+
+    def test_offline_update_retains_cache_without_fetch_or_restart(self):
+        with mock.patch('mihomo_network.network_available', return_value=(False, 'no-physical-uplink')), \
+             mock.patch.object(mihomo, 'refresh_config') as refresh, \
+             mock.patch.object(mihomo.sp, 'run') as run:
+            mihomo.daily_update(self.root)
+        refresh.assert_not_called()
+        run.assert_not_called()
+        self.assert_old_config()
 
     def changed_config(self, *args):
         for name in ('config.yaml', 'provider.yaml'):
@@ -159,6 +171,15 @@ class DailyUpdateTests(unittest.TestCase):
             with mock.patch.object(mihomo.sp, 'run', return_value=mock.Mock(returncode=3)) as run:
                 mihomo.daily_update(self.root)
         self.assertEqual(run.call_count, 1)
+        self.assertEqual((self.folder / 'config.yaml').read_bytes(), b'new config')
+
+    def test_network_loss_after_update_waits_without_rolling_back(self):
+        with mock.patch('mihomo_network.network_available', side_effect=[
+                (True, 'uplink-connected'), (False, 'no-physical-uplink')]), \
+             mock.patch.object(mihomo, 'refresh_config', side_effect=self.changed_config), \
+             mock.patch.object(mihomo.sp, 'run', return_value=mock.Mock(returncode=0)) as run:
+            mihomo.daily_update(self.root)
+        self.assertEqual(run.call_count, 2)  # Status and one restart, no recovery loop.
         self.assertEqual((self.folder / 'config.yaml').read_bytes(), b'new config')
 
     def test_failed_restart_restores_both_files_and_recovers(self):

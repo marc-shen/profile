@@ -121,6 +121,11 @@ WantedBy=timers.target
 
 
 def daily_update(root):
+    from mihomo_network import network_available
+    online, reason = network_available()
+    if online is False:
+        print('Subscription update skipped: ' + reason + '; cached configuration retained.')
+        return
     if not ensure_yaml(root,'update'):return
     os.umask(0o077)
     folder=root/'config/mihomo'
@@ -139,6 +144,9 @@ def daily_update(root):
         sp.run(['systemctl','--user','restart','mihomo'],check=True,timeout=45)
         opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
         for i in range(20):
+            if network_available()[0] is False:
+                print('Subscription updated; waiting for the physical network before starting the core.')
+                return
             try:
                 with opener.open('http://127.0.0.1:9090/version',timeout=2) as reply:
                     if reply.status==200 and Path('/sys/class/net/mihomo-tun').exists():break
@@ -194,7 +202,8 @@ UMask=0077
 Environment="SAFE_PATHS={root / 'apps'}"
 ExecStartPre=/usr/bin/systemctl is-active --quiet profile-mihomo-firewall.service
 ExecStartPre=/usr/bin/grep -Fq "tcp dport 9090 drop" /etc/profile-mihomo/firewall.nft
-ExecStart={root / 'apps/mihomo/current/mihomo'} -d {folder} -f {folder / 'config.yaml'}
+ExecStart="{root / 'bin/python3'}" -u "{REPO / 'libexec/mihomo_network.py'}" -- "{root / 'apps/mihomo/current/mihomo'}" -d "{folder}" -f "{folder / 'config.yaml'}"
+TimeoutStopSec=25
 Restart=on-failure
 RestartSec=5
 [Install]
@@ -210,6 +219,7 @@ WantedBy=default.target
 
 def activate(root):
     from deck_network import tailscale_ip,write,load
+    from mihomo_network import network_available
     if os.environ.get('SSH_CONNECTION'):raise RuntimeError('Run activate in the local Deck Konsole')
     sp.run(['sudo','bash',REPO/'platforms/steamdeck/network/mihomo-privileged.sh',root,pwd.getpwuid(os.getuid()).pw_name],check=True)
     try:
@@ -217,6 +227,8 @@ def activate(root):
         # Avoid proxy environment variables when testing the local controller.
         opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
         for i in range(30):
+            if network_available()[0] is False:
+                break  # An offline supervisor is healthy; it will start the core on reconnect.
             try:
                 with opener.open('http://'+tailscale_ip()+':9090/version',timeout=2) as reply:
                     if reply.status==200 and Path('/sys/class/net/mihomo-tun').exists():break
@@ -228,4 +240,7 @@ def activate(root):
     sp.run(['systemctl','--user','enable','mihomo'],check=True)
     local=root/'config/local/deck-network.json';settings=load(local,{})
     settings['backend']='mihomo';write(local,json.dumps(settings)+'\n',0o600)
-    print('Active: http://'+tailscale_ip()+':9090/ui/ (Tailscale only, no password)')
+    if network_available()[0] is False:
+        print('Enabled: waiting for a physical network; controller and TUN will start on reconnect.')
+    else:
+        print('Active: http://'+tailscale_ip()+':9090/ui/ (Tailscale only, no password)')

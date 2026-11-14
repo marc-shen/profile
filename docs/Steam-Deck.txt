@@ -35,6 +35,8 @@ Steam 非 Steam 游戏快捷方式：
   启动选项：留空
 用户名不是 deck 时使用实际 Home。不要开启 Proton 兼容层。
 启动器使用 SteamAppId 标记客户端窗口，在窗口关闭前保持 Steam 启动进程。
+已有快捷方式若指向 Software/bin/emacs，也会在 Steam 启动图形窗口时自动转交
+emacs-steam，不必重新添加快捷方式；终端和批处理入口保持原行为。
 所有客户端连接 emacs.service 的默认 server，不另建 emacs-steam.service。
 KDE 的 XAUTHORITY 指向每次登录生成的临时文件。em/ec、emacs 和 Steam 启动器
 通过 libexec/emacs-x11-auth.sh 将当前授权合并到用户私有 ~/.Xauthority（0600），

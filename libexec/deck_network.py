@@ -308,6 +308,8 @@ def dispatch(root, service, action):
     elif action == 'status':
         run(service_command(service) + ['show', service_unit(service), '-p', 'ActiveState', '-p', 'SubState', '-p', 'UnitFileState'])
         if service == 'mihomo':
+            from mihomo_network import status as network_status
+            print(network_status())
             run(['systemctl','--user','list-timers','mihomo-subscription-update.timer','--no-pager'])
         return sp.run(service_command(service) + ['is-active','--quiet',service_unit(service)]).returncode
     elif action == 'check':

@@ -54,6 +54,7 @@ workbench system check steamdeck
 定时任务仅刷新订阅与覆盖配置，不升级核心或网页。下载或校验失败时保留旧配置；
 配置没有变化时不重启。配置变化且服务正在运行时重启并检查控制接口与 TUN，
 失败则恢复旧配置并尝试恢复服务；主动停止的服务不会被定时任务启动。
+没有物理网络或 NetworkManager 明确报告认证门户时跳过本次更新，保留订阅缓存。
 
 ```sh
 # 下次执行时间
@@ -71,6 +72,26 @@ Tailscale 的登录、exit node 和 302 状态不更改。
 
 节点切换通过核心 API 完成。专用 polkit 规则只授权指定用户对 `mihomo-tun`
 的 DNS 操作，没有授予任意 sudo 权限。
+
+## 无网络时的行为
+
+`mihomo.service` 由 `libexec/mihomo_network.py` 管理核心进程，每 5 秒检查一次
+NetworkManager。没有已连接的 Wi-Fi、有线或移动网络持续约 10 秒后，正常终止核心，
+停止节点健康检查并释放 TUN/DNS 接管；开机本来就无网络时不会启动核心。
+Tailscale、Mihomo 的虚拟网卡不算外网连接。有线底座仍可正常使用代理。
+
+物理连接稳定恢复约 10 秒后，使用已有配置重新启动核心，保留保存的策略组选择和
+限定范围的自动回退。不会改成 `DIRECT` 或扩大节点范围；已有连接可能需要应用重新建立。
+没有切换 Wi-Fi 或停掉 Tailscale、302，也没有新增 root 常驻程序。
+
+NetworkManager 明确报告认证门户（`portal`）时同样暂停核心，便于直接登录 Wi-Fi。
+`limited`/`unknown` 或探测命令失败不会触发停用：国内网络可能阻断连通性检测站点。
+因此“Wi-Fi 已连接、但上游互联网不可用”不一定会暂停核心，避免把局部封锁误判为断网。
+
+离线时用户服务保持运行等待网络，核心、9090 控制接口和 MetaCubeXD 网页暂时不可用。
+用 `workbench mihomo status` 查看 `waiting-network` / `running`；
+`workbench mihomo stop` 会停止整个管理进程，之后网络恢复也不会擅自启动，
+需要执行 `workbench mihomo start`。订阅更新不会启动被手动停止的服务。
 
 ## 限定范围的自动回退
 
